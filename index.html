@@ -218,8 +218,8 @@
             right: 0;
             height: 55%;
             transition: all 2s ease;
-            background-size: 300% 300%;
-            animation: ground-shift 30s ease-in-out infinite;
+            background-repeat: repeat;
+            background-size: 32px 32px; /* adjust based on your tile size */
         }
         
         @keyframes ground-shift {
@@ -229,13 +229,16 @@
         }
         
         .ground-fertile { 
-            background: linear-gradient(135deg, #228B22, #32CD32, #90EE90, #98FB98, #ADFF2F);
-            animation-duration: 40s;
+            background-image: url('assets/fertile-grass.png');
         }
         .ground-growth { 
-            background: linear-gradient(135deg, #228B22, #32CD32, #90EE90, #98FB98, #7FFF00);
-            animation-duration: 35s;
+            background-image: url('assets/fertile-grass.png');
+            filter: brightness(1.1);
         }
+        .ground-restoration { 
+            background-image: url('assets/fertile-grass.png');
+        }
+        
         .ground-storm { 
             background: linear-gradient(135deg, #6B8E23, #9ACD32, #BDB76B, #F0E68C, #DAA520);
             animation-duration: 20s;
@@ -248,11 +251,7 @@
             background: linear-gradient(135deg, #556B2F, #6B8E23, #9ACD32, #ADFF2F, #32CD32);
             animation-duration: 25s;
         }
-        .ground-restoration { 
-            background: linear-gradient(135deg, #228B22, #32CD32, #90EE90, #98FB98, #ADFF2F);
-            animation-duration: 40s;
-        }
-        
+
         /* Enhanced weather elements */
         .sun {
             position: absolute;
