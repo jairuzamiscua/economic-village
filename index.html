@@ -183,6 +183,52 @@
             0%, 100% { background-position: 0% 50%; }
             50% { background-position: 100% 50%; }
         }
+
+        /* Cloud styles */
+        .cloud {
+            position: absolute;
+            background-repeat: no-repeat;
+            background-size: contain;
+            width: 60px;
+            height: 30px;
+            transition: all 2s ease;
+            animation: cloud-drift 25s ease-in-out infinite;
+            z-index: 2;
+        }
+
+        .cloud-1 { background-image: url('assets/Cloud-1.png'); }
+        .cloud-2 { background-image: url('assets/Cloud-2.png'); }
+        .cloud-3 { background-image: url('assets/Cloud-3.png'); }
+        .cloud-4 { background-image: url('assets/Cloud-4.png'); }
+        .cloud-5 { background-image: url('assets/Cloud-5.png'); }
+
+        @keyframes cloud-drift {
+            0%, 100% { transform: translateX(0px); }
+            50% { transform: translateX(20px); }
+        }
+
+        /* Cloud states based on economic conditions */
+        .sky-fertile .cloud,
+        .sky-growth .cloud,
+        .sky-restoration .cloud {
+            opacity: 0.8;
+            filter: brightness(1.0);
+        }
+
+        .sky-storm .cloud {
+            opacity: 0.9;
+            filter: brightness(0.7) contrast(1.2);
+        }
+
+        .sky-drought .cloud {
+            opacity: 0.2;
+            filter: brightness(1.1) sepia(0.3);
+        }
+
+        .sky-recovery .cloud {
+            opacity: 0.6;
+            filter: brightness(0.9);
+        }
         
         /* Enhanced sky states with animated gradients */
         .sky-fertile { 
@@ -678,6 +724,11 @@
                 <div class="rain" style="left: 45%; animation-delay: 0.9s;"></div>
                 <div class="rain" style="left: 50%; animation-delay: 1.2s;"></div>
                 <div class="rain" style="left: 55%; animation-delay: 1.5s;"></div>
+                <div class="cloud cloud-1" style="top: 8%; left: 15%; animation-delay: 0s;"></div>
+                <div class="cloud cloud-2" style="top: 12%; left: 45%; animation-delay: -3s;"></div>
+                <div class="cloud cloud-3" style="top: 6%; left: 70%; animation-delay: -6s;"></div>
+                <div class="cloud cloud-4" style="top: 18%; left: 25%; animation-delay: -9s;"></div>
+                <div class="cloud cloud-5" style="top: 10%; left: 85%; animation-delay: -12s;"></div>
             </div>
             
             <!-- Sun -->
@@ -1039,6 +1090,39 @@
                     sign.classList.remove('active');
                 }
             });
+
+            const clouds = document.querySelectorAll('.cloud');
+
+            if (stage === 'drought') {
+                // Very few, faint clouds - harsh clear sky
+                clouds.forEach((cloud, i) => {
+                    if (i < 2) {
+                        cloud.style.display = 'block';
+                        cloud.style.opacity = '0.1';
+                    } else {
+                        cloud.style.display = 'none';
+                    }
+                });
+            } else if (stage === 'storm') {
+                // Dark, threatening clouds
+                clouds.forEach((cloud, i) => {
+                    cloud.style.display = 'block';
+                    if (i === 4) { // Make cloud-5 the main storm cloud
+                        cloud.style.opacity = '0.95';
+                        cloud.style.filter = 'brightness(0.4) contrast(1.5)';
+                    } else {
+                        cloud.style.opacity = '0.7';
+                        cloud.style.filter = 'brightness(0.6)';
+                    }
+                });
+            } else {
+                // Normal weather - all clouds visible
+                clouds.forEach(cloud => {
+                    cloud.style.display = 'block';
+                    cloud.style.opacity = '0.8';
+                    cloud.style.filter = 'brightness(1.0)';
+                });
+            }
         }
         
         function playStory() {
