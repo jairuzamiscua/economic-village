@@ -1,492 +1,828 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Macroeconomic Reasoning Panel</title>
-<style>
-  :root{
-    --ink:#0f172a; --muted:#475569; --line:#e2e8f0; --bg:#ffffff;
-    --accent:#1e3a8a; --accent-2:#2563eb; --soft:#f8fafc; --good:#065f46; --bad:#7f1d1d;
-  }
-  *{box-sizing:border-box}
-  body{margin:0;background:var(--soft);color:var(--ink);font:16px/1.5 system-ui,Segoe UI,Roboto,Inter,Arial,sans-serif}
-  .wrap{max-width:980px;margin:24px auto;padding:16px}
-  /* Card */
-  .card{background:var(--bg);border:1px solid var(--line);border-radius:12px;box-shadow:0 2px 10px rgba(2,6,23,.05);overflow:hidden}
-  .card header{display:flex;gap:12px;align-items:center;justify-content:space-between;padding:14px 16px;background:linear-gradient(180deg,#eef2ff,#ffffff)}
-  .card h2{margin:0;font-size:1.05rem;font-weight:800;color:var(--accent)}
-  .row{display:flex;flex-wrap:wrap;gap:10px}
-  /* Controls */
-  .controls{padding:12px 16px;border-top:1px solid var(--line);display:grid;grid-template-columns:1fr 1fr;gap:10px}
-  .controls .field{display:flex;flex-direction:column;gap:6px}
-  label{font-size:.85rem;font-weight:700;color:var(--muted)}
-  select,button{border:1px solid var(--line);border-radius:10px;padding:8px 10px;background:#fff}
-  select{font-weight:600}
-  .btn{cursor:pointer;font-weight:700}
-  .btn.primary{background:var(--accent-2);border-color:var(--accent-2);color:#fff}
-  .btn.ghost{background:#fff;color:var(--accent-2)}
-  .utils{display:flex;gap:8px;align-items:center}
-  /* Content */
-  .content{padding:16px;display:grid;gap:14px}
-  .eyebrow{font-size:.78rem;color:#475569;text-transform:uppercase;letter-spacing:.08em}
-  .analysis, .chain, .eval, .sources{border:1px dashed var(--line);border-radius:10px;padding:12px;background:#fff}
-  .analysis p{margin:.4rem 0}
-  .chain-list{margin:.2rem 0 .2rem 0;padding-left:0;list-style:none;display:grid;gap:8px}
-  .chain-list li{position:relative;padding-left:28px}
-  .chain-list li::before{
-    content:"→"; position:absolute;left:6px;color:var(--accent-2);font-weight:900
-  }
-  .chip{display:inline-block;padding:2px 8px;border-radius:999px;border:1px solid var(--line);background:#f8fafc;font-size:.78rem;color:#334155}
-  /* Toggle grid */
-  .toggles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:2px}
-  .toggle{border:1px solid var(--line);border-radius:10px;background:#fff}
-  .toggle summary{
-    cursor:pointer;list-style:none;padding:8px 10px;font-weight:800;color:#0f172a;
-    display:flex;align-items:center;justify-content:space-between
-  }
-  .toggle summary::-webkit-details-marker {display:none}
-  .toggle .body{padding:0 10px 10px 10px;color:#111827}
-  .good{color:var(--good);font-weight:700}
-  .bad{color:var(--bad);font-weight:700}
-  /* Sources */
-  .sources .list{display:grid;gap:6px;margin-top:8px}
-  .tag{display:inline-grid;place-items:center;width:20px;height:20px;border:1px solid var(--accent-2);color:var(--accent-2);border-radius:6px;font-weight:800;font-size:.78rem;margin-right:6px}
-  .source a{color:var(--accent-2);text-decoration:none}
-  .source a:hover{text-decoration:underline}
-  .muted{color:#64748b}
-  /* Helpers */
-  .hidden{display:none}
-  .mono{font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace}
-  @media (max-width:720px){ .controls{grid-template-columns:1fr} }
-</style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>EconoVille — Macroeconomic Village Simulator</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{
+      font-family: Arial, sans-serif;
+      background: linear-gradient(135deg,#87CEEB,#98FB98);
+      color:#333; overflow:auto;
+    }
+    .container{display:flex; height:100vh}
+    .game-area{flex:1; position:relative; min-width:0}
+    #gameCanvas{
+      border:2px solid #8B4513; background:#90EE90; display:block;
+      width:100%; height:auto; max-width:100%;
+      image-rendering: pixelated; image-rendering: crisp-edges;
+      cursor: crosshair;
+    }
+    .narrative-banner{
+      position:absolute; top:10px; left:10px; z-index:10;
+      background:rgba(255,255,255,0.92); border:2px solid #4169E1;
+      border-radius:8px; padding:10px 14px; max-width:420px;
+      font-weight:bold; color:#2E8B57;
+    }
+    .legend{
+      position:absolute; bottom:10px; left:10px; z-index:10;
+      background:rgba(255,255,255,0.9); border:1px solid #DDD;
+      border-radius:6px; padding:10px; font-size:0.85em;
+    }
+    .legend-item{display:flex; align-items:center; gap:8px; margin:4px 0}
+    .legend-icon{width:16px; height:16px; border:1px solid #666}
+    .controls{
+      width:320px; background:rgba(255,255,255,0.96);
+      padding:18px 20px; border-left:2px solid #8B4513; overflow-y:auto;
+    }
+    .preset-buttons{display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:14px}
+    button{
+      padding:8px 12px; border:2px solid #4169E1; border-radius:6px;
+      background:#87CEEB; color:#fff; font-weight:bold; cursor:pointer;
+      transition:transform .15s, background .15s;
+    }
+    button:hover{background:#4169E1; transform:translateY(-1px)}
+    .scenario-tip{
+      background:#FFF8DC; border:1px solid #DDA0DD; border-radius:6px;
+      padding:10px; margin:8px 0 12px; color:#8B4513; font-size:0.9em;
+    }
+    .status-row{
+      background:#E6F3FF; border-radius:6px; padding:8px; font-size:0.85em; margin:10px 0;
+    }
+    .control-group{margin:12px 0}
+    .control-group label{display:block; font-weight:bold; color:#2E8B57; margin-bottom:6px}
+    .slider-container{display:flex; align-items:center; gap:10px}
+    input[type="range"]{flex:1; height:6px; border-radius:3px; background:#ddd; outline:none}
+    .value-display{min-width:56px; text-align:right; font-weight:bold; color:#4169E1}
+    .debug-panel{margin-top:14px; background:#F0F8FF; border:1px solid #B0C4DE; border-radius:6px}
+    .debug-toggle{width:100%; background:#B0C4DE; border:none; padding:8px; font-weight:bold; cursor:pointer}
+    .debug-content{display:none; padding:10px; font-family:monospace; font-size:0.85em}
+    .debug-content.open{display:block}
+    .glossary{display:none; background:#F5F5F5; border:1px solid #DDD; border-radius:6px; padding:10px; margin-top:10px; font-size:0.88em}
+    .glossary.open{display:block}
+    .glossary-term{font-weight:bold; color:#4169E1}
+    .tooltip{
+      position:absolute; pointer-events:none; z-index:100;
+      max-width:260px; background:rgba(0,0,0,0.92); color:#fff;
+      padding:8px 10px; border-radius:6px; font-size:0.9em; opacity:0; transition:opacity .15s;
+    }
+    .tooltip.visible{opacity:1}
+
+    /* --- Reasoning Bar (existing) --- */
+    .reasoning-bar{
+      background:#fff; border:1px solid #B0C4DE; border-radius:8px;
+      padding:12px; margin:12px 0; font-size:0.9em
+    }
+    .reasoning-bar header{
+      display:flex; align-items:center; justify-content:space-between; margin-bottom:8px
+    }
+    .reasoning-list{ margin-left:18px }
+    .reasoning-list li{ margin:6px 0 }
+    .refs-panel{ display:none; margin-top:8px; padding:8px; background:#F7FAFF; border:1px solid #DCE7FA; border-radius:6px; font-size:0.86em }
+    .refs-panel.open{ display:block }
+    .ref-tag{
+      display:inline-block; min-width:18px; text-align:center; font-weight:700;
+      border:1px solid #4169E1; color:#4169E1; border-radius:4px; padding:0 3px; margin:0 4px
+    }
+    /* --- Auto-links toggles --- */
+    .autolinks{ display:grid; grid-template-columns: 1fr 1fr; gap:6px; margin:10px 0 6px }
+    .autolinks label{ display:flex; gap:8px; align-items:center; font-size:0.86em }
+
+    /* --- Exam-style Essay Panel (NEW) --- */
+    .essay-panel{
+      background:#fff; border:2px solid #B0C4DE; border-radius:10px; padding:12px; margin:10px 0 4px;
+    }
+    .essay-head{display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:6px}
+    .essay-title{color:#2E8B57; font-weight:bold}
+    .essay-lead{margin:6px 0 4px}
+    .essay-chain{list-style:none; padding-left:0; margin:6px 0 8px; display:grid; gap:6px}
+    .essay-chain li{position:relative; padding-left:24px}
+    .essay-chain li::before{content:"→"; position:absolute; left:4px; top:0; color:#4169E1; font-weight:900}
+    .chips{display:grid; gap:6px; margin:2px 0 8px}
+    .chip{display:inline-block; padding:2px 8px; border:1px solid #DCE7FA; border-radius:999px; font-size:0.82em; background:#F7FAFF; color:#2E8B57}
+    .eval-grid{display:grid; grid-template-columns:1fr 1fr; gap:8px}
+    @media (max-width: 420px){ .eval-grid{grid-template-columns:1fr} }
+    .eval-block{border:1px solid #DCE7FA; border-radius:8px; background:#FAFDFF}
+    .eval-block summary{cursor:pointer; padding:8px 10px; font-weight:bold; display:flex; justify-content:space-between; align-items:center}
+    .eval-body{padding:0 10px 10px 10px; font-size:0.92em}
+    .good{color:#2E8B57; font-weight:bold}
+    .bad{color:#8B0000; font-weight:bold}
+    .essay-sources{border-top:1px dashed #DCE7FA; margin-top:6px; padding-top:6px; font-size:0.9em}
+    .essay-sources a{color:#4169E1; text-decoration:none}
+    .essay-sources a:hover{text-decoration:underline}
+    .copy-btn{background:#2E8B57; border-color:#2E8B57}
+    .copy-btn:hover{background:#257a45}
+  </style>
 </head>
 <body>
-  <div class="wrap">
-    <section id="reasoning-panel" class="card" aria-label="Macroeconomic reasoning panel">
-      <header>
-        <div>
-          <div class="eyebrow">Reasoning Panel</div>
-          <h2>Exam-style Analysis + Evaluation</h2>
-        </div>
-        <div class="utils">
-          <button class="btn ghost" id="copyBtn" title="Copy analysis + evaluation">Copy</button>
-          <button class="btn primary" id="refreshBtn" title="Rebuild with current options">Rebuild</button>
-        </div>
-      </header>
+  <div class="container">
+    <div class="game-area">
+      <div class="narrative-banner" id="narrativeBanner">
+        Welcome to EconoVille! Watch how the economy shapes daily life.
+      </div>
+      <canvas id="gameCanvas" width="800" height="600"></canvas>
 
-      <!-- Controls -->
-      <div class="controls">
-        <div class="field">
-          <label for="policy">Policy / Shock</label>
-          <select id="policy">
-            <option value="raise_rate">Raise interest rates (monetary tightening)</option>
-            <option value="cut_rate">Cut interest rates (monetary easing)</option>
-            <option value="fiscal_stimulus">Fiscal stimulus (govt spending ↑)</option>
-            <option value="vat_cut">VAT cut / indirect tax reduction</option>
-            <option value="currency_depreciation">Currency depreciation</option>
-            <option value="wage_subsidy">Wage subsidy / hiring credit</option>
-            <option value="qe">Quantitative easing (QE)</option>
-            <option value="oil_shock">Negative supply shock (oil price ↑)</option>
-          </select>
-        </div>
-        <div class="field">
-          <label for="size">Size of change</label>
-          <select id="size">
-            <option value="small">Small</option>
-            <option value="medium" selected>Medium</option>
-            <option value="large">Large</option>
-          </select>
-        </div>
-        <div class="field">
-          <label for="confidence">Consumer/firm confidence</label>
-          <select id="confidence">
-            <option value="low">Low (pessimistic)</option>
-            <option value="neutral" selected>Neutral</option>
-            <option value="high">High (optimistic)</option>
-          </select>
-        </div>
-        <div class="field">
-          <label for="slack">Slack vs capacity (output gap)</label>
-          <select id="slack">
-            <option value="negative">Negative gap (recessionary)</option>
-            <option value="zero" selected>Near potential</option>
-            <option value="positive">Positive gap (overheating)</option>
-          </select>
-        </div>
+      <div class="legend">
+        <div class="legend-item"><div class="legend-icon" style="background:#228B22"></div><span>Open Shop</span></div>
+        <div class="legend-item"><div class="legend-icon" style="background:#8B4513"></div><span>Closed Shop</span></div>
+        <div class="legend-item"><div class="legend-icon" style="background:#B0B0B0"></div><span>Factory Smoke</span></div>
+        <div class="legend-item"><div class="legend-icon" style="background:#32CD32"></div><span>Healthy Crops</span></div>
+      </div>
+    </div>
+
+    <aside class="controls">
+      <h2 style="text-align:center; color:#2E8B57; margin-bottom:12px">Economic Controls</h2>
+
+      <div class="preset-buttons">
+        <button id="presetBoom">Boom</button>
+        <button id="presetRecession">Recession</button>
+        <button id="presetStagflation">Stagflation</button>
+        <button id="btnReset">Reset</button>
       </div>
 
-      <!-- Generated content -->
-      <div class="content" id="content">
-        <section class="analysis" id="analysis">
-          <div class="eyebrow">Analysis</div>
-          <p class="lead" id="analysis-lead"></p>
-          <ul class="chain-list" id="chain"></ul>
-          <p id="linkback" class="muted"></p>
-        </section>
+      <div class="scenario-tip" id="scenarioTip">Select a preset to see different economic scenarios play out!</div>
 
-        <section class="chain" id="secondary">
-          <div class="eyebrow">Chain Effects (models)</div>
-          <div class="row" id="modelsRow"></div>
-        </section>
+      <div class="status-row">
+        <div><strong>Status:</strong> <span id="statusSummary">Economy loading...</span></div>
+        <div style="margin-top:4px"><span id="quickStats">Capacity: --% | Closures: --% | Activity: --%</span></div>
+      </div>
 
-        <section class="eval" id="evaluation">
-          <div class="eyebrow">Evaluation (toggle)</div>
-          <div class="toggles" id="evalToggles"></div>
-        </section>
+      <!-- Auto-links (policy rules & stabilisers) -->
+      <div class="control-group">
+        <label>Auto-links (rules & stabilisers)</label>
+        <div class="autolinks">
+          <label><input type="checkbox" id="autoOkun" checked/> Okun link (GDP→Unemp)</label>
+          <label><input type="checkbox" id="autoPhillips" checked/> Phillips link (gap→π)</label>
+          <label><input type="checkbox" id="autoTaylor" checked/> Taylor rule (π,gap→i)</label>
+          <label><input type="checkbox" id="autoOil" checked/> Oil pass-through (commodities→π)</label>
+          <label><input type="checkbox" id="autoStab" checked/> Auto stabilisers (fiscal cushion)</label>
+        </div>
+        <div style="font-size:0.8em;color:#666">Pedagogical links (not forecasts). Uncheck to disable coupling.</div>
+      </div>
 
-        <section class="sources" id="sources">
-          <div class="eyebrow">References</div>
-          <details id="sourcesDetails">
-            <summary class="row" style="justify-content:space-between;align-items:center;padding:6px 0;cursor:pointer">
-              <span>Open sources & explainers</span>
-              <span class="chip">click to expand</span>
-            </summary>
-            <div class="list" id="sourceList"></div>
+      <!-- Reasoning Bar (existing) -->
+      <div class="reasoning-bar">
+        <header>
+          <strong>Reasoning</strong>
+          <button id="toggleRefs" type="button" class="debug-toggle" style="width:auto;background:#E6F3FF;color:#2E8B57;border:1px solid #B0C4DE">
+            Sources
+          </button>
+        </header>
+        <ol id="reasoningList" class="reasoning-list"></ol>
+        <div id="refsPanel" class="refs-panel"></div>
+      </div>
+
+      <!-- Exam-style Essay Panel (NEW) -->
+      <div class="essay-panel" id="essayPanel">
+        <div class="essay-head">
+          <div class="essay-title">Exam-style Analysis + Evaluation</div>
+          <button id="copyEssay" class="copy-btn" type="button">Copy</button>
+        </div>
+        <div class="essay-lead" id="essayLead"></div>
+        <ol class="essay-chain" id="essayChain"></ol>
+        <div class="chips" id="essayModels"></div>
+        <div class="eval-grid" id="essayEval"></div>
+        <div class="essay-sources">
+          <details>
+            <summary>Open sources & explainers</summary>
+            <div id="essaySources"></div>
           </details>
-        </section>
+        </div>
       </div>
-    </section>
+
+      <!-- Sliders -->
+      <div class="control-group">
+        <label for="gdpGrowth">GDP Growth (%)</label>
+        <div class="slider-container">
+          <input type="range" id="gdpGrowth" min="-5" max="8" step="0.1" value="1.8"/>
+          <span class="value-display" id="gdpValue">1.8%</span>
+        </div>
+      </div>
+
+      <div class="control-group">
+        <label for="unemployment">Unemployment (%)</label>
+        <div class="slider-container">
+          <input type="range" id="unemployment" min="2" max="15" step="0.1" value="5.2"/>
+          <span class="value-display" id="unemploymentValue">5.2%</span>
+        </div>
+      </div>
+
+      <div class="control-group">
+        <label for="inflation">Inflation (%)</label>
+        <div class="slider-container">
+          <input type="range" id="inflation" min="0" max="12" step="0.1" value="3.0"/>
+          <span class="value-display" id="inflationValue">3.0%</span>
+        </div>
+      </div>
+
+      <div class="control-group">
+        <label for="interestRate">Interest Rate (%)</label>
+        <div class="slider-container">
+          <input type="range" id="interestRate" min="0" max="10" step="0.1" value="4.0"/>
+          <span class="value-display" id="interestRateValue">4.0%</span>
+        </div>
+      </div>
+
+      <div class="control-group">
+        <label for="commodityIndex">Commodity Index</label>
+        <div class="slider-container">
+          <input type="range" id="commodityIndex" min="80" max="200" step="1" value="120"/>
+          <span class="value-display" id="commodityValue">120</span>
+        </div>
+      </div>
+
+      <div class="control-group">
+        <label for="exports">Exports Growth (%)</label>
+        <div class="slider-container">
+          <input type="range" id="exports" min="-5" max="10" step="0.1" value="0.5"/>
+          <span class="value-display" id="exportsValue">0.5%</span>
+        </div>
+      </div>
+
+      <div class="control-group">
+        <label for="shock">Economic Shock</label>
+        <select id="shock" style="width:100%; padding:6px">
+          <option value="">None</option>
+          <option value="oil_shock">Oil Crisis</option>
+          <option value="supply_chain">Supply Chain Disruption</option>
+          <option value="policy_tightening">Policy Tightening</option>
+        </select>
+      </div>
+
+      <button id="glossaryBtn" class="glossary-toggle">Economic Terms</button>
+      <div class="glossary" id="glossary">
+        <div><span class="glossary-term">GDP Growth:</span> How fast total output is changing.</div>
+        <div><span class="glossary-term">Unemployment:</span> Share of workers without jobs.</div>
+        <div><span class="glossary-term">Inflation:</span> Rate at which prices rise.</div>
+        <div><span class="glossary-term">Interest Rate:</span> Cost of borrowing.</div>
+        <div><span class="glossary-term">Commodity Index:</span> Prices for inputs like oil or grain.</div>
+        <div><span class="glossary-term">Exports:</span> Goods sold abroad.</div>
+      </div>
+
+      <div class="debug-panel">
+        <button id="debugBtn" class="debug-toggle">Mapping Debug</button>
+        <div class="debug-content" id="debugContent"><div id="debugStats"></div></div>
+      </div>
+    </aside>
   </div>
 
-<script>
-/** ------------------------------
- *  Data: concise, student-friendly blocks
- *  ------------------------------ */
-const SOURCES = [
-  {tag:'1', label:'EconomicsHelp – Interest rates & AD/AS', url:'https://www.economicshelp.org/macroeconomics/monetary-policy/effect-interest-rates/'},
-  {tag:'2', label:'Bank of England – How interest rates work', url:'https://www.bankofengland.co.uk/monetary-policy/how-does-monetary-policy-work'},
-  {tag:'3', label:'St. Louis Fed – Phillips Curve explainer', url:'https://www.stlouisfed.org/open-vault/2020/january/what-is-phillips-curve-why-flattened'},
-  {tag:'4', label:'Cleveland Fed – Okun’s Law overview', url:'https://www.clevelandfed.org/publications/economic-commentary/2012/ec-201208-an-unstable-okuns-law-not-the-best-rule-of-thumb'},
-  {tag:'5', label:'Atlanta Fed – Taylor Rule', url:'https://www.atlantafed.org/cqer/research/taylor-rule'},
-  {tag:'6', label:'ECB – Automatic stabilisers', url:'https://www.ecb.europa.eu/press/economic-bulletin/articles/2020/html/ecb.ebart202006_03~3175750a6d.en.html'},
-  {tag:'7', label:'EconomicsHelp – Fiscal policy', url:'https://www.economicshelp.org/macroeconomics/fiscal-policy/'},
-  {tag:'8', label:'Bank of England – QE explained', url:'https://www.bankofengland.co.uk/monetary-policy/quantitative-easing'},
-  {tag:'9', label:'EconomicsHelp – Exchange rates', url:'https://www.economicshelp.org/macroeconomics/exchangerate/'}
-];
+  <div id="tooltip" class="tooltip"></div>
 
-// Template snippets per policy
-const POLICIES = {
-  raise_rate: {
-    title: 'Raise interest rates',
-    lead: size =>
-      `Higher policy rates increase borrowing costs and reward saving. Households and firms cut interest-sensitive spending; aggregate demand ${sizeAdj(size,'falls slightly','falls','falls sharply')}.`,
-    chain: [
-      'Bank lending and mortgages become more expensive → credit demand drops',
-      'Consumption of durables and investment projects are postponed',
-      'Aggregate demand (AD) shifts left → real GDP growth slows',
-      'Lower demand pressures reduce cost-push passthrough over time'
-    ],
-    models: (ctx)=>[
-      {label:'Phillips curve', text:`Slower growth widens slack → reduces inflationary pressure ${tag('3')}.`},
-      {label:'Okun’s law', text:`Weaker GDP growth tends to raise unemployment ${tag('4')}.`},
-      {label:'Taylor rule', text:`In overheating, rule recommends higher rates; near potential, smaller move ${tag('5')}.`}
-    ],
-    eval: (ctx)=>([
-      {
-        head:'Strengths vs Limitations',
-        body:`${strong('Strength:')} effective against demand-pull inflation and de-anchors expectations risk.
-              ${weak('Limitation:')} blunt tool; weak on pure supply shocks (e.g. oil).`
+  <script>
+    // ===== Utilities =====
+    const clamp = (lo, hi, x) => Math.max(lo, Math.min(hi, x));
+    const lerp = (a,b,t) => a + (b-a)*t;
+
+    // ===== Academic-ish model params (stylized) =====
+    const MODEL = {
+      potential_growth: 2.0,     // % y/y long-run
+      u_star: 5.0,               // NAIRU
+      pi_target: 2.0,            // inflation target
+      phillips_kappa: 0.30,      // Phillips slope (gap→inflation pressure)
+      exports_scale: 5.0,        // normalize exports growth
+      commodity_base: 120,       // neutral energy cost
+      commodity_norm: 100,       // agri tailwind scale
+
+      closures_sens_u: 0.15,
+      closures_sens_prices: 0.10,
+      closures_offset_gap: 0.05,
+
+      gap_sens_factory: 0.35,
+      exports_sens_factory: 0.25,
+      energy_sens_factory: 0.25,
+
+      gap_sens_conf: 0.45,
+      u_slack_sens_conf: 0.30,
+
+      real_rate_housing_sens: 0.12,
+      u_slack_sens_housing: 0.10
+    };
+
+    // ===== Defaults & presets =====
+    const DEFAULT_ECONOMY = {
+      gdp_growth_pct: 1.8,
+      unemployment_pct: 5.2,
+      inflation_pct: 3.0,
+      interest_rate_pct: 4.0,
+      commodity_index: 120,
+      exports_pct_growth: 0.5,
+      trend: { gdp: 'flat', inflation: 'down' },
+      shock: null
+    };
+
+    const PRESETS = {
+      boom: {
+        gdp_growth_pct: 4.5, unemployment_pct: 3.8, inflation_pct: 2.1,
+        interest_rate_pct: 2.5, commodity_index: 140, exports_pct_growth: 6.2,
+        trend: { gdp:'up', inflation:'flat' }, shock: null,
+        tip: "Boom time! Low unemployment and strong growth create a bustling economy."
       },
-      {
-        head:'Short-term vs Long-term',
-        body:`Short-term: slower growth and rising unemployment risk.
-              Long-term: price stability can anchor expectations and support sustainable growth.`
+      recession: {
+        gdp_growth_pct: -2.1, unemployment_pct: 9.8, inflation_pct: 1.2,
+        interest_rate_pct: 0.5, commodity_index: 95, exports_pct_growth: -3.4,
+        trend: { gdp:'down', inflation:'down' }, shock: null,
+        tip: "Economic downturn: job losses and business closures across the village."
       },
-      {
-        head:'Winners vs Losers',
-        body:`Savers gain from higher deposit returns; leveraged borrowers face higher repayments (mortgages, SMEs).`
-      },
-      {
-        head:'Depends on…',
-        body:`Effect is ${ctx.confidence==='low'?'stronger when confidence is already weak':'smaller when confidence is high'}; transmission depends on mortgage types/fix rates and global conditions.`
+      stagflation: {
+        gdp_growth_pct: 0.2, unemployment_pct: 8.1, inflation_pct: 7.8,
+        interest_rate_pct: 6.5, commodity_index: 160, exports_pct_growth: -1.2,
+        trend: { gdp:'flat', inflation:'up' }, shock: 'oil_shock',
+        tip: "Stagflation: weak growth + high inflation squeezes everyone."
       }
-    ]),
-    linkback:'See: EconomicsHelp on rates ' + tag('1') + ' and BoE explainer ' + tag('2') + '.'
-  },
+    };
 
-  cut_rate: {
-    title: 'Cut interest rates',
-    lead: size =>
-      `Lower policy rates reduce borrowing costs and the reward to saving. This boosts interest-sensitive spending; aggregate demand ${sizeAdj(size,'rises a little','rises','rises strongly')}.`,
-    chain: [
-      'Cheaper credit → mortgages & business loans more affordable',
-      'Consumption of durables and private investment pick up',
-      'AD shifts right → real GDP growth increases',
-      'If slack remains, inflation pressures stay contained'
-    ],
-    models: (ctx)=>[
-      {label:'Phillips curve', text:`Closing the output gap can lift inflation toward target ${tag('3')}.`},
-      {label:'Okun’s law', text:`Stronger growth can reduce unemployment ${tag('4')}.`}
-    ],
-    eval:(ctx)=>[
-      {head:'Strengths vs Limits', body:`${strong('Strength:')} quick demand support.
-        ${weak('Limitation:')} weak when confidence is very low or at the lower bound.`},
-      {head:'Short vs Long', body:`Short: growth/jobs support. Long: risk of asset froth & debt vulnerability.`},
-      {head:'Winners vs Losers', body:`Borrowers benefit; savers see lower returns.`},
-      {head:'Depends on…', body:`Bank pass-through, fixed-rate share, and global shocks.`}
-    ],
-    linkback:'See: EconomicsHelp on rates ' + tag('1') + ', BoE explainer ' + tag('2') + '.'
-  },
+    // ===== Reasoning sources (extended with EconomicsHelp & BoE) =====
+    const REFS = [
+      {id:'PHILLIPS_FED', label:'Phillips curve (St. Louis Fed explainer)', url:'https://www.stlouisfed.org/open-vault/2020/january/what-is-phillips-curve-why-flattened'},
+      {id:'PHILLIPS_FOMC_2025', label:'Phillips curve remarks (Fed Board speech, 2025)', url:'https://www.federalreserve.gov/newsevents/speech/kugler20250220a.htm'},
+      {id:'NAIRU_RBA', label:'NAIRU explainer (RBA)', url:'https://www.rba.gov.au/education/resources/explainers/nairu.html'},
+      {id:'OKUN_CLEVELAND', label:'Okun’s law (Cleveland Fed commentary)', url:'https://www.clevelandfed.org/publications/economic-commentary/2012/ec-201208-an-unstable-okuns-law-not-the-best-rule-of-thumb'},
+      {id:'TAYLOR_1993', label:'Taylor (1993): Discretion vs Policy Rules', url:'https://web.stanford.edu/~johntayl/Onlinepaperscombinedbyyear/1993/Discretion_versus_Policy_Rules_in_Practice.pdf'},
+      {id:'TAYLOR_ATL_FED', label:'Taylor rule (Atlanta Fed explainer)', url:'https://www.atlantafed.org/cqer/research/taylor-rule'},
+      {id:'OECD_STABS', label:'OECD (2020): Automatic fiscal stabilisers', url:'https://www.oecd.org/content/dam/oecd/en/publications/reports/2020/12/automatic-fiscal-stabilisers-recent-evolution-and-policy-options-to-boost-their-effectiveness_7d1ca7ac/816b1b06-en.pdf'},
+      {id:'ECB_STABS', label:'ECB (2020): Automatic stabilisers explainer', url:'https://www.ecb.europa.eu/press/economic-bulletin/articles/2020/html/ecb.ebart202006_03~3175750a6d.en.html'},
 
-  fiscal_stimulus: {
-    title: 'Fiscal stimulus (spending ↑)',
-    lead: size =>
-      `Higher government spending injects demand directly into the economy. Via the multiplier, aggregate demand ${sizeAdj(size,'edges up','rises','rises strongly')}, especially when there is spare capacity.`,
-    chain: [
-      'Public outlays (infrastructure, services) increase incomes',
-      'Multiplier effects lift private consumption and investment',
-      'AD shifts right → higher real GDP and employment',
-      'If near capacity, inflationary pressure may build'
-    ],
-    models:(ctx)=>[
-      {label:'Automatic stabilisers', text:`In downturns, existing benefits/taxes already cushion demand ${tag('6')}; discretionary spending adds extra support.`}
-    ],
-    eval:(ctx)=>[
-      {head:'Strengths vs Limits', body:`${strong('Strength:')} precise targeting (e.g., shovel-ready projects).
-        ${weak('Limitation:')} implementation lags; crowding-out risk when at capacity.`},
-      {head:'Short vs Long', body:`Short: strong boost when gap is negative.
-        Long: debt sustainability and taxation trade-offs.`},
-      {head:'Winners vs Losers', body:`Construction & suppliers gain; future taxpayers may bear servicing costs.`},
-      {head:'Depends on…', body:`Size of multiplier (confidence, openness, slack) and supply bottlenecks.`}
-    ],
-    linkback:'See: EconomicsHelp on fiscal policy ' + tag('7') + '.'
-  },
+      // added:
+      {id:'EHELP_RATES', label:'EconomicsHelp – Interest rates & AD/AS', url:'https://www.economicshelp.org/macroeconomics/monetary-policy/effect-interest-rates/'},
+      {id:'BOE_MONPOL', label:'Bank of England – How monetary policy works', url:'https://www.bankofengland.co.uk/monetary-policy/how-does-monetary-policy-work'},
+      {id:'EHELP_FISCAL', label:'EconomicsHelp – Fiscal policy overview', url:'https://www.economicshelp.org/macroeconomics/fiscal-policy/'},
+      {id:'BOE_QE', label:'Bank of England – QE explained', url:'https://www.bankofengland.co.uk/monetary-policy/quantitative-easing'},
+      {id:'EHELP_FX', label:'EconomicsHelp – Exchange rates', url:'https://www.economicshelp.org/macroeconomics/exchangerate/'}
+    ];
 
-  vat_cut: {
-    title: 'VAT cut / indirect tax reduction',
-    lead: size =>
-      `Cutting VAT lowers consumer prices, raising real disposable income. Demand ${sizeAdj(size,'nudges up','rises','jumps')}, especially for price-sensitive goods.`,
-    chain: [
-      'Lower prices → real incomes increase',
-      'Consumption rises, particularly for elastic categories',
-      'AD shifts right → output and employment increase',
-      'Headline inflation may fall initially (level effect)'
-    ],
-    models:()=>[
-      {label:'Phillips curve nuance', text:`Lower measured inflation from a one-off VAT cut is a level shift, not a lasting fall in inflation pressure ${tag('3')}.`}
-    ],
-    eval:()=>[
-      {head:'Strengths vs Limits', body:`${strong('Strength:')} fast pass-through at tills.
-        ${weak('Limitation:')} firms may not pass 100% through; temporary effects.`},
-      {head:'Short vs Long', body:`Short: demand support and lower CPI.
-        Long: fiscal cost; effect fades once VAT reverts.`},
-      {head:'Winners vs Losers', body:`Consumers benefit; govt revenue falls.`},
-      {head:'Depends on…', body:`Market competition (pass-through) and expectations.`}
-    ],
-    linkback:'See: EconomicsHelp on indirect taxes ' + tag('7') + '.'
-  },
+    // ===== Auto-link settings (pedagogical couplings) =====
+    const SETTINGS = {
+      autoOkun: true,        // GDP change nudges unemployment (Okun's law)
+      autoPhillips: true,    // Output gap/slack nudges inflation (Phillips/NAIRU)
+      autoTaylor: true,      // Inflation/output gap recommend i (Taylor rule)
+      autoOil: true,         // Commodity index nudges inflation (oil pass-through)
+      autoStab: true         // Automatic stabilisers cushion GDP shocks
+    };
 
-  currency_depreciation: {
-    title: 'Currency depreciation',
-    lead: size =>
-      `A weaker currency makes exports cheaper and imports dearer. Net exports improve; aggregate demand ${sizeAdj(size,'rises a touch','rises','rises strongly')}, but imported-cost inflation can increase.`,
-    chain: [
-      'Export volumes up (price competitiveness)',
-      'Import spending falls / switches to domestic goods',
-      'AD shifts right via (X−M)',
-      'Imported inflation raises CPI until pass-through fades'
-    ],
-    models:()=>[
-      {label:'Open-economy AD/AS', text:`Demand boost vs cost-push trade-off (terms of trade).`}
-    ],
-    eval:()=>[
-      {head:'Strengths vs Limits', body:`${strong('Strength:')} boosts tradeables sector.
-        ${weak('Limitation:')} raises imported inflation; effect weaker if supply chains are import-intensive.`},
-      {head:'Short vs Long', body:`Short: CPI pass-through.
-        Long: competitiveness improves if firms invest/productivity rises.`},
-      {head:'Winners vs Losers', body:`Exporters and tourism gain; importers and consumers of tradables lose.`},
-      {head:'Depends on…', body:`Elasticities, pass-through, and global demand.`}
-    ],
-    linkback:'See: EconomicsHelp on exchange rates ' + tag('9') + '.'
-  },
+    // Gentle classroom coefficients
+    const COEFF = {
+      okun: -0.5,            // Δu ≈ -0.5 * Δ(growth)
+      phillipsBlend: 0.35,   // move π part-way toward target+κ·gap
+      oilPiPer10pts: 0.12,   // +0.12pp inflation per +10 commodity pts above base
+      taylor_rstar: 0.8,     // illustrative neutral real rate
+      taylor_phi_pi: 0.5,
+      taylor_phi_y: 0.5,
+      stabiliserShare: 0.30  // cushion ~30% of negative gap
+    };
 
-  wage_subsidy: {
-    title: 'Wage subsidy / hiring credit',
-    lead: size =>
-      `A temporary subsidy reduces effective labour costs, encouraging hiring and retention. Employment ${sizeAdj(size,'edges up','rises','rises strongly')} and incomes support spending.`,
-    chain: [
-      'Lower labour cost → more vacancies filled',
-      'Household incomes rise → consumption increases',
-      'AD shifts right; unemployment falls',
-      'Fiscal cost accrues while scheme runs'
-    ],
-    models:()=>[
-      {label:'Okun’s law (employment link)', text:`Direct support to jobs strengthens the growth-jobs relationship ${tag('4')}.`}
-    ],
-    eval:()=>[
-      {head:'Strengths vs Limits', body:`${strong('Strength:')} targets labour market directly.
-        ${weak('Limitation:')} deadweight risk (paying for jobs that would exist anyway).`},
-      {head:'Short vs Long', body:`Short: prevents scarring.
-        Long: if temporary, effects fade; if permanent, fiscal cost.`},
-      {head:'Winners vs Losers', body:`Job seekers and SMEs gain; taxpayers fund the scheme.`},
-      {head:'Depends on…', body:`Design details, targeting, and administrative capacity.`}
-    ],
-    linkback:'See: EconomicsHelp on labour markets and policy ' + tag('7') + '.'
-  },
+    // ===== Canvas / layout =====
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const VILLAGE_WIDTH = 20, VILLAGE_HEIGHT = 15;
+    let TILE_SIZE = 40;
 
-  qe: {
-    title: 'Quantitative easing (QE)',
-    lead: size =>
-      `Central bank asset purchases push down long-term yields and support asset prices. Financial conditions ease; aggregate demand ${sizeAdj(size,'ticks up','rises','rises notably')}.`,
-    chain: [
-      'Bond yields fall → cheaper long-term borrowing',
-      'Portfolio rebalancing → asset prices & wealth effects',
-      'AD shifts right; inflation expectations supported',
-      'Exit strategy later matters for stability'
-    ],
-    models:()=>[
-      {label:'Transmission', text:`Term-premium, expectations, and balance-sheet channels; complements policy rate near lower bound.`}
-    ],
-    eval:()=>[
-      {head:'Strengths vs Limits', body:`${strong('Strength:')} works when rates near zero.
-        ${weak('Limitation:')} distributional/asset-price concerns; uncertain potency.`},
-      {head:'Short vs Long', body:`Short: supports demand and inflation expectations.
-        Long: unwind risks; market distortions if prolonged.`},
-      {head:'Winners vs Losers', body:`Asset holders benefit; renters/new buyers face higher prices.`},
-      {head:'Depends on…', body:`Scale, composition, and communication credibility.`}
-    ],
-    linkback:'See: BoE QE explainer ' + tag('8') + '.'
-  },
+    function resizeCanvas(){
+      const sidebarWidth = 320;
+      const w = Math.max(520, window.innerWidth - sidebarWidth - 24);
+      const h = Math.max(420, window.innerHeight - 24);
+      TILE_SIZE = Math.floor(Math.min(w / VILLAGE_WIDTH, h / VILLAGE_HEIGHT));
+      canvas.width = TILE_SIZE * VILLAGE_WIDTH;
+      canvas.height = TILE_SIZE * VILLAGE_HEIGHT;
+    }
+    window.addEventListener('resize', resizeCanvas);
 
-  oil_shock: {
-    title: 'Negative supply shock (oil ↑)',
-    lead: size =>
-      `A sharp rise in energy costs shifts short-run aggregate supply left. Output growth ${sizeAdj(size,'slows slightly','slows','falls')}, while inflation rises (stagflation risk).`,
-    chain: [
-      'Firms’ costs increase → prices rise and output trimmed',
-      'Real incomes fall as consumer energy bills rise',
-      'SRAS shifts left; output down, inflation up',
-      'Policy trade-off between growth and inflation'
-    ],
-    models:()=>[
-      {label:'Phillips curve caveat', text:`Supply shocks push inflation up even with weak demand ${tag('3')}.`}
-    ],
-    eval:()=>[
-      {head:'Strengths vs Limits', body:`${weak('Limitation:')} demand tools (rates) can’t fix the supply root; can only cool knock-on inflation.`},
-      {head:'Short vs Long', body:`Short: real income squeeze.
-        Long: adjustment via efficiency, diversification, alternative energy.`},
-      {head:'Winners vs Losers', body:`Energy producers gain; energy-intensive sectors and low-income households lose.`},
-      {head:'Depends on…', body:`Duration of shock and wage-price dynamics.`}
-    ],
-    linkback:'See: EconomicsHelp – cost-push inflation ' + tag('1') + '.'
-  }
-};
+    // ===== Village grid =====
+    const villageLayout = [
+      ['farm','farm','farm','farm','road','housing','housing','housing','road','farm','farm','farm','farm','road','housing','housing','housing','housing','housing','housing'],
+      ['farm','farm','farm','farm','road','housing','housing','housing','road','farm','farm','farm','farm','road','housing','housing','housing','housing','housing','housing'],
+      ['farm','farm','farm','farm','road','housing','housing','housing','road','farm','farm','farm','farm','road','housing','housing','housing','housing','housing','housing'],
+      ['road','road','road','road','road','road','road','road','road','road','road','road','road','road','road','road','road','road','road','road'],
+      ['industry','industry','industry','road','retail','retail','retail','retail','road','square','square','square','road','retail','retail','retail','retail','industry','industry','industry'],
+      ['industry','industry','industry','road','retail','retail','retail','retail','road','square','square','square','road','retail','retail','retail','retail','industry','industry','industry'],
+      ['industry','industry','industry','road','retail','retail','retail','retail','road','square','square','square','road','retail','retail','retail','retail','industry','industry','industry'],
+      ['road','road','road','road','road','road','road','road','road','road','road','road','road','road','road','road','road','road','road','road'],
+      ['housing','housing','housing','road','retail','retail','retail','retail','road','industry','industry','industry','road','farm','farm','farm','farm','farm','farm','farm'],
+      ['housing','housing','housing','road','retail','retail','retail','retail','road','industry','industry','industry','road','farm','farm','farm','farm','farm','farm','farm'],
+      ['housing','housing','housing','road','retail','retail','retail','retail','road','industry','industry','industry','road','farm','farm','farm','farm','farm','farm','farm'],
+      ['road','road','road','road','road','road','road','road','road','road','road','road','road','road','road','road','road','road','road','road'],
+      ['farm','farm','farm','farm','housing','housing','housing','housing','road','retail','retail','retail','road','industry','industry','industry','industry','industry','industry','industry'],
+      ['farm','farm','farm','farm','housing','housing','housing','housing','road','retail','retail','retail','road','industry','industry','industry','industry','industry','industry','industry'],
+      ['farm','farm','farm','farm','housing','housing','housing','housing','road','retail','retail','retail','road','industry','industry','industry','industry','industry','industry','industry']
+    ];
 
-/** ------------------------------
- * Helpers
- * ------------------------------ */
-function sizeAdj(size, small, med, large){
-  return size==='small'?small : size==='large'?large : med;
-}
-function strong(s){ return `<span class="good">${s}</span>`; }
-function weak(s){ return `<span class="bad">${s}</span>`; }
-function tag(t){ return `<span class="tag">${t}</span>`; }
+    // Pre-index retail tiles for stable states
+    const retailTiles = [];
+    for(let y=0;y<VILLAGE_HEIGHT;y++){
+      for(let x=0;x<VILLAGE_WIDTH;x++){
+        if(villageLayout[y][x]==='retail'){ retailTiles.push({x,y}); }
+      }
+    }
+    // Per-tile retail state (stable until economy recompute)
+    const retailState = new Map(); // key "x,y" -> {closed:boolean, priceTag:boolean}
 
-function contextFromUI(){
-  return {
-    policy: document.getElementById('policy').value,
-    size: document.getElementById('size').value,
-    confidence: document.getElementById('confidence').value,
-    slack: document.getElementById('slack').value
-  };
-}
+    // ===== Macro model computation =====
+    function computeEconomicState(e){
+      const gap_raw = e.gdp_growth_pct - MODEL.potential_growth;       // % points
+      const gap_norm = gap_raw / 4.0;                                   // ~[-0.5..+0.5]
+      const u_slack = Math.max(0, e.unemployment_pct - MODEL.u_star) / 5.0;
 
-/** ------------------------------
- * Render
- * ------------------------------ */
-function renderPanel(){
-  const ctx = contextFromUI();
-  const spec = POLICIES[ctx.policy];
-  if(!spec) return;
+      const pi_expected = MODEL.pi_target + MODEL.phillips_kappa * gap_raw;
+      const supply_shock = Math.max(0, e.inflation_pct - pi_expected);
+      const price_pressure = clamp(0,1,(e.inflation_pct - 4) / 8);
 
-  // Analysis lead
-  const lead = spec.lead(ctx.size);
-  document.getElementById('analysis-lead').innerHTML =
-    `<strong>Point:</strong> ${lead}`;
+      const r_real = e.interest_rate_pct - e.inflation_pct;
+      const exports_n = e.exports_pct_growth / MODEL.exports_scale;
+      const energy_shock = Math.max(0,(e.commodity_index - MODEL.commodity_base)/60);
+      const agri_tailwind = (e.commodity_index - 100) / MODEL.commodity_norm;
 
-  // Chain list (cause → effect → wider effect)
-  const chain = spec.chain.map(s=>`<li>${s}</li>`).join('');
-  document.getElementById('chain').innerHTML = chain;
+      const shops_closed_rate = clamp(
+        0, 0.85,
+        MODEL.closures_sens_u * u_slack
+        + MODEL.closures_sens_prices * clamp(0,1, supply_shock/6)
+        - MODEL.closures_offset_gap * gap_norm
+      );
 
-  // Link-back sentence
-  document.getElementById('linkback').innerHTML = spec.linkback;
+      const factory_capacity = clamp(
+        0.20, 1.00,
+        0.60 + MODEL.gap_sens_factory*gap_norm + MODEL.exports_sens_factory*exports_n - MODEL.energy_sens_factory*energy_shock
+      );
 
-  // Models/chain-effects chips
-  const modelsRow = document.getElementById('modelsRow');
-  modelsRow.innerHTML = '';
-  (spec.models(ctx) || []).forEach(m=>{
-    const box = document.createElement('div');
-    box.className = 'chip';
-    box.title = m.label;
-    box.innerHTML = `<span class="mono">${m.label}:</span> ${m.text}`;
-    modelsRow.appendChild(box);
-  });
+      const citizen_activity = clamp(
+        0.30, 1.50,
+        1.00 + MODEL.gap_sens_conf*gap_norm - MODEL.u_slack_sens_conf*u_slack
+      );
 
-  // Evaluation toggles
-  const evalWrap = document.getElementById('evalToggles');
-  evalWrap.innerHTML = '';
-  (spec.eval(ctx) || []).forEach((blk,i)=>{
-    const det = document.createElement('details');
-    det.className = 'toggle';
-    det.innerHTML = `
-      <summary>${blk.head}<span class="chip">toggle</span></summary>
-      <div class="body"><p>${blk.body}</p>
-        <p class="muted" style="margin:.4rem 0 0">Tip: Always end with a judgment (depends on confidence, slack, and external shocks).</p>
-      </div>`;
-    // Open the first toggle by default for clarity
-    if(i===0) det.setAttribute('open','open');
-    evalWrap.appendChild(det);
-  });
-}
+      const farm_productivity = clamp(
+        0.20, 1.00,
+        0.50 + 0.40*agri_tailwind - 0.20*energy_shock + 0.20*exports_n
+      );
 
-/** ------------------------------
- * Sources list & copy
- * ------------------------------ */
-function renderSources(){
-  const list = document.getElementById('sourceList');
-  list.innerHTML = '';
-  SOURCES.forEach(s=>{
-    const row = document.createElement('div');
-    row.className = 'source';
-    row.innerHTML = `${tag(s.tag)} <a href="${s.url}" target="_blank" rel="noopener">${s.label}</a>`;
-    list.appendChild(row);
-  });
-}
+      let housing_activity = clamp(
+        0.20, 1.00,
+        1.00 - MODEL.real_rate_housing_sens*Math.max(0,r_real) - MODEL.u_slack_sens_housing*u_slack + 0.08*gap_norm
+      );
 
-function copyToClipboard(){
-  // Assemble clean text (analysis + chain + one open evaluation block)
-  const lead = stripHTML(document.getElementById('analysis-lead').innerHTML);
-  const chainItems = [...document.querySelectorAll('#chain li')].map(li=>`→ ${stripHTML(li.innerHTML)}`).join('\n');
-  const openEval = document.querySelector('.toggle[open] .body');
-  const evalText = openEval ? stripHTML(openEval.textContent.trim()) : '';
-  const judgment = 'Judgment: Impact size depends on confidence, size of change, and slack (output gap).';
-  const out = `Analysis:\n${lead}\n\nChain of Reasoning:\n${chainItems}\n\nEvaluation (selected):\n${evalText}\n\n${judgment}`;
-  navigator.clipboard.writeText(out).then(()=>{
-    notify('Copied analysis + evaluation to clipboard.');
-  });
-}
+      let vehicle_activity = 1.0, warehouse_congestion = 0.0, shock_effect = e.shock || 'none';
+      if(e.shock==='oil_shock'){ vehicle_activity *= 0.4; }
+      if(e.shock==='supply_chain'){ warehouse_congestion = 1.0; }
+      if(e.shock==='policy_tightening'){ housing_activity *= 0.6; }
 
-function stripHTML(html){ const tmp=document.createElement('div'); tmp.innerHTML=html; return tmp.textContent||tmp.innerText||''; }
-function notify(msg){
-  const b = document.getElementById('copyBtn');
-  const old = b.textContent;
-  b.textContent = 'Copied ✓';
-  setTimeout(()=>{ b.textContent = old; }, 1300);
-}
+      return {
+        shops_closed_rate,
+        factory_capacity,
+        citizen_activity,
+        farm_productivity,
+        housing_activity,
+        price_pressure: clamp(0,1, price_pressure),
+        vehicle_activity,
+        warehouse_congestion,
+        shock_effect
+      };
+    }
 
-/** ------------------------------
- * Wire-up
- * ------------------------------ */
-document.getElementById('policy').addEventListener('change', renderPanel);
-document.getElementById('size').addEventListener('change', renderPanel);
-document.getElementById('confidence').addEventListener('change', renderPanel);
-document.getElementById('slack').addEventListener('change', renderPanel);
-document.getElementById('refreshBtn').addEventListener('click', renderPanel);
-document.getElementById('copyBtn').addEventListener('click', copyToClipboard);
+    // ===== Reasoning / Auto-links helpers =====
+    function controlKeyFromId(id){
+      return {
+        gdpGrowth:'gdp_growth_pct',
+        unemployment:'unemployment_pct',
+        inflation:'inflation_pct',
+        interestRate:'interest_rate_pct',
+        commodityIndex:'commodity_index',
+        exports:'exports_pct_growth',
+        shock:'shock'
+      }[id] || null;
+    }
 
-renderSources();
-renderPanel();
-</script>
-</body>
-</html>
+    function renderRefsPanel(){
+      if(!els.refsPanel) return;
+      if(els.refsPanel.dataset.rendered) return;
+      els.refsPanel.innerHTML = REFS.map((r,i)=>`
+        <div><span class="ref-tag">${i+1}</span>
+          <a href="${r.url}" target="_blank" rel="noopener">${r.label}</a>
+        </div>
+      `).join('');
+      els.refsPanel.dataset.rendered = '1';
+    }
+
+    // Track last user action for the reasoning & essay panels
+    let lastAction = {kind:'init', control:null, old:null, value:null};
+
+    function applyAutoLinks(prev, cur){
+      const draft = {...cur};
+
+      const gapPrev = prev.gdp_growth_pct - MODEL.potential_growth;
+      const gapNow  = draft.gdp_growth_pct - MODEL.potential_growth;
+      const dGap    = gapNow - gapPrev;
+
+      if(SETTINGS.autoOkun && Math.abs(dGap) > 0.0001){
+        const du = COEFF.okun * dGap;
+        draft.unemployment_pct = clamp(2, 15, draft.unemployment_pct + du);
+      }
+
+      if(SETTINGS.autoPhillips){
+        const pi_star = MODEL.pi_target + MODEL.phillips_kappa * gapNow;
+        draft.inflation_pct = clamp(0, 12, lerp(draft.inflation_pct, pi_star, COEFF.phillipsBlend));
+      }
+
+      if(SETTINGS.autoOil){
+        const over = Math.max(0, draft.commodity_index - MODEL.commodity_base);
+        const pi_add = (over/10) * (COEFF.oilPiPer10pts/10);
+        draft.inflation_pct = clamp(0, 12, draft.inflation_pct + pi_add);
+      }
+
+      if(SETTINGS.autoTaylor){
+        const pi_gap = draft.inflation_pct - MODEL.pi_target;
+        const i_taylor = COEFF.taylor_rstar + draft.inflation_pct
+                       + COEFF.taylor_phi_pi * pi_gap
+                       + COEFF.taylor_phi_y * gapNow;
+        draft.interest_rate_pct = clamp(0, 10, i_taylor);
+      }
+
+      if(SETTINGS.autoStab && gapNow < 0){
+        const cushion = -gapNow * COEFF.stabiliserShare;
+        draft.gdp_growth_pct = clamp(-5, 8, draft.gdp_growth_pct + cushion);
+      }
+
+      return draft;
+    }
+
+    function buildReasoning(prev, cur, state){
+      const lines = [];
+      const gap = (cur.gdp_growth_pct - MODEL.potential_growth);
+      const realRate = (cur.interest_rate_pct - cur.inflation_pct);
+
+      if(lastAction.control){
+        const k = controlKeyFromId(lastAction.control);
+        const oldVal = (k && typeof prev[k] !== 'undefined') ? prev[k] : lastAction.old;
+        const newVal = (k && typeof cur[k] !== 'undefined') ? cur[k] : lastAction.value;
+        const fmt = (v)=> (typeof v==='number') ? v.toFixed(1) : String(v ?? '');
+        lines.push(`You adjusted <strong>${labelFor(lastAction.control)}</strong> from <em>${fmt(oldVal)}</em> to <em>${fmt(newVal)}</em>.`);
+      }
+
+      lines.push(`Output gap is <em>${gap.toFixed(1)}pp</em> vs potential (${MODEL.potential_growth}%). Phillips/NAIRU suggests inflation pressure moves with the gap <span class="ref-tag">1</span><span class="ref-tag">2</span><span class="ref-tag">3</span>. This maps to <em>price pressure</em> = ${(state.price_pressure*100|0)}% and influences shop closures.`);
+
+      if(SETTINGS.autoOkun){
+        lines.push(`Okun link nudged unemployment with growth changes (rule-of-thumb Δu ≈ −0.5·Δgrowth) <span class="ref-tag">4</span>. Higher slack lifts closures and lowers foot traffic.`);
+      }
+
+      if(SETTINGS.autoOil && cur.commodity_index > MODEL.commodity_base){
+        lines.push(`Commodity index above ${MODEL.commodity_base} raises costs (oil pass-through), nudging inflation upward <span class="ref-tag">1</span>.`);
+      }
+
+      if(SETTINGS.autoTaylor){
+        lines.push(`Taylor rule reacts to the inflation gap and output gap <span class="ref-tag">5</span><span class="ref-tag">6</span>. Hence policy rate ≈ ${cur.interest_rate_pct.toFixed(1)}%.`);
+      }
+
+      if(SETTINGS.autoStab && gap < 0){
+        lines.push(`Automatic stabilisers (taxes/benefits) cushion downturns without new legislation <span class="ref-tag">7</span><span class="ref-tag">8</span>. We partially offset the negative gap.`);
+      }
+
+      lines.push(`Real rate (i−π) is ${realRate.toFixed(1)}%. Higher real rates cool housing activity (more “SALE” signs).`);
+      lines.push(`Result: <em>Capacity</em> ${(state.factory_capacity*100|0)}%, <em>Closures</em> ${(state.shops_closed_rate*100|0)}%, <em>Activity</em> ${(state.citizen_activity*100|0)}%.`);
+
+      return lines;
+    }
+
+    function updateReasoningUI(prev, cur, state){
+      const items = buildReasoning(prev, cur, state).map(t=>`<li>${t}</li>`).join('');
+      els.reasoningList.innerHTML = items;
+      // also update the exam-style panel
+      renderEssay(prev, cur, state);
+    }
+
+    function labelFor(id){
+      return ({
+        gdpGrowth:'GDP Growth', unemployment:'Unemployment', inflation:'Inflation',
+        interestRate:'Interest Rate', commodityIndex:'Commodity Index', exports:'Exports Growth',
+        shock:'Shock'
+      })[id] || id;
+    }
+
+    // ===== State =====
+    let currentEconomy = {...DEFAULT_ECONOMY};
+    let computedState = {};
+    let oldComputedState = {};
+    let tweenProgress = 1, isTransitioning = false, animationFrame = 0;
+
+    // ===== Citizens =====
+    let citizens = [];
+    function initializeCitizens(){
+      citizens.length = 0;
+      for(let i=0;i<28;i++){
+        citizens.push({
+          x: Math.random()*canvas.width,
+          y: Math.random()*canvas.height,
+          targetX: Math.random()*canvas.width,
+          targetY: Math.random()*canvas.height,
+          speed: 0.6 + Math.random()*0.9,
+          frame: Math.floor(Math.random()*3),
+          frameTimer: 0
+        });
+      }
+    }
+    function drawCitizen(c,state){
+      const sp = c.speed * state.citizen_activity;
+      const dx = c.targetX - c.x, dy = c.targetY - c.y;
+      const dist = Math.hypot(dx,dy);
+      if(dist > sp){
+        c.x += (dx/dist)*sp; c.y += (dy/dist)*sp;
+      }else{
+        c.x = c.targetX; c.y = c.targetY;
+        c.targetX = Math.random()*canvas.width;
+        c.targetY = Math.random()*canvas.height;
+      }
+      c.frameTimer += sp;
+      if(c.frameTimer > 10){ c.frame=(c.frame+1)%3; c.frameTimer=0; }
+      ctx.fillStyle = ['#FF69B4','#87CEEB','#98FB98'][c.frame];
+      ctx.beginPath(); ctx.arc(Math.round(c.x), Math.round(c.y), 3, 0, Math.PI*2); ctx.fill();
+      if(c.frame===1){
+        ctx.strokeStyle='#654321'; ctx.lineWidth=1;
+        ctx.beginPath();
+        ctx.moveTo(c.x-2, c.y+3); ctx.lineTo(c.x-1, c.y+6);
+        ctx.moveTo(c.x+2, c.y+3); ctx.lineTo(c.x+1, c.y+6);
+        ctx.stroke();
+      }
+    }
+
+    // ===== Roads & Vehicles (tile graph) =====
+    const roadAt = (tx,ty) =>
+      ty>=0 && ty<VILLAGE_HEIGHT && tx>=0 && tx<VILLAGE_WIDTH && villageLayout[ty][tx]==='road';
+
+    function randomRoadTile(){
+      let tx,ty;
+      do{ tx = (Math.random()*VILLAGE_WIDTH)|0; ty=(Math.random()*VILLAGE_HEIGHT)|0; } while(!roadAt(tx,ty));
+      return {tx,ty};
+    }
+
+    let vehicles = [];
+    function initializeVehicles(){
+      vehicles.length = 0;
+      for(let i=0;i<7;i++){
+        const {tx,ty} = randomRoadTile();
+        vehicles.push({
+          tx,ty, x: tx*TILE_SIZE + TILE_SIZE/2, y: ty*TILE_SIZE + TILE_SIZE/2,
+          speed: 1 + Math.random()*1.8, type: Math.random()>0.5?'truck':'car', dir:null
+        });
+      }
+    }
+    function nextRoadStep(v){
+      const choices = [{dx:1,dy:0},{dx:-1,dy:0},{dx:0,dy:1},{dx:0,dy:-1}]
+        .filter(d=>roadAt(v.tx+d.dx, v.ty+d.dy));
+      v.dir = choices.length ? choices[(Math.random()*choices.length)|0] : {dx:0,dy:0};
+    }
+    function drawVehicle(v,state){
+      const sp = v.speed * (state.vehicle_activity || 1);
+      if(!v.dir) nextRoadStep(v);
+      const targetX = (v.tx+v.dir.dx)*TILE_SIZE + TILE_SIZE/2;
+      const targetY = (v.ty+v.dir.dy)*TILE_SIZE + TILE_SIZE/2;
+      const dx = targetX - v.x, dy = targetY - v.y;
+      const dist = Math.hypot(dx,dy);
+      if(dist <= sp){
+        v.tx += v.dir.dx; v.ty += v.dir.dy;
+        v.x = targetX; v.y = targetY; nextRoadStep(v);
+      }else{
+        v.x += (dx/dist)*sp; v.y += (dy/dist)*sp;
+      }
+      ctx.fillStyle = v.type==='truck' ? '#8B4513' : '#4169E1';
+      ctx.fillRect(Math.round(v.x-6), Math.round(v.y-3), 12, 6);
+      ctx.fillStyle='#000';
+      ctx.beginPath();
+      ctx.arc(v.x-4, v.y+3, 1.5, 0, Math.PI*2);
+      ctx.arc(v.x+4, v.y+3, 1.5, 0, Math.PI*2);
+      ctx.fill();
+    }
+
+    // ===== Rendering helpers =====
+    function drawTile(x,y,type,state){
+      const px = x*TILE_SIZE, py = y*TILE_SIZE;
+      switch(type){
+        case 'road': {
+          ctx.fillStyle='#696969'; ctx.fillRect(px,py,TILE_SIZE,TILE_SIZE);
+          ctx.strokeStyle='#FFFF00'; ctx.lineWidth=2; ctx.setLineDash([5,5]);
+          if(x%2===0){ ctx.beginPath(); ctx.moveTo(px, py+TILE_SIZE/2); ctx.lineTo(px+TILE_SIZE, py+TILE_SIZE/2); ctx.stroke(); }
+          ctx.setLineDash([]); break;
+        }
+        case 'farm': {
+          const prod = state.farm_productivity;
+          const g = Math.floor(50 + prod*150);
+          ctx.fillStyle = `rgb(34,${g},34)`;
+          ctx.fillRect(px,py,TILE_SIZE,TILE_SIZE);
+          ctx.strokeStyle = `rgb(0,${Math.floor(g*0.8)},0)`; ctx.lineWidth=1;
+          for(let i=0;i<4;i++){ ctx.beginPath(); ctx.moveTo(px, py+i*10+5); ctx.lineTo(px+TILE_SIZE, py+i*10+5); ctx.stroke(); }
+          if(prod>0.7 && ((x+y)%4===0)){ ctx.fillStyle='#DAA520'; ctx.fillRect(px+10, py+10, 8, 8); }
+          break;
+        }
+        case 'industry': {
+          ctx.fillStyle='#8B4513'; ctx.fillRect(px,py,TILE_SIZE,TILE_SIZE);
+          ctx.fillStyle='#A0A0A0'; ctx.fillRect(px+5, py+5, TILE_SIZE-10, TILE_SIZE-10);
+          if((x+y)%3===0){
+            ctx.fillStyle='#654321'; ctx.fillRect(px+15, py+2, 6, 15);
+            const cap = state.factory_capacity;
+            if(cap>0.3){
+              ctx.fillStyle = `rgba(128,128,128,${cap*0.7})`;
+              for(let i=0;i<Math.floor(cap*5);i++){
+                ctx.beginPath(); ctx.arc(px+18 + Math.random()*4, py - i*3, 2, 0, Math.PI*2); ctx.fill();
+              }
+            }
+          }
+          break;
+        }
+        case 'retail': {
+          const key = `${x},${y}`;
+          const rs = retailState.get(key) || {closed:false, priceTag:false};
+          ctx.fillStyle = rs.closed ? '#654321' : '#228B22';
+          ctx.fillRect(px,py,TILE_SIZE,TILE_SIZE);
+          ctx.fillStyle = rs.closed ? '#8B4513' : '#32CD32';
+          ctx.fillRect(px+3, py+3, TILE_SIZE-6, TILE_SIZE-6);
+          ctx.fillStyle = rs.closed ? '#4B0000' : '#006400';
+          ctx.fillRect(px + TILE_SIZE - 8, py + TILE_SIZE - 15, 5, 12);
+          if(rs.closed){
+            ctx.fillStyle='#FFFF00'; ctx.fillRect(px+5, py+8, 12, 6);
+            ctx.fillStyle='#000'; ctx.font='8px Arial'; ctx.fillText('LEASE', px+6, py+12);
+          }else if(rs.priceTag){
+            ctx.fillStyle='#FF0000'; ctx.font='10px Arial';
+            ctx.fillText('↑', px+22, py+15);
+          }
+          break;
+        }
+        case 'housing': {
+          ctx.fillStyle='#DEB887'; ctx.fillRect(px,py,TILE_SIZE,TILE_SIZE);
+          ctx.fillStyle='#8B4513'; ctx.fillRect(px+8, py+8, TILE_SIZE-16, TILE_SIZE-16);
+          ctx.fillStyle='#CD853F';
+          ctx.beginPath();
+          ctx.moveTo(px+5, py+10); ctx.lineTo(px+TILE_SIZE/2, py+2); ctx.lineTo(px+TILE_SIZE-5, py+10);
+          ctx.closePath(); ctx.fill();
+          if(state.housing_activity < 0.5 && Math.random() < (0.8 - state.housing_activity)){
+            ctx.fillStyle='#FFFF00'; ctx.fillRect(px+2, py+20, 10, 8);
+            ctx.fillStyle='#000'; ctx.font='6px Arial'; ctx.fillText('SALE', px+3, py+26);
+          }
+          break;
+        }
+        case 'square': {
+          ctx.fillStyle='#98FB98'; ctx.fillRect(px,py,TILE_SIZE,TILE_SIZE);
+          if(x===10 && y===5){
+            ctx.fillStyle='#4169E1'; ctx.beginPath();
+            ctx.arc(px + TILE_SIZE/2, py + TILE_SIZE/2, 8, 0, Math.PI*2); ctx.fill();
+            if(state.citizen_activity>0.8){
+              ctx.fillStyle='#87CEEB';
+              for(let i=0;i<3;i++){
+                ctx.beginPath();
+                ctx.arc(px + TILE_SIZE/2 + (Math.random()*10-5), py + TILE_SIZE/2 + (Math.random()*10-5), 1, 0, Math.PI*2);
+                ctx.fill();
+              }
+            }
+          }
+          if(state.citizen_activity>0.6 && ((x+y)%3===1)){
+            ctx.fillStyle='#DDA0DD'; ctx.fillRect(px+5, py+5, 12, 8);
+            ctx.fillStyle='#8B008B'; ctx.fillRect(px+6, py+6, 10, 6);
+          }
+          break;
+        }
+        default:
+          ctx.fillStyle='#90EE90'; ctx.fillRect(px,py,TILE_SIZE,TILE_SIZE);
+      }
+    }
+
+    // ===== Tooltip/hover =====
+    const tooltip = document.getElementById('tooltip');
+    const hoveredTile = {x:-1,y:-1};
+    function showTooltip(x,y,html){ tooltip.innerHTML = html; tooltip.style.left=(x+10)+'px'; tooltip.style.top=(y+10)+'px'; tooltip.classList.add('visible'); }
+    function hideTooltip(){ tooltip.classList.remove('visible'); }
+    function tileTooltip(type,state){
+      const s=state, e=currentEconomy;
+      if(type==='farm')
+        return `<strong>Agriculture</strong><br>Productivity: ${(s.farm_productivity*100).toFixed(0)}%<br>${s.farm_productivity>0.7?'Commodity prices & exports help':'Mixed conditions'}`;
+      if(type==='industry')
+        return `<strong>Manufacturing</strong><br>Capacity: ${(s.factory_capacity*100).toFixed(0)}%<br>${s.factory_capacity>0.7?'Demand is strong':'Running lean'}`;
+      if(type==='retail')
+        return `<strong>Retail & Services</strong><br>Shops Closed: ${(s.shops_closed_rate*100).toFixed(0)}%<br>${s.shops_closed_rate>0.3?`Unemployment ${e.unemployment_pct.toFixed(1)}% is biting`:(s.price_pressure>0.3?'Prices rising dampen demand':'Healthy foot traffic')}`;
+      if(type==='housing')
+        return `<strong>Housing</strong><br>Activity: ${(s.housing_activity*100).toFixed(0)}%<br>${s.housing_activity<0.5?`High real rates (${(e.interest_rate_pct - e.inflation_pct).toFixed(1)}%)`:'Stable turnover'}`;
+      if(type==='square'){
+        const mood = s.citizen_activity>1.0?'Optimistic':(s.citizen_activity<0.6?'Pessimistic':'Cautious');
+        return `<strong>Town Square</strong><br>Mood: ${mood}`;
+      }
+      return `<strong>${type}</strong>`;
+    }
+
+    canvas.addEventListener('mousemove', (ev)=>{
+      const r = canvas.getBoundingClientRect();
+      const cx = ev.clientX - r.left, cy = ev.clientY - r.top;
+      const tx = Math.floor(cx / TILE_SIZE), ty = Math.floor(cy / TILE_SIZE);
+      hoveredTile.x = tx; hoveredTile.y = ty;
+      if(tx>=0 && tx<VILLAGE_WIDTH && ty>=0 && ty<VILLAGE_HEIGHT){
+        const t = villageLayout[ty][tx];
+        if(t!=='road'){ showTooltip(ev.clientX, ev.clientY, tileTooltip(t, getCurrentState())); }
+        else hideTooltip();
+      }else hideTooltip();
+    });
+    canvas.addEventListener('mouseleave', ()=>{ hoveredTile.x=-1; hoveredTile.y=-1; hideTooltip(); });
+
+    // ===== Retail stability =====
+    function recomputeRetailState(state){
+      retailState.clear();
+      for(const {x,y} of retailTiles){
+        const closed = Math.random() < state.shops_closed_rate;
+        const priceTag = !closed && state.price_pressure>0.3 && Math.random() < state.price_pressure;
+        retailState.set(`${x},${y}`, {closed, priceTag});
+      }
+    }
+
+    // ===== Rendering main =====
+    function
