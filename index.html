@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -81,8 +82,6 @@
       padding:8px 10px; border-radius:6px; font-size:0.9em; opacity:0; transition:opacity .15s;
     }
     .tooltip.visible{opacity:1}
-
-    /* --- Reasoning Bar --- */
     .reasoning-bar{
       background:#fff; border:1px solid #B0C4DE; border-radius:8px;
       padding:12px; margin:12px 0; font-size:0.9em
@@ -98,7 +97,6 @@
       display:inline-block; min-width:18px; text-align:center; font-weight:700;
       border:1px solid #4169E1; color:#4169E1; border-radius:4px; padding:0 3px; margin:0 4px
     }
-    /* --- Auto-links toggles --- */
     .autolinks{ display:grid; grid-template-columns: 1fr 1fr; gap:6px; margin:10px 0 6px }
     .autolinks label{ display:flex; gap:8px; align-items:center; font-size:0.86em }
   </style>
@@ -137,7 +135,6 @@
         <div style="margin-top:4px"><span id="quickStats">Capacity: --% | Closures: --% | Activity: --%</span></div>
       </div>
 
-      <!-- Auto-links (policy rules & stabilisers) -->
       <div class="control-group">
         <label>Auto-links (rules & stabilisers)</label>
         <div class="autolinks">
@@ -150,7 +147,6 @@
         <div style="font-size:0.8em;color:#666">Pedagogical links (not forecasts). Uncheck to disable coupling.</div>
       </div>
 
-      <!-- Reasoning Bar -->
       <div class="reasoning-bar">
         <header>
           <strong>Reasoning</strong>
@@ -240,36 +236,29 @@
   <div id="tooltip" class="tooltip"></div>
 
   <script>
-    // ===== Utilities =====
     const clamp = (lo, hi, x) => Math.max(lo, Math.min(hi, x));
     const lerp = (a,b,t) => a + (b-a)*t;
 
-    // ===== Academic-ish model params (stylized) =====
     const MODEL = {
-      potential_growth: 2.0,     // % y/y long-run
-      u_star: 5.0,               // NAIRU
-      pi_target: 2.0,            // inflation target
-      phillips_kappa: 0.30,      // Phillips slope (gap→inflation pressure)
-      exports_scale: 5.0,        // normalize exports growth
-      commodity_base: 120,       // neutral energy cost
-      commodity_norm: 100,       // agri tailwind scale
-
+      potential_growth: 2.0,
+      u_star: 5.0,
+      pi_target: 2.0,
+      phillips_kappa: 0.30,
+      exports_scale: 5.0,
+      commodity_base: 120,
+      commodity_norm: 100,
       closures_sens_u: 0.15,
       closures_sens_prices: 0.10,
       closures_offset_gap: 0.05,
-
       gap_sens_factory: 0.35,
       exports_sens_factory: 0.25,
       energy_sens_factory: 0.25,
-
       gap_sens_conf: 0.45,
       u_slack_sens_conf: 0.30,
-
       real_rate_housing_sens: 0.12,
       u_slack_sens_housing: 0.10
     };
 
-    // ===== Defaults & presets =====
     const DEFAULT_ECONOMY = {
       gdp_growth_pct: 1.8,
       unemployment_pct: 5.2,
@@ -302,44 +291,40 @@
       }
     };
 
-    // ===== Reasoning sources =====
     const REFS = [
       {id:'PHILLIPS_FED', label:'Phillips curve (St. Louis Fed explainer)', url:'https://www.stlouisfed.org/open-vault/2020/january/what-is-phillips-curve-why-flattened'},
       {id:'PHILLIPS_FOMC_2025', label:'Phillips curve remarks (Fed Board speech, 2025)', url:'https://www.federalreserve.gov/newsevents/speech/kugler20250220a.htm'},
       {id:'NAIRU_RBA', label:'NAIRU explainer (RBA)', url:'https://www.rba.gov.au/education/resources/explainers/nairu.html'},
-      {id:'OKUN_CLEVELAND', label:'Okun's law (Cleveland Fed commentary)', url:'https://www.clevelandfed.org/publications/economic-commentary/2012/ec-201208-an-unstable-okuns-law-not-the-best-rule-of-thumb'},
+      {id:'OKUN_CLEVELAND', label:'Okun\'s law (Cleveland Fed commentary)', url:'https://www.clevelandfed.org/publications/economic-commentary/2012/ec-201208-an-unstable-okuns-law-not-the-best-rule-of-thumb'},
       {id:'TAYLOR_1993', label:'Taylor (1993): Discretion vs Policy Rules', url:'https://web.stanford.edu/~johntayl/Onlinepaperscombinedbyyear/1993/Discretion_versus_Policy_Rules_in_Practice.pdf'},
       {id:'TAYLOR_ATL_FED', label:'Taylor rule (Atlanta Fed explainer)', url:'https://www.atlantafed.org/cqer/research/taylor-rule'},
       {id:'OECD_STABS', label:'OECD (2020): Automatic fiscal stabilisers', url:'https://www.oecd.org/content/dam/oecd/en/publications/reports/2020/12/automatic-fiscal-stabilisers-recent-evolution-and-policy-options-to-boost-their-effectiveness_7d1ca7ac/816b1b06-en.pdf'},
       {id:'ECB_STABS', label:'ECB (2020): Automatic stabilisers explainer', url:'https://www.ecb.europa.eu/press/economic-bulletin/articles/2020/html/ecb.ebart202006_03~3175750a6d.en.html'}
     ];
 
-    // ===== Auto-link settings (pedagogical couplings) =====
     const SETTINGS = {
-      autoOkun: true,        // GDP change nudges unemployment (Okun's law)
-      autoPhillips: true,    // Output gap/slack nudges inflation (Phillips/NAIRU)
-      autoTaylor: true,      // Inflation/output gap recommend i (Taylor rule)
-      autoOil: true,         // Commodity index nudges inflation (oil pass-through)
-      autoStab: true         // Automatic stabilisers cushion GDP shocks
+      autoOkun: true,
+      autoPhillips: true,
+      autoTaylor: true,
+      autoOil: true,
+      autoStab: true
     };
 
-    // Gentle classroom coefficients
     const COEFF = {
-      okun: -0.5,            // Δu ≈ -0.5 * Δ(growth)
-      phillipsBlend: 0.35,   // move π part-way toward target+κ·gap
-      oilPiPer10pts: 0.12,   // +0.12pp inflation per +10 commodity pts above base
-      taylor_rstar: 0.8,     // illustrative neutral real rate
+      okun: -0.5,
+      phillipsBlend: 0.35,
+      oilPiPer10pts: 0.12,
+      taylor_rstar: 0.8,
       taylor_phi_pi: 0.5,
       taylor_phi_y: 0.5,
-      stabiliserShare: 0.30  // cushion ~30% of negative gap
+      stabiliserShare: 0.30
     };
 
-    // ===== Canvas / layout =====
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
     const VILLAGE_WIDTH = 20, VILLAGE_HEIGHT = 15;
     let TILE_SIZE = 40;
-    let controlsWidth = 320; // Track controls width dynamically
+    let controlsWidth = 320;
 
     function resizeCanvas(){
       const sidebarWidth = controlsWidth;
@@ -350,7 +335,6 @@
       canvas.height = TILE_SIZE * VILLAGE_HEIGHT;
     }
 
-    // Resize handle functionality
     function initResizeHandle(){
       const resizeHandle = document.getElementById('resizeHandle');
       const controls = document.querySelector('.controls');
@@ -366,17 +350,12 @@
       document.addEventListener('mousemove', (e) => {
         if (!isResizing) return;
         
-        const rect = controls.getBoundingClientRect();
         const containerWidth = window.innerWidth;
         const newWidth = containerWidth - e.clientX;
-        
-        // Clamp width between min and max
         const clampedWidth = Math.max(250, Math.min(500, newWidth));
         
         controlsWidth = clampedWidth;
         controls.style.width = clampedWidth + 'px';
-        
-        // Trigger canvas resize
         resizeCanvas();
       });
 
@@ -388,11 +367,9 @@
         }
       });
 
-      // Handle window resize
       window.addEventListener('resize', resizeCanvas);
     }
 
-    // ===== Village grid =====
     const villageLayout = [
       ['farm','farm','farm','farm','road','housing','housing','housing','road','farm','farm','farm','farm','road','housing','housing','housing','housing','housing','housing'],
       ['farm','farm','farm','farm','road','housing','housing','housing','road','farm','farm','farm','farm','road','housing','housing','housing','housing','housing','housing'],
@@ -411,26 +388,21 @@
       ['farm','farm','farm','farm','housing','housing','housing','housing','road','retail','retail','retail','road','industry','industry','industry','industry','industry','industry','industry']
     ];
 
-    // Pre-index retail tiles for stable states
     const retailTiles = [];
     for(let y=0;y<VILLAGE_HEIGHT;y++){
       for(let x=0;x<VILLAGE_WIDTH;x++){
         if(villageLayout[y][x]==='retail'){ retailTiles.push({x,y}); }
       }
     }
-    // Per-tile retail state (stable until economy recompute)
-    const retailState = new Map(); // key "x,y" -> {closed:boolean, priceTag:boolean}
+    const retailState = new Map();
 
-    // ===== Macro model computation =====
     function computeEconomicState(e){
-      const gap_raw = e.gdp_growth_pct - MODEL.potential_growth;       // % points
-      const gap_norm = gap_raw / 4.0;                                   // ~[-0.5..+0.5]
+      const gap_raw = e.gdp_growth_pct - MODEL.potential_growth;
+      const gap_norm = gap_raw / 4.0;
       const u_slack = Math.max(0, e.unemployment_pct - MODEL.u_star) / 5.0;
-
       const pi_expected = MODEL.pi_target + MODEL.phillips_kappa * gap_raw;
       const supply_shock = Math.max(0, e.inflation_pct - pi_expected);
       const price_pressure = clamp(0,1,(e.inflation_pct - 4) / 8);
-
       const r_real = e.interest_rate_pct - e.inflation_pct;
       const exports_n = e.exports_pct_growth / MODEL.exports_scale;
       const energy_shock = Math.max(0,(e.commodity_index - MODEL.commodity_base)/60);
@@ -481,136 +453,11 @@
       };
     }
 
-    // ===== Reasoning / Auto-links helpers =====
-    function controlKeyFromId(id){
-      // map element id -> key in currentEconomy
-      return {
-        gdpGrowth:'gdp_growth_pct',
-        unemployment:'unemployment_pct',
-        inflation:'inflation_pct',
-        interestRate:'interest_rate_pct',
-        commodityIndex:'commodity_index',
-        exports:'exports_pct_growth',
-        shock:'shock'
-      }[id] || null;
-    }
-
-    function renderRefsPanel(){
-      if(!els.refsPanel) return;
-      if(els.refsPanel.dataset.rendered) return;
-      els.refsPanel.innerHTML = REFS.map((r,i)=>`
-        <div><span class="ref-tag">${i+1}</span>
-          <a href="${r.url}" target="_blank" rel="noopener">${r.label}</a>
-        </div>
-      `).join('');
-      els.refsPanel.dataset.rendered = '1';
-    }
-
-    // Track last user action for the reasoning bar
-    let lastAction = {kind:'init', control:null, old:null, value:null};
-
-    function applyAutoLinks(prev, cur){
-      const draft = {...cur};
-
-      // Output gap (vs potential)
-      const gapPrev = prev.gdp_growth_pct - MODEL.potential_growth;
-      const gapNow  = draft.gdp_growth_pct - MODEL.potential_growth;
-      const dGap    = gapNow - gapPrev;
-
-      // 1) Okun link: GDP growth down -> u up
-      if(SETTINGS.autoOkun && Math.abs(dGap) > 0.0001){
-        const du = COEFF.okun * dGap; // negative dGap -> +u
-        draft.unemployment_pct = clamp(2, 15, draft.unemployment_pct + du);
-      }
-
-      // 2) Phillips/NAIRU: move inflation toward π* + κ*gap
-      if(SETTINGS.autoPhillips){
-        const pi_star = MODEL.pi_target + MODEL.phillips_kappa * gapNow;
-        draft.inflation_pct = clamp(0, 12, lerp(draft.inflation_pct, pi_star, COEFF.phillipsBlend));
-      }
-
-      // 3) Oil pass-through: high commodities -> +π
-      if(SETTINGS.autoOil){
-        const over = Math.max(0, draft.commodity_index - MODEL.commodity_base);
-        const pi_add = (over/10) * (COEFF.oilPiPer10pts/10); // scaled
-        draft.inflation_pct = clamp(0, 12, draft.inflation_pct + pi_add);
-      }
-
-      // 4) Taylor rule: recommend i from π gap + output gap
-      if(SETTINGS.autoTaylor){
-        const pi_gap = draft.inflation_pct - MODEL.pi_target;
-        const i_taylor = COEFF.taylor_rstar + draft.inflation_pct
-                       + COEFF.taylor_phi_pi * pi_gap
-                       + COEFF.taylor_phi_y * gapNow;
-        draft.interest_rate_pct = clamp(0, 10, i_taylor);
-      }
-
-      // 5) Automatic stabilisers: cushion negative gaps (GDP)
-      if(SETTINGS.autoStab && gapNow < 0){
-        const cushion = -gapNow * COEFF.stabiliserShare; // lift toward potential
-        draft.gdp_growth_pct = clamp(-5, 8, draft.gdp_growth_pct + cushion);
-      }
-
-      return draft;
-    }
-
-    function buildReasoning(prev, cur, state){
-      const lines = [];
-      const gap = (cur.gdp_growth_pct - MODEL.potential_growth);
-      const realRate = (cur.interest_rate_pct - cur.inflation_pct);
-
-      if(lastAction.control){
-        const k = controlKeyFromId(lastAction.control);
-        const oldVal = (k && typeof prev[k] !== 'undefined') ? prev[k] : lastAction.old;
-        const newVal = (k && typeof cur[k] !== 'undefined') ? cur[k] : lastAction.value;
-        const fmt = (v)=> (typeof v==='number') ? v.toFixed(1) : String(v ?? '');
-        lines.push(`You adjusted <strong>${labelFor(lastAction.control)}</strong> from <em>${fmt(oldVal)}</em> to <em>${fmt(newVal)}</em>.`);
-      }
-
-      lines.push(`Output gap is <em>${gap.toFixed(1)}pp</em> vs potential (${MODEL.potential_growth}%). Phillips/NAIRU suggests inflation pressure moves with the gap <span class="ref-tag">1</span><span class="ref-tag">2</span><span class="ref-tag">3</span>. This maps to <em>price pressure</em> = ${(state.price_pressure*100|0)}% and influences shop closures.`);
-
-      if(SETTINGS.autoOkun){
-        lines.push(`Okun link nudged unemployment with growth changes (rule-of-thumb Δu ≈ −0.5·Δgrowth) <span class="ref-tag">4</span>. Higher slack lifts closures and lowers foot traffic.`);
-      }
-
-      if(SETTINGS.autoOil && cur.commodity_index > MODEL.commodity_base){
-        lines.push(`Commodity index above ${MODEL.commodity_base} raises costs (oil pass-through), nudging inflation upward <span class="ref-tag">1</span>.`);
-      }
-
-      if(SETTINGS.autoTaylor){
-        lines.push(`Taylor rule reacts to the inflation gap and output gap <span class="ref-tag">5</span><span class="ref-tag">6</span>. Hence policy rate ≈ ${cur.interest_rate_pct.toFixed(1)}%.`);
-      }
-
-      if(SETTINGS.autoStab && gap < 0){
-        lines.push(`Automatic stabilisers (taxes/benefits) cushion downturns without new legislation <span class="ref-tag">7</span><span class="ref-tag">8</span>. We partially offset the negative gap.`);
-      }
-
-      lines.push(`Real rate (i−π) is ${realRate.toFixed(1)}%. Higher real rates cool housing activity (more "SALE" signs).`);
-      lines.push(`Result: <em>Capacity</em> ${(state.factory_capacity*100|0)}%, <em>Closures</em> ${(state.shops_closed_rate*100|0)}%, <em>Activity</em> ${(state.citizen_activity*100|0)}%.`);
-
-      return lines;
-    }
-
-    function updateReasoningUI(prev, cur, state){
-      const items = buildReasoning(prev, cur, state).map(t=>`<li>${t}</li>`).join('');
-      els.reasoningList.innerHTML = items;
-    }
-
-    function labelFor(id){
-      return ({
-        gdpGrowth:'GDP Growth', unemployment:'Unemployment', inflation:'Inflation',
-        interestRate:'Interest Rate', commodityIndex:'Commodity Index', exports:'Exports Growth',
-        shock:'Shock'
-      })[id] || id;
-    }
-
-    // ===== State =====
     let currentEconomy = {...DEFAULT_ECONOMY};
     let computedState = {};
     let oldComputedState = {};
     let tweenProgress = 1, isTransitioning = false, animationFrame = 0;
 
-    // ===== Citizens =====
     let citizens = [];
     function initializeCitizens(){
       citizens.length = 0;
@@ -626,6 +473,7 @@
         });
       }
     }
+
     function drawCitizen(c,state){
       const sp = c.speed * state.citizen_activity;
       const dx = c.targetX - c.x, dy = c.targetY - c.y;
@@ -640,201 +488,105 @@
       c.frameTimer += sp;
       if(c.frameTimer > 10){ c.frame=(c.frame+1)%3; c.frameTimer=0; }
       ctx.fillStyle = ['#FF69B4','#87CEEB','#98FB98'][c.frame];
-      ctx.beginPath(); ctx.arc(Math.round(c.x), Math.round(c.y), 3, 0, Math.PI*2); ctx.fill();
-      if(c.frame===1){
-        ctx.strokeStyle='#654321'; ctx.lineWidth=1;
-        ctx.beginPath();
-        ctx.moveTo(c.x-2, c.y+3); ctx.lineTo(c.x-1, c.y+6);
-        ctx.moveTo(c.x+2, c.y+3); ctx.lineTo(c.x+1, c.y+6);
-        ctx.stroke();
-      }
-    }
-
-    // ===== Roads & Vehicles (tile graph) =====
-    const roadAt = (tx,ty) =>
-      ty>=0 && ty<VILLAGE_HEIGHT && tx>=0 && tx<VILLAGE_WIDTH && villageLayout[ty][tx]==='road';
-
-    function randomRoadTile(){
-      let tx,ty;
-      do{ tx = (Math.random()*VILLAGE_WIDTH)|0; ty=(Math.random()*VILLAGE_HEIGHT)|0; } while(!roadAt(tx,ty));
-      return {tx,ty};
-    }
-
-    let vehicles = [];
-    function initializeVehicles(){
-      vehicles.length = 0;
-      for(let i=0;i<7;i++){
-        const {tx,ty} = randomRoadTile();
-        vehicles.push({
-          tx,ty, x: tx*TILE_SIZE + TILE_SIZE/2, y: ty*TILE_SIZE + TILE_SIZE/2,
-          speed: 1 + Math.random()*1.8, type: Math.random()>0.5?'truck':'car', dir:null
-        });
-      }
-    }
-    function nextRoadStep(v){
-      const choices = [{dx:1,dy:0},{dx:-1,dy:0},{dx:0,dy:1},{dx:0,dy:-1}]
-        .filter(d=>roadAt(v.tx+d.dx, v.ty+d.dy));
-      v.dir = choices.length ? choices[(Math.random()*choices.length)|0] : {dx:0,dy:0};
-    }
-    function drawVehicle(v,state){
-      const sp = v.speed * (state.vehicle_activity || 1);
-      if(!v.dir) nextRoadStep(v);
-      const targetX = (v.tx+v.dir.dx)*TILE_SIZE + TILE_SIZE/2;
-      const targetY = (v.ty+v.dir.dy)*TILE_SIZE + TILE_SIZE/2;
-      const dx = targetX - v.x, dy = targetY - v.y;
-      const dist = Math.hypot(dx,dy);
-      if(dist <= sp){
-        v.tx += v.dir.dx; v.ty += v.dir.dy;
-        v.x = targetX; v.y = targetY; nextRoadStep(v);
-      }else{
-        v.x += (dx/dist)*sp; v.y += (dy/dist)*sp;
-      }
-      ctx.fillStyle = v.type==='truck' ? '#8B4513' : '#4169E1';
-      ctx.fillRect(Math.round(v.x-6), Math.round(v.y-3), 12, 6);
-      ctx.fillStyle='#000';
-      ctx.beginPath();
-      ctx.arc(v.x-4, v.y+3, 1.5, 0, Math.PI*2);
-      ctx.arc(v.x+4, v.y+3, 1.5, 0, Math.PI*2);
+      ctx.beginPath(); 
+      ctx.arc(Math.round(c.x), Math.round(c.y), 3, 0, Math.PI*2); 
       ctx.fill();
     }
 
-    // ===== Rendering helpers =====
     function drawTile(x,y,type,state){
       const px = x*TILE_SIZE, py = y*TILE_SIZE;
       switch(type){
         case 'road': {
-          ctx.fillStyle='#696969'; ctx.fillRect(px,py,TILE_SIZE,TILE_SIZE);
-          ctx.strokeStyle='#FFFF00'; ctx.lineWidth=2; ctx.setLineDash([5,5]);
-          if(x%2===0){ ctx.beginPath(); ctx.moveTo(px, py+TILE_SIZE/2); ctx.lineTo(px+TILE_SIZE, py+TILE_SIZE/2); ctx.stroke(); }
-          ctx.setLineDash([]); break;
+          ctx.fillStyle='#696969'; 
+          ctx.fillRect(px,py,TILE_SIZE,TILE_SIZE);
+          ctx.strokeStyle='#FFFF00'; 
+          ctx.lineWidth=2; 
+          ctx.setLineDash([5,5]);
+          if(x%2===0){ 
+            ctx.beginPath(); 
+            ctx.moveTo(px, py+TILE_SIZE/2); 
+            ctx.lineTo(px+TILE_SIZE, py+TILE_SIZE/2); 
+            ctx.stroke(); 
+          }
+          ctx.setLineDash([]); 
+          break;
         }
         case 'farm': {
           const prod = state.farm_productivity;
           const g = Math.floor(50 + prod*150);
-          ctx.fillStyle = `rgb(34,${g},34)`;
+          ctx.fillStyle = 'rgb(34,' + g + ',34)';
           ctx.fillRect(px,py,TILE_SIZE,TILE_SIZE);
-          ctx.strokeStyle = `rgb(0,${Math.floor(g*0.8)},0)`; ctx.lineWidth=1;
-          for(let i=0;i<4;i++){ ctx.beginPath(); ctx.moveTo(px, py+i*10+5); ctx.lineTo(px+TILE_SIZE, py+i*10+5); ctx.stroke(); }
-          if(prod>0.7 && ((x+y)%4===0)){ ctx.fillStyle='#DAA520'; ctx.fillRect(px+10, py+10, 8, 8); }
-          break;
-        }
-        case 'industry': {
-          ctx.fillStyle='#8B4513'; ctx.fillRect(px,py,TILE_SIZE,TILE_SIZE);
-          ctx.fillStyle='#A0A0A0'; ctx.fillRect(px+5, py+5, TILE_SIZE-10, TILE_SIZE-10);
-          if((x+y)%3===0){
-            ctx.fillStyle='#654321'; ctx.fillRect(px+15, py+2, 6, 15);
+          if(prod>0.7 && ((x+y)%4===0)){ 
+            ctx.fillStyle='#654321'; 
+            ctx.fillRect(px+15, py+2, 6, 15);
             const cap = state.factory_capacity;
             if(cap>0.3){
-              ctx.fillStyle = `rgba(128,128,128,${cap*0.7})`;
+              ctx.fillStyle = 'rgba(128,128,128,' + (cap*0.7) + ')';
               for(let i=0;i<Math.floor(cap*5);i++){
-                ctx.beginPath(); ctx.arc(px+18 + Math.random()*4, py - i*3, 2, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); 
+                ctx.arc(px+18 + Math.random()*4, py - i*3, 2, 0, Math.PI*2); 
+                ctx.fill();
               }
             }
           }
           break;
         }
         case 'retail': {
-          const key = `${x},${y}`;
+          const key = x + ',' + y;
           const rs = retailState.get(key) || {closed:false, priceTag:false};
           ctx.fillStyle = rs.closed ? '#654321' : '#228B22';
           ctx.fillRect(px,py,TILE_SIZE,TILE_SIZE);
           ctx.fillStyle = rs.closed ? '#8B4513' : '#32CD32';
           ctx.fillRect(px+3, py+3, TILE_SIZE-6, TILE_SIZE-6);
-          ctx.fillStyle = rs.closed ? '#4B0000' : '#006400';
-          ctx.fillRect(px + TILE_SIZE - 8, py + TILE_SIZE - 15, 5, 12);
           if(rs.closed){
-            ctx.fillStyle='#FFFF00'; ctx.fillRect(px+5, py+8, 12, 6);
-            ctx.fillStyle='#000'; ctx.font='8px Arial'; ctx.fillText('LEASE', px+6, py+12);
-          }else if(rs.priceTag){
-            ctx.fillStyle='#FF0000'; ctx.font='10px Arial';
-            ctx.fillText('↑', px+22, py+15); // price hike arrow
+            ctx.fillStyle='#FFFF00'; 
+            ctx.fillRect(px+5, py+8, 12, 6);
+            ctx.fillStyle='#000'; 
+            ctx.font='8px Arial'; 
+            ctx.fillText('LEASE', px+6, py+12);
           }
           break;
         }
         case 'housing': {
-          ctx.fillStyle='#DEB887'; ctx.fillRect(px,py,TILE_SIZE,TILE_SIZE);
-          ctx.fillStyle='#8B4513'; ctx.fillRect(px+8, py+8, TILE_SIZE-16, TILE_SIZE-16);
-          ctx.fillStyle='#CD853F';
-          ctx.beginPath();
-          ctx.moveTo(px+5, py+10); ctx.lineTo(px+TILE_SIZE/2, py+2); ctx.lineTo(px+TILE_SIZE-5, py+10);
-          ctx.closePath(); ctx.fill();
+          ctx.fillStyle='#DEB887'; 
+          ctx.fillRect(px,py,TILE_SIZE,TILE_SIZE);
+          ctx.fillStyle='#8B4513'; 
+          ctx.fillRect(px+8, py+8, TILE_SIZE-16, TILE_SIZE-16);
           if(state.housing_activity < 0.5 && Math.random() < (0.8 - state.housing_activity)){
-            ctx.fillStyle='#FFFF00'; ctx.fillRect(px+2, py+20, 10, 8);
-            ctx.fillStyle='#000'; ctx.font='6px Arial'; ctx.fillText('SALE', px+3, py+26);
+            ctx.fillStyle='#FFFF00'; 
+            ctx.fillRect(px+2, py+20, 10, 8);
+            ctx.fillStyle='#000'; 
+            ctx.font='6px Arial'; 
+            ctx.fillText('SALE', px+3, py+26);
           }
           break;
         }
         case 'square': {
-          ctx.fillStyle='#98FB98'; ctx.fillRect(px,py,TILE_SIZE,TILE_SIZE);
+          ctx.fillStyle='#98FB98'; 
+          ctx.fillRect(px,py,TILE_SIZE,TILE_SIZE);
           if(x===10 && y===5){
-            ctx.fillStyle='#4169E1'; ctx.beginPath();
-            ctx.arc(px + TILE_SIZE/2, py + TILE_SIZE/2, 8, 0, Math.PI*2); ctx.fill();
-            if(state.citizen_activity>0.8){
-              ctx.fillStyle='#87CEEB';
-              for(let i=0;i<3;i++){
-                ctx.beginPath();
-                ctx.arc(px + TILE_SIZE/2 + (Math.random()*10-5), py + TILE_SIZE/2 + (Math.random()*10-5), 1, 0, Math.PI*2);
-                ctx.fill();
-              }
-            }
-          }
-          if(state.citizen_activity>0.6 && ((x+y)%3===1)){
-            ctx.fillStyle='#DDA0DD'; ctx.fillRect(px+5, py+5, 12, 8);
-            ctx.fillStyle='#8B008B'; ctx.fillRect(px+6, py+6, 10, 6);
+            ctx.fillStyle='#4169E1'; 
+            ctx.beginPath();
+            ctx.arc(px + TILE_SIZE/2, py + TILE_SIZE/2, 8, 0, Math.PI*2); 
+            ctx.fill();
           }
           break;
         }
         default:
-          ctx.fillStyle='#90EE90'; ctx.fillRect(px,py,TILE_SIZE,TILE_SIZE);
+          ctx.fillStyle='#90EE90'; 
+          ctx.fillRect(px,py,TILE_SIZE,TILE_SIZE);
       }
     }
 
-    // ===== Tooltip/hover =====
-    const tooltip = document.getElementById('tooltip');
-    const hoveredTile = {x:-1,y:-1};
-    function showTooltip(x,y,html){ tooltip.innerHTML = html; tooltip.style.left=(x+10)+'px'; tooltip.style.top=(y+10)+'px'; tooltip.classList.add('visible'); }
-    function hideTooltip(){ tooltip.classList.remove('visible'); }
-    function tileTooltip(type,state){
-      const s=state, e=currentEconomy;
-      if(type==='farm')
-        return `<strong>Agriculture</strong><br>Productivity: ${(s.farm_productivity*100).toFixed(0)}%<br>${s.farm_productivity>0.7?'Commodity prices & exports help':'Mixed conditions'}`;
-      if(type==='industry')
-        return `<strong>Manufacturing</strong><br>Capacity: ${(s.factory_capacity*100).toFixed(0)}%<br>${s.factory_capacity>0.7?'Demand is strong':'Running lean'}`;
-      if(type==='retail')
-        return `<strong>Retail & Services</strong><br>Shops Closed: ${(s.shops_closed_rate*100).toFixed(0)}%<br>${s.shops_closed_rate>0.3?`Unemployment ${e.unemployment_pct.toFixed(1)}% is biting`:(s.price_pressure>0.3?'Prices rising dampen demand':'Healthy foot traffic')}`;
-      if(type==='housing')
-        return `<strong>Housing</strong><br>Activity: ${(s.housing_activity*100).toFixed(0)}%<br>${s.housing_activity<0.5?`High real rates (${(e.interest_rate_pct - e.inflation_pct).toFixed(1)}%)`:'Stable turnover'}`;
-      if(type==='square'){
-        const mood = s.citizen_activity>1.0?'Optimistic':(s.citizen_activity<0.6?'Pessimistic':'Cautious');
-        return `<strong>Town Square</strong><br>Mood: ${mood}`;
-      }
-      return `<strong>${type}</strong>`;
-    }
-
-    canvas.addEventListener('mousemove', (ev)=>{
-      const r = canvas.getBoundingClientRect();
-      const cx = ev.clientX - r.left, cy = ev.clientY - r.top;
-      const tx = Math.floor(cx / TILE_SIZE), ty = Math.floor(cy / TILE_SIZE);
-      hoveredTile.x = tx; hoveredTile.y = ty;
-      if(tx>=0 && tx<VILLAGE_WIDTH && ty>=0 && ty<VILLAGE_HEIGHT){
-        const t = villageLayout[ty][tx];
-        if(t!=='road'){ showTooltip(ev.clientX, ev.clientY, tileTooltip(t, getCurrentState())); }
-        else hideTooltip();
-      }else hideTooltip();
-    });
-    canvas.addEventListener('mouseleave', ()=>{ hoveredTile.x=-1; hoveredTile.y=-1; hideTooltip(); });
-
-    // ===== Retail stability =====
     function recomputeRetailState(state){
       retailState.clear();
-      for(const {x,y} of retailTiles){
+      for(const tile of retailTiles){
         const closed = Math.random() < state.shops_closed_rate;
         const priceTag = !closed && state.price_pressure>0.3 && Math.random() < state.price_pressure;
-        retailState.set(`${x},${y}`, {closed, priceTag});
+        retailState.set(tile.x + ',' + tile.y, {closed, priceTag});
       }
     }
 
-    // ===== Rendering main =====
     function getCurrentState(){
       if(!isTransitioning || tweenProgress>=1) return computedState;
       const cur = {};
@@ -852,55 +604,16 @@
       ctx.clearRect(0,0,canvas.width, canvas.height);
       const s = getCurrentState();
 
-      // Tiles
-      for(let y=0;y<VILLAGE_HEIGHT;y++)
-        for(let x=0;x<VILLAGE_WIDTH;x++)
+      for(let y=0;y<VILLAGE_HEIGHT;y++){
+        for(let x=0;x<VILLAGE_WIDTH;x++){
           drawTile(x,y,villageLayout[y][x], s);
-
-      // Citizens
-      const nC = Math.min(citizens.length, Math.floor(citizens.length * s.citizen_activity));
-      for(let i=0;i<nC;i++) drawCitizen(citizens[i], s);
-
-      // Vehicles
-      const nV = Math.min(vehicles.length, Math.floor(vehicles.length * (s.vehicle_activity||1)));
-      for(let i=0;i<nV;i++) drawVehicle(vehicles[i], s);
-
-      // Supply chain crates
-      if((s.warehouse_congestion||0) > 0.5){
-        ctx.fillStyle='#8B4513';
-        for(let y=0;y<VILLAGE_HEIGHT;y++)
-          for(let x=0;x<VILLAGE_WIDTH;x++)
-            if(villageLayout[y][x]==='industry' && ((x+y)%5===0)){
-              for(let i=0;i<3;i++) ctx.fillRect(x*TILE_SIZE + 20 + i*6, y*TILE_SIZE + 25, 5, 5);
-            }
-      }
-
-      // Confetti in booms
-      if(s.citizen_activity>1.2){
-        ctx.fillStyle='#FFD700';
-        for(let i=0;i<12;i++){
-          const rx = (Math.random()*canvas.width)|0, ry=(Math.random()*canvas.height)|0;
-          ctx.fillRect(rx, ry, 2, 2);
         }
       }
 
-      // Birds
-      const nB = Math.floor(s.citizen_activity*5);
-      ctx.strokeStyle='#000'; ctx.lineWidth=1;
-      for(let i=0;i<nB;i++){
-        const bx = (animationFrame*0.5 + i*50) % (canvas.width+50);
-        const by = 50 + Math.sin(animationFrame*0.01 + i)*20;
-        ctx.beginPath(); ctx.arc(bx,by,1,0,Math.PI*2); ctx.stroke();
-      }
-
-      // Hover highlight
-      if(hoveredTile.x>=0 && hoveredTile.y>=0){
-        const px = hoveredTile.x*TILE_SIZE, py=hoveredTile.y*TILE_SIZE;
-        ctx.strokeStyle='rgba(255,255,255,0.85)'; ctx.lineWidth=3; ctx.strokeRect(px,py,TILE_SIZE,TILE_SIZE);
-      }
+      const nC = Math.min(citizens.length, Math.floor(citizens.length * s.citizen_activity));
+      for(let i=0;i<nC;i++) drawCitizen(citizens[i], s);
     }
 
-    // ===== UI glue =====
     const els = {
       gdp: document.getElementById('gdpGrowth'),
       u: document.getElementById('unemployment'),
@@ -930,12 +643,7 @@
       btnReset: document.getElementById('btnReset'),
       reasoningList: document.getElementById('reasoningList'),
       refsPanel: document.getElementById('refsPanel'),
-      toggleRefs: document.getElementById('toggleRefs'),
-      autoOkun: document.getElementById('autoOkun'),
-      autoPhillips: document.getElementById('autoPhillips'),
-      autoTaylor: document.getElementById('autoTaylor'),
-      autoOil: document.getElementById('autoOil'),
-      autoStab: document.getElementById('autoStab')
+      toggleRefs: document.getElementById('toggleRefs')
     };
 
     function updateSliderDisplays(){
@@ -951,7 +659,8 @@
       oldComputedState = {...computedState};
       computedState = computeEconomicState(currentEconomy);
       recomputeRetailState(computedState);
-      tweenProgress = 0; isTransitioning = true;
+      tweenProgress = 0; 
+      isTransitioning = true;
       updateNarrative();
       updateDebugPanel();
     }
@@ -959,74 +668,41 @@
     function updateNarrative(){
       const s = computedState;
       let msg = 'Steady as she goes.';
-      if(s.citizen_activity>1.1) msg = `Boom time! Factory near ${(s.factory_capacity*100|0)}% capacity.`;
-      else if(s.citizen_activity<0.6) msg = `Tough times. ${(s.shops_closed_rate*100|0)}% shops shuttered; streets quiet.`;
-      else if(s.price_pressure>0.4) msg = `Inflation squeeze: retailers post price hikes; foot traffic softens.`;
-      else if(s.factory_capacity<0.4) msg = `Industrial slowdown: plants idling as demand weakens.`;
+      if(s.citizen_activity>1.1) msg = 'Boom time! Factory near ' + (s.factory_capacity*100|0) + '% capacity.';
+      else if(s.citizen_activity<0.6) msg = 'Tough times. ' + (s.shops_closed_rate*100|0) + '% shops shuttered; streets quiet.';
+      else if(s.price_pressure>0.4) msg = 'Inflation squeeze: retailers post price hikes; foot traffic softens.';
+      else if(s.factory_capacity<0.4) msg = 'Industrial slowdown: plants idling as demand weakens.';
       els.narrative.textContent = msg;
 
       els.statusSummary.textContent = s.citizen_activity>1.0 ? 'Booming' : (s.citizen_activity<0.6 ? 'Struggling' : 'Stable');
-      els.quickStats.textContent = `Capacity: ${(s.factory_capacity*100|0)}% | Closures: ${(s.shops_closed_rate*100|0)}% | Activity: ${(s.citizen_activity*100|0)}%`;
+      els.quickStats.textContent = 'Capacity: ' + (s.factory_capacity*100|0) + '% | Closures: ' + (s.shops_closed_rate*100|0) + '% | Activity: ' + (s.citizen_activity*100|0) + '%';
     }
 
     function updateDebugPanel(){
       const s = computedState;
       const lines = [
-        `shops_closed_rate: ${s.shops_closed_rate.toFixed(2)} (${(s.shops_closed_rate*100|0)}%)`,
-        `factory_capacity:  ${s.factory_capacity.toFixed(2)} (${(s.factory_capacity*100|0)}%)`,
-        `citizen_activity:  ${s.citizen_activity.toFixed(2)} (${(s.citizen_activity*100|0)}%)`,
-        `farm_productivity: ${s.farm_productivity.toFixed(2)} (${(s.farm_productivity*100|0)}%)`,
-        `housing_activity:  ${s.housing_activity.toFixed(2)} (${(s.housing_activity*100|0)}%)`,
-        `price_pressure:    ${s.price_pressure.toFixed(2)} (${(s.price_pressure*100|0)}%)`,
-        `shock_effect:      ${s.shock_effect}`,
-        ...(s.vehicle_activity!=null ? [`vehicle_activity:  ${s.vehicle_activity.toFixed(2)}`] : []),
-        ...(s.warehouse_congestion ? [`warehouse_congestion: ${s.warehouse_congestion.toFixed(2)}`] : [])
+        'shops_closed_rate: ' + s.shops_closed_rate.toFixed(2) + ' (' + (s.shops_closed_rate*100|0) + '%)',
+        'factory_capacity: ' + s.factory_capacity.toFixed(2) + ' (' + (s.factory_capacity*100|0) + '%)',
+        'citizen_activity: ' + s.citizen_activity.toFixed(2) + ' (' + (s.citizen_activity*100|0) + '%)',
+        'farm_productivity: ' + s.farm_productivity.toFixed(2) + ' (' + (s.farm_productivity*100|0) + '%)',
+        'housing_activity: ' + s.housing_activity.toFixed(2) + ' (' + (s.housing_activity*100|0) + '%)',
+        'price_pressure: ' + s.price_pressure.toFixed(2) + ' (' + (s.price_pressure*100|0) + '%)',
+        'shock_effect: ' + s.shock_effect
       ];
       els.debugStats.innerHTML = lines.join('<br>');
     }
 
-    // ===== Event wiring: Reasoning + Auto-links =====
-    els.toggleRefs.addEventListener('click', ()=>{
-      renderRefsPanel();
-      els.refsPanel.classList.toggle('open');
-    });
-
-    [els.autoOkun, els.autoPhillips, els.autoTaylor, els.autoOil, els.autoStab].forEach((box)=>{
-      box.addEventListener('change', ()=>{
-        SETTINGS.autoOkun = els.autoOkun.checked;
-        SETTINGS.autoPhillips = els.autoPhillips.checked;
-        SETTINGS.autoTaylor = els.autoTaylor.checked;
-        SETTINGS.autoOil = els.autoOil.checked;
-        SETTINGS.autoStab = els.autoStab.checked;
-        const prev = {...currentEconomy};
-        const withLinks = applyAutoLinks(prev, {...currentEconomy});
-        currentEconomy = withLinks;
-        // push values back to sliders
-        els.gdp.value = currentEconomy.gdp_growth_pct;
-        els.u.value = currentEconomy.unemployment_pct;
-        els.pi.value = currentEconomy.inflation_pct;
-        els.i.value = currentEconomy.interest_rate_pct;
-        els.com.value = currentEconomy.commodity_index;
-        els.ex.value = currentEconomy.exports_pct_growth;
-        updateEconomy();
-        updateSliderDisplays();
-        updateReasoningUI(prev, currentEconomy, computedState);
-      });
-    });
+    function renderRefsPanel(){
+      if(!els.refsPanel || els.refsPanel.dataset.rendered) return;
+      els.refsPanel.innerHTML = REFS.map((r,i) => 
+        '<div><span class="ref-tag">' + (i+1) + '</span>' +
+        '<a href="' + r.url + '" target="_blank" rel="noopener">' + r.label + '</a>' +
+        '</div>'
+      ).join('');
+      els.refsPanel.dataset.rendered = '1';
+    }
 
     function updateEconomyFromUI(ev){
-      const prev = {...currentEconomy};
-
-      // remember last action for reasoning
-      if(ev && ev.target){
-        const id = ev.target.id;
-        const key = controlKeyFromId(id);
-        lastAction.old = key ? prev[key] : null;
-        lastAction.value = (ev.target.type === 'range') ? parseFloat(ev.target.value)
-                           : (id==='shock' ? (ev.target.value || 'None') : ev.target.value);
-      }
-
-      // read UI
       currentEconomy.gdp_growth_pct      = parseFloat(els.gdp.value);
       currentEconomy.unemployment_pct    = parseFloat(els.u.value);
       currentEconomy.inflation_pct       = parseFloat(els.pi.value);
@@ -1034,34 +710,19 @@
       currentEconomy.commodity_index     = parseInt(els.com.value,10);
       currentEconomy.exports_pct_growth  = parseFloat(els.ex.value);
       currentEconomy.shock               = els.shock.value || null;
-
-      // apply couplings
-      const linked = applyAutoLinks(prev, currentEconomy);
-      currentEconomy = linked;
-
-      // push linked values back
-      els.gdp.value = currentEconomy.gdp_growth_pct;
-      els.u.value   = currentEconomy.unemployment_pct;
-      els.pi.value  = currentEconomy.inflation_pct;
-      els.i.value   = currentEconomy.interest_rate_pct;
-      els.com.value = currentEconomy.commodity_index;
-      els.ex.value  = currentEconomy.exports_pct_growth;
-
-      // recompute + UI
+      
       updateEconomy();
       updateSliderDisplays();
-      updateReasoningUI(prev, currentEconomy, computedState);
     }
 
-    // Hook inputs (capture which control changed)
-    [els.gdp,els.u,els.pi,els.i,els.com,els.ex].forEach(el=>{
+    [els.gdp,els.u,els.pi,els.i,els.com,els.ex].forEach(el => {
       el.addEventListener('input', updateEconomyFromUI);
     });
     els.shock.addEventListener('change', updateEconomyFromUI);
 
-    // ===== Presets & buttons =====
     function applyPreset(name){
-      const p = PRESETS[name]; if(!p) return;
+      const p = PRESETS[name]; 
+      if(!p) return;
       currentEconomy = {...p};
       els.gdp.value = p.gdp_growth_pct;
       els.u.value   = p.unemployment_pct;
@@ -1071,9 +732,10 @@
       els.ex.value  = p.exports_pct_growth;
       els.shock.value = p.shock || '';
       els.scenarioTip.textContent = p.tip;
-      updateEconomy(); updateSliderDisplays();
-      updateReasoningUI(currentEconomy, currentEconomy, computedState);
+      updateEconomy(); 
+      updateSliderDisplays();
     }
+
     function resetEconomy(){
       currentEconomy = {...DEFAULT_ECONOMY};
       els.gdp.value = DEFAULT_ECONOMY.gdp_growth_pct;
@@ -1084,52 +746,54 @@
       els.ex.value  = DEFAULT_ECONOMY.exports_pct_growth;
       els.shock.value = '';
       els.scenarioTip.textContent = 'Select a preset to see different economic scenarios play out!';
-      updateEconomy(); updateSliderDisplays();
-      updateReasoningUI(currentEconomy, currentEconomy, computedState);
+      updateEconomy(); 
+      updateSliderDisplays();
     }
 
-    els.presetBoom.addEventListener('click', ()=>applyPreset('boom'));
-    els.presetRecession.addEventListener('click', ()=>applyPreset('recession'));
-    els.presetStagflation.addEventListener('click', ()=>applyPreset('stagflation'));
+    els.presetBoom.addEventListener('click', () => applyPreset('boom'));
+    els.presetRecession.addEventListener('click', () => applyPreset('recession'));
+    els.presetStagflation.addEventListener('click', () => applyPreset('stagflation'));
     els.btnReset.addEventListener('click', resetEconomy);
 
-    // ===== Debug and Glossary toggles =====
-    els.debugBtn.addEventListener('click', ()=>{ els.debugContent.classList.toggle('open'); });
-    els.glossaryBtn.addEventListener('click', ()=>{ els.glossary.classList.toggle('open'); });
+    els.debugBtn.addEventListener('click', () => { 
+      els.debugContent.classList.toggle('open'); 
+    });
+    els.glossaryBtn.addEventListener('click', () => { 
+      els.glossary.classList.toggle('open'); 
+    });
+    els.toggleRefs.addEventListener('click', () => {
+      renderRefsPanel();
+      els.refsPanel.classList.toggle('open');
+    });
 
-    // ===== Animation =====
     function animate(){
       animationFrame++;
       if(isTransitioning){
         tweenProgress += 0.03;
-        if(tweenProgress>=1){ tweenProgress=1; isTransitioning=false; }
+        if(tweenProgress>=1){ 
+          tweenProgress=1; 
+          isTransitioning=false; 
+        }
       }
       render();
       requestAnimationFrame(animate);
     }
 
-    // ===== Init =====
     function init(){
       resizeCanvas();
-      initResizeHandle(); // Initialize resize functionality
+      initResizeHandle();
       initializeCitizens();
-      initializeVehicles();
       computedState = computeEconomicState(currentEconomy);
       recomputeRetailState(computedState);
       updateSliderDisplays();
       updateNarrative();
       updateDebugPanel();
-      // Reasoning init
       renderRefsPanel();
       els.refsPanel.classList.remove('open');
-      updateReasoningUI(currentEconomy, currentEconomy, computedState);
-      // start
       requestAnimationFrame(animate);
     }
 
-    // Boot
     init();
   </script>
 </body>
-</html>.control = id;
-        lastAction
+</html>
