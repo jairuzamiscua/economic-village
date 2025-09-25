@@ -33,8 +33,21 @@
     .legend-item{display:flex; align-items:center; gap:8px; margin:4px 0}
     .legend-icon{width:16px; height:16px; border:1px solid #666}
     .controls{
-      width:320px; background:rgba(255,255,255,0.96);
+      width:320px; min-width:250px; max-width:500px; background:rgba(255,255,255,0.96);
       padding:18px 20px; border-left:2px solid #8B4513; overflow-y:auto;
+      position:relative;
+    }
+    .resize-handle{
+      position:absolute; left:0; top:0; bottom:0; width:6px;
+      background:linear-gradient(90deg, transparent, #8B4513, transparent);
+      cursor:col-resize; z-index:20;
+    }
+    .resize-handle:hover{
+      background:linear-gradient(90deg, transparent, #4169E1, transparent);
+    }
+    .resize-handle::before{
+      content:''; position:absolute; left:2px; top:50%; transform:translateY(-50%);
+      width:2px; height:30px; background:#8B4513; border-radius:1px;
     }
     .preset-buttons{display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:14px}
     button{
@@ -107,6 +120,7 @@
     </div>
 
     <aside class="controls">
+      <div class="resize-handle" id="resizeHandle"></div>
       <h2 style="text-align:center; color:#2E8B57; margin-bottom:12px">Economic Controls</h2>
 
       <div class="preset-buttons">
@@ -293,7 +307,7 @@
       {id:'PHILLIPS_FED', label:'Phillips curve (St. Louis Fed explainer)', url:'https://www.stlouisfed.org/open-vault/2020/january/what-is-phillips-curve-why-flattened'},
       {id:'PHILLIPS_FOMC_2025', label:'Phillips curve remarks (Fed Board speech, 2025)', url:'https://www.federalreserve.gov/newsevents/speech/kugler20250220a.htm'},
       {id:'NAIRU_RBA', label:'NAIRU explainer (RBA)', url:'https://www.rba.gov.au/education/resources/explainers/nairu.html'},
-      {id:'OKUN_CLEVELAND', label:'Okun’s law (Cleveland Fed commentary)', url:'https://www.clevelandfed.org/publications/economic-commentary/2012/ec-201208-an-unstable-okuns-law-not-the-best-rule-of-thumb'},
+      {id:'OKUN_CLEVELAND', label:'Okun's law (Cleveland Fed commentary)', url:'https://www.clevelandfed.org/publications/economic-commentary/2012/ec-201208-an-unstable-okuns-law-not-the-best-rule-of-thumb'},
       {id:'TAYLOR_1993', label:'Taylor (1993): Discretion vs Policy Rules', url:'https://web.stanford.edu/~johntayl/Onlinepaperscombinedbyyear/1993/Discretion_versus_Policy_Rules_in_Practice.pdf'},
       {id:'TAYLOR_ATL_FED', label:'Taylor rule (Atlanta Fed explainer)', url:'https://www.atlantafed.org/cqer/research/taylor-rule'},
       {id:'OECD_STABS', label:'OECD (2020): Automatic fiscal stabilisers', url:'https://www.oecd.org/content/dam/oecd/en/publications/reports/2020/12/automatic-fiscal-stabilisers-recent-evolution-and-policy-options-to-boost-their-effectiveness_7d1ca7ac/816b1b06-en.pdf'},
@@ -325,16 +339,58 @@
     const ctx = canvas.getContext('2d');
     const VILLAGE_WIDTH = 20, VILLAGE_HEIGHT = 15;
     let TILE_SIZE = 40;
+    let controlsWidth = 320; // Track controls width dynamically
 
     function resizeCanvas(){
-      const sidebarWidth = 320;
+      const sidebarWidth = controlsWidth;
       const w = Math.max(520, window.innerWidth - sidebarWidth - 24);
       const h = Math.max(420, window.innerHeight - 24);
       TILE_SIZE = Math.floor(Math.min(w / VILLAGE_WIDTH, h / VILLAGE_HEIGHT));
       canvas.width = TILE_SIZE * VILLAGE_WIDTH;
       canvas.height = TILE_SIZE * VILLAGE_HEIGHT;
     }
-    window.addEventListener('resize', resizeCanvas);
+
+    // Resize handle functionality
+    function initResizeHandle(){
+      const resizeHandle = document.getElementById('resizeHandle');
+      const controls = document.querySelector('.controls');
+      let isResizing = false;
+
+      resizeHandle.addEventListener('mousedown', (e) => {
+        isResizing = true;
+        document.body.style.cursor = 'col-resize';
+        document.body.style.userSelect = 'none';
+        e.preventDefault();
+      });
+
+      document.addEventListener('mousemove', (e) => {
+        if (!isResizing) return;
+        
+        const rect = controls.getBoundingClientRect();
+        const containerWidth = window.innerWidth;
+        const newWidth = containerWidth - e.clientX;
+        
+        // Clamp width between min and max
+        const clampedWidth = Math.max(250, Math.min(500, newWidth));
+        
+        controlsWidth = clampedWidth;
+        controls.style.width = clampedWidth + 'px';
+        
+        // Trigger canvas resize
+        resizeCanvas();
+      });
+
+      document.addEventListener('mouseup', () => {
+        if (isResizing) {
+          isResizing = false;
+          document.body.style.cursor = '';
+          document.body.style.userSelect = '';
+        }
+      });
+
+      // Handle window resize
+      window.addEventListener('resize', resizeCanvas);
+    }
 
     // ===== Village grid =====
     const villageLayout = [
@@ -529,7 +585,7 @@
         lines.push(`Automatic stabilisers (taxes/benefits) cushion downturns without new legislation <span class="ref-tag">7</span><span class="ref-tag">8</span>. We partially offset the negative gap.`);
       }
 
-      lines.push(`Real rate (i−π) is ${realRate.toFixed(1)}%. Higher real rates cool housing activity (more “SALE” signs).`);
+      lines.push(`Real rate (i−π) is ${realRate.toFixed(1)}%. Higher real rates cool housing activity (more "SALE" signs).`);
       lines.push(`Result: <em>Capacity</em> ${(state.factory_capacity*100|0)}%, <em>Closures</em> ${(state.shops_closed_rate*100|0)}%, <em>Activity</em> ${(state.citizen_activity*100|0)}%.`);
 
       return lines;
@@ -872,7 +928,6 @@
       presetRecession: document.getElementById('presetRecession'),
       presetStagflation: document.getElementById('presetStagflation'),
       btnReset: document.getElementById('btnReset'),
-      // new:
       reasoningList: document.getElementById('reasoningList'),
       refsPanel: document.getElementById('refsPanel'),
       toggleRefs: document.getElementById('toggleRefs'),
@@ -966,7 +1021,6 @@
       if(ev && ev.target){
         const id = ev.target.id;
         const key = controlKeyFromId(id);
-        lastAction.control = id;
         lastAction.old = key ? prev[key] : null;
         lastAction.value = (ev.target.type === 'range') ? parseFloat(ev.target.value)
                            : (id==='shock' ? (ev.target.value || 'None') : ev.target.value);
@@ -1039,8 +1093,11 @@
     els.presetStagflation.addEventListener('click', ()=>applyPreset('stagflation'));
     els.btnReset.addEventListener('click', resetEconomy);
 
+    // ===== Debug and Glossary toggles =====
+    els.debugBtn.addEventListener('click', ()=>{ els.debugContent.classList.toggle('open'); });
+    els.glossaryBtn.addEventListener('click', ()=>{ els.glossary.classList.toggle('open'); });
+
     // ===== Animation =====
-    function getCurrentStateSafely(){ return getCurrentState(); }
     function animate(){
       animationFrame++;
       if(isTransitioning){
@@ -1054,6 +1111,7 @@
     // ===== Init =====
     function init(){
       resizeCanvas();
+      initResizeHandle(); // Initialize resize functionality
       initializeCitizens();
       initializeVehicles();
       computedState = computeEconomicState(currentEconomy);
@@ -1073,4 +1131,5 @@
     init();
   </script>
 </body>
-</html>
+</html>.control = id;
+        lastAction
