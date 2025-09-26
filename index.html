@@ -131,6 +131,7 @@
         <div class="legend-item"><div class="legend-icon" style="background:#8B4513"></div><span>Closed Shop</span></div>
         <div class="legend-item"><div class="legend-icon" style="background:#B0B0B0"></div><span>Factory Smoke</span></div>
         <div class="legend-item"><div class="legend-icon" style="background:#32CD32"></div><span>Healthy Crops</span></div>
+        <div class="legend-item"><div class="legend-icon" style="background:linear-gradient(90deg,#d9534f,#5cb85c)"></div><span>GDP Growth Meter</span></div>
       </div>
     </div>
 
@@ -456,7 +457,7 @@
       // Manufacturing
       const export_boost = economy.exports_pct_growth / 5.0;
       const energy_drag = commodity_shock * MODEL.factory_sens_energy;
-      const factory_capacity = clamp(0.2, 1.0,
+      let factory_capacity = clamp(0.2, 1.0,
         MODEL.factory_base + 
         MODEL.factory_sens_gap * (output_gap / 4) +
         MODEL.factory_sens_exports * export_boost -
@@ -464,7 +465,7 @@
       );
 
       // Housing
-      const housing_activity = clamp(0.2, 1.0,
+      let housing_activity = clamp(0.2, 1.0,
         MODEL.housing_base - 
         MODEL.housing_sens_real_rate * Math.max(0, real_rate / 2) -
         MODEL.housing_sens_unemployment * unemployment_pressure
@@ -868,6 +869,93 @@
       ctx.fill();
     }
 
+    // ===== GDP Growth Meter (Canvas overlay) =====
+    function drawGDPGauge(economy, state){
+      const x=12, y=12, w=180, h=90;
+      ctx.save();
+      // Panel
+      ctx.fillStyle='rgba(255,255,255,0.92)';
+      ctx.strokeStyle='#2E8B57'; ctx.lineWidth=2;
+      roundRect(ctx,x,y,w,h,8,true,true);
+
+      // Title
+      ctx.fillStyle='#2E8B57'; ctx.font='bold 12px Arial';
+      ctx.fillText('GDP Growth Meter', x+10, y+18);
+
+      // Scale
+      const min=-5, max=8;
+      const barX=x+10, barY=y+30, barW=w-20, barH=18;
+
+      // Gradient: red → green
+      const grad = ctx.createLinearGradient(barX,0,barX+barW,0);
+      grad.addColorStop(0,'#d9534f');  // negative growth
+      grad.addColorStop((0 - min)/(max - min),'#f0ad4e'); // around 0
+      grad.addColorStop((MODEL.potential_growth - min)/(max - min),'#5bc0de'); // potential marker zone
+      grad.addColorStop(1,'#5cb85c');  // high positive
+
+      // Bar background
+      ctx.fillStyle='#f1f1f1'; ctx.fillRect(barX,barY,barW,barH);
+      ctx.fillStyle=grad;
+
+      // Current value fill
+      const g = clamp(min,max,economy.gdp_growth_pct);
+      const ratio = (g - min)/(max - min);
+      ctx.fillRect(barX,barY,barW*ratio,barH);
+
+      // Zero line
+      const zeroR = (0 - min)/(max - min);
+      ctx.strokeStyle='rgba(0,0,0,0.35)';
+      ctx.beginPath(); ctx.moveTo(barX+barW*zeroR, barY-2); ctx.lineTo(barX+barW*zeroR, barY+barH+2); ctx.stroke();
+
+      // Potential line
+      const potR = (MODEL.potential_growth - min)/(max - min);
+      ctx.strokeStyle='#2E8B57'; ctx.setLineDash([3,2]);
+      ctx.beginPath(); ctx.moveTo(barX+barW*potR, barY-2); ctx.lineTo(barX+barW*potR, barY+barH+2); ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Labels
+      ctx.fillStyle='#333'; ctx.font='11px Arial';
+      ctx.fillText(`${min}%`, barX, barY+barH+14);
+      ctx.fillText('0%', barX+barW*zeroR-8, barY+barH+14);
+      ctx.fillText(`${max}%`, barX+barW-22, barY+barH+14);
+
+      // Values row
+      const gap = economy.gdp_growth_pct - MODEL.potential_growth;
+      ctx.font='bold 12px Arial';
+      ctx.fillStyle = gap >= 0 ? '#0b7a2a' : '#8b1a1a';
+      ctx.fillText(`Growth: ${economy.gdp_growth_pct.toFixed(1)}%`, x+10, y+66);
+      ctx.fillStyle='#2E4B8C';
+      ctx.fillText(`Potential: ${MODEL.potential_growth.toFixed(1)}%`, x+10, y+82);
+      ctx.fillStyle = gap >= 0 ? '#0b7a2a' : '#8b1a1a';
+      ctx.fillText(`Output gap: ${gap.toFixed(1)}pp`, x+110, y+82);
+
+      ctx.restore();
+    }
+
+    function roundRect(ctx, x, y, width, height, radius, fill, stroke) {
+      if (typeof stroke === 'undefined') stroke = true;
+      if (typeof radius === 'undefined') radius = 5;
+      if (typeof radius === 'number') {
+        radius = {tl: radius, tr: radius, br: radius, bl: radius};
+      } else {
+        const defaultRadius = {tl: 0, tr: 0, br: 0, bl: 0};
+        for (let side in defaultRadius) radius[side] = radius[side] || defaultRadius[side];
+      }
+      ctx.beginPath();
+      ctx.moveTo(x + radius.tl, y);
+      ctx.lineTo(x + width - radius.tr, y);
+      ctx.quadraticCurveTo(x + width, y, x + width, y + radius.tr);
+      ctx.lineTo(x + width, y + height - radius.br);
+      ctx.quadraticCurveTo(x + width, y + height, x + width - radius.br, y + height);
+      ctx.lineTo(x + radius.bl, y + height);
+      ctx.quadraticCurveTo(x, y + height, x, y + height - radius.bl);
+      ctx.lineTo(x, y + radius.tl);
+      ctx.quadraticCurveTo(x, y, x + radius.tl, y);
+      ctx.closePath();
+      if (fill) ctx.fill();
+      if (stroke) ctx.stroke();
+    }
+
     // ===== Rendering =====
     function drawTile(x,y,type,state){
       const px = x*TILE_SIZE, py = y*TILE_SIZE;
@@ -1058,6 +1146,9 @@
         const px = hoveredTile.x*TILE_SIZE, py=hoveredTile.y*TILE_SIZE;
         ctx.strokeStyle='rgba(255,255,255,0.85)'; ctx.lineWidth=3; ctx.strokeRect(px,py,TILE_SIZE,TILE_SIZE);
       }
+
+      // === GDP Gauge overlay ===
+      drawGDPGauge(currentEconomy, s);
     }
 
     // ===== UI Elements =====
@@ -1206,7 +1297,6 @@
         SETTINGS.autoOil = els.autoOil.checked;
         SETTINGS.autoStab = els.autoStab.checked;
 
-        // In observer mode, don't immediately re-link everything; just note the change.
         lastUserAction = { control: 'autolinks', oldValue: 'manual', newValue: 'linked toggled' };
         updateEconomy();
         updateSliderDisplays();
@@ -1238,7 +1328,7 @@
         };
       }
 
-      // Read current UI values directly (observer: sliders set levels; links will act when stepping)
+      // Read current UI values directly
       currentEconomy.gdp_growth_pct = parseFloat(els.gdp.value);
       currentEconomy.unemployment_pct = parseFloat(els.u.value);
       currentEconomy.inflation_pct = parseFloat(els.pi.value);
@@ -1247,7 +1337,6 @@
       currentEconomy.exports_pct_growth = parseFloat(els.ex.value);
       currentEconomy.shock = els.shock.value || null;
 
-      // No applyAutoLinks here; stepping applies links gradually.
       updateEconomy();
       updateSliderDisplays();
     }
