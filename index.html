@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>EconoVille – Enhanced Macroeconomic Village Simulator</title>
+  <title>EconoVille – Enhanced Macroeconomic Village Simulator (Observer Mode with Time & Lags)</title>
   <style>
     *{margin:0;padding:0;box-sizing:border-box}
     body{
@@ -108,6 +108,14 @@
     .impact-positive{ background:#90EE90; color:#006400 }
     .impact-negative{ background:#FFB6C1; color:#8B0000 }
     .impact-neutral{ background:#F0F0F0; color:#666 }
+
+    /* === Observer mode UI bits === */
+    .grid-2{ display:grid; grid-template-columns:1fr 1fr; gap:8px }
+    .mini{ font-size:0.85em; color:#555 }
+    .sparklines{ display:grid; grid-template-columns:1fr; gap:8px }
+    .spark-card{ background:#fff; border:1px solid #e6e6e6; border-radius:6px; padding:6px }
+    .spark-title{ font-weight:bold; margin-bottom:4px; color:#2E8B57 }
+    .spark{ width:100%; height:60px; }
   </style>
 </head>
 <body>
@@ -137,6 +145,54 @@
       </div>
 
       <div class="scenario-tip" id="scenarioTip">Select a preset to see different economic scenarios play out!</div>
+
+      <!-- ==== Observer Mode: Time & History ==== -->
+      <div class="control-group">
+        <label>Simulation (Observer)</label>
+        <div class="grid-2">
+          <button id="simPlay"  type="button">▶ Run</button>
+          <button id="simPause" type="button">⏸ Pause</button>
+        </div>
+        <div class="grid-2" style="margin-top:8px">
+          <button id="simStep"  type="button">+ 1 Step</button>
+          <select id="timeScale">
+            <option value="month" selected>Monthly</option>
+            <option value="quarter">Quarterly</option>
+          </select>
+        </div>
+        <div class="hstack" style="margin-top:8px; display:flex; align-items:center; gap:10px">
+          <span>Speed</span>
+          <input id="simSpeed" type="range" min="1" max="5" step="1" value="2" style="flex:1"/>
+          <span id="simSpeedValue" class="value-display">2x</span>
+        </div>
+        <div class="mini" style="margin-top:6px">
+          Time: <strong id="simClock">Year 0, Month 0</strong> &nbsp;•&nbsp; Changes propagate gradually to show lags.
+        </div>
+      </div>
+
+      <div class="debug-panel">
+        <button id="historyBtn" class="debug-toggle">History (last ~10 years)</button>
+        <div id="historyContent" class="debug-content">
+          <div class="sparklines">
+            <div class="spark-card">
+              <div class="spark-title">GDP growth (y/y, %)</div>
+              <canvas id="chartGDP" class="spark" width="340" height="60"></canvas>
+            </div>
+            <div class="spark-card">
+              <div class="spark-title">Inflation (y/y, %)</div>
+              <canvas id="chartInfl" class="spark" width="340" height="60"></canvas>
+            </div>
+            <div class="spark-card">
+              <div class="spark-title">Unemployment (%)</div>
+              <canvas id="chartUnemp" class="spark" width="340" height="60"></canvas>
+            </div>
+            <div class="spark-card">
+              <div class="spark-title">Policy rate (%)</div>
+              <canvas id="chartRate" class="spark" width="340" height="60"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
 
       <div class="status-row">
         <div><strong>Status:</strong> <span id="statusSummary">Economy loading...</span></div>
@@ -246,45 +302,44 @@
   <div id="tooltip" class="tooltip"></div>
 
   <script>
-    // ===== Enhanced Economic Model =====
+    // ===== Helpers =====
     const clamp = (lo, hi, x) => Math.max(lo, Math.min(hi, x));
     const lerp = (a,b,t) => a + (b-a)*t;
 
+    // ===== Model Params =====
     const MODEL = {
       potential_growth: 2.0,     // % y/y long-run
       u_star: 5.0,               // NAIRU
       pi_target: 2.0,            // inflation target
-      phillips_kappa: 0.40,      // Phillips slope (stronger coupling)
-      okun_beta: -0.5,           // (legacy, no longer used in upgraded Okun)
+      phillips_kappa: 0.40,      // Phillips slope
+      okun_beta: -0.5,           // Okun's coefficient (Δu = β Δgap)
       taylor_phi_pi: 1.5,        // Taylor rule inflation response
       taylor_phi_y: 0.5,         // Taylor rule output gap response
       taylor_rstar: 1.0,         // neutral real rate
 
-      // --- New: expectations, lags, smoothing ---
-      exp_weight: 0.7,       // weight on last-period inflation in expectations
-      okun_gamma: 0.35,      // unemployment response per 1pp output gap (per tick)
-      pi_inertia: 0.5,       // inflation inertia towards Phillips target
-      policy_smoothing: 0.7, // interest-rate inertia in Taylor adjustment
-      
-      // Enhanced sectoral sensitivities
-      closures_sens_u: 0.20,        // unemployment impact on shop closures
-      closures_sens_prices: 0.15,   // price pressure impact
-      closures_base_u: 0.05,        // baseline closure rate at full employment
-      
-      factory_sens_gap: 0.45,       // output gap sensitivity
-      factory_sens_exports: 0.30,   // export growth impact
-      factory_sens_energy: 0.25,    // energy cost impact
-      factory_base: 0.65,           // baseline capacity utilization
-      
-      housing_sens_real_rate: 0.15, // real interest rate sensitivity
-      housing_sens_unemployment: 0.12, // unemployment impact
-      housing_base: 0.80,           // baseline housing activity
-      
-      commodity_oil_passthrough: 0.15, // commodity → inflation
-      auto_stabilizer_strength: 0.35,  // fiscal cushioning
+      // Sectoral sensitivities
+      closures_sens_u: 0.20,
+      closures_sens_prices: 0.15,
+      closures_base_u: 0.05,
+
+      factory_sens_gap: 0.45,
+      factory_sens_exports: 0.30,
+      factory_sens_energy: 0.25,
+      factory_base: 0.65,
+
+      housing_sens_real_rate: 0.15,
+      housing_sens_unemployment: 0.12,
+      housing_base: 0.80,
+
+      commodity_oil_passthrough: 0.15,
+      auto_stabilizer_strength: 0.35,
+
+      // Observer mode gradual adjustment + expectations
+      adj: { gdp:0.25, u:0.30, pi:0.30, i:0.60, cap:0.35, house:0.30, conf:0.30 },
+      exp_weight: 0.6,
     };
 
-    // Enhanced reasoning sources with more academic rigor
+    // Enhanced reasoning sources
     const REFS = [
       {id:'PHILLIPS_FED', label:'Phillips curve relationship (Federal Reserve)', url:'https://www.stlouisfed.org/open-vault/2020/january/what-is-phillips-curve-why-flattened'},
       {id:'NAIRU_CONCEPT', label:'NAIRU and inflation dynamics (RBA)', url:'https://www.rba.gov.au/education/resources/explainers/nairu.html'},
@@ -326,10 +381,10 @@
       }
     };
 
-    // Enhanced auto-link settings
+    // Auto-link settings
     const SETTINGS = {
       autoOkun: true,
-      autoPhillips: true, 
+      autoPhillips: true,
       autoTaylor: true,
       autoOil: true,
       autoStab: true
@@ -379,19 +434,17 @@
     }
     const retailState = new Map();
 
-    // ===== Enhanced Economic Model Computation =====
+    // ===== Economic Model Computation =====
     function computeEconomicState(economy) {
-      // Step 1: Calculate fundamental economic measures
       const output_gap = economy.gdp_growth_pct - MODEL.potential_growth;
       const unemployment_gap = economy.unemployment_pct - MODEL.u_star;
       const inflation_gap = economy.inflation_pct - MODEL.pi_target;
       const real_rate = economy.interest_rate_pct - economy.inflation_pct;
-      
-      // Step 2: Supply shock analysis
+
       const commodity_shock = Math.max(0, (economy.commodity_index - 120) / 40);
       const supply_shock_inflation = commodity_shock * MODEL.commodity_oil_passthrough;
-      
-      // Step 3: Sectoral impacts with enhanced sensitivity
+
+      // Retail sector
       const price_pressure = Math.max(0, (economy.inflation_pct - 4) / 8);
       const unemployment_pressure = Math.max(0, unemployment_gap / 5);
       const shops_closed_rate = clamp(0, 0.9,
@@ -399,8 +452,8 @@
         MODEL.closures_sens_u * unemployment_pressure +
         MODEL.closures_sens_prices * price_pressure
       );
-      
-      // Manufacturing: output gap, exports, and energy costs
+
+      // Manufacturing
       const export_boost = economy.exports_pct_growth / 5.0;
       const energy_drag = commodity_shock * MODEL.factory_sens_energy;
       const factory_capacity = clamp(0.2, 1.0,
@@ -409,195 +462,119 @@
         MODEL.factory_sens_exports * export_boost -
         energy_drag
       );
-      
-      // Housing: real rates and unemployment
+
+      // Housing
       const housing_activity = clamp(0.2, 1.0,
         MODEL.housing_base - 
         MODEL.housing_sens_real_rate * Math.max(0, real_rate / 2) -
         MODEL.housing_sens_unemployment * unemployment_pressure
       );
-      
-      // Consumer confidence and activity
+
+      // Confidence
       const citizen_activity = clamp(0.3, 1.5,
         1.0 + 0.4 * (output_gap / 4) - 0.3 * unemployment_pressure
       );
-      
-      // Agricultural productivity
+
+      // Agriculture
       const farm_productivity = clamp(0.2, 1.0,
         0.6 + 0.3 * export_boost + 0.1 * (commodity_shock - 0.5)
       );
 
-      // Economic shocks
+      // Shocks
       let vehicle_activity = 1.0;
       let warehouse_congestion = 0.0;
       if(economy.shock === 'oil_shock') {
         vehicle_activity *= 0.5;
       } else if(economy.shock === 'supply_chain') {
         warehouse_congestion = 1.0;
-        // Note: further impact managed by visuals too
+        factory_capacity *= 0.8;
       } else if(economy.shock === 'policy_tightening') {
-        // handled in housing via real rate; keep visuals aligned below
+        housing_activity *= 0.7;
       }
 
       return {
-        // Core metrics
-        output_gap,
-        unemployment_gap,
-        inflation_gap,
-        real_rate,
-        supply_shock_inflation,
-        commodity_shock,
-        
-        // Sectoral outcomes
-        shops_closed_rate,
-        factory_capacity,
-        housing_activity,
-        citizen_activity,
-        farm_productivity,
-        price_pressure: clamp(0, 1, price_pressure),
-        vehicle_activity,
-        warehouse_congestion,
-        
-        // Derived measures
-        export_boost,
-        energy_drag,
-        unemployment_pressure,
+        output_gap, unemployment_gap, inflation_gap, real_rate,
+        supply_shock_inflation, commodity_shock,
+        shops_closed_rate, factory_capacity, housing_activity,
+        citizen_activity, farm_productivity, price_pressure: clamp(0,1,price_pressure),
+        vehicle_activity, warehouse_congestion,
+        export_boost, energy_drag, unemployment_pressure,
         shock_effect: economy.shock || 'none'
       };
     }
 
-    // --- Optional: deterministic Director mapping to keep visuals coherent ---
-    function villageDirectorFromState(econ, st) {
-      const clamp01 = v => Math.max(0, Math.min(1, v));
-
-      const uGap = Math.max(0, (econ.unemployment_pct - MODEL.u_star) / 5);  // 0..~1
-      const priceP = st.price_pressure;                                      // 0..1
-      const realR = Math.max(0, (st.real_rate - 0) / 4);                     // restrictive if >0
-      const posGap = clamp01((st.output_gap + 2) / 4);                       // ~0..1
-      const expBoost = clamp01(econ.exports_pct_growth / 6);
-      const energyDrag = clamp01(st.commodity_shock * MODEL.factory_sens_energy * 2);
-
-      const oilShock = econ.shock === 'oil_shock' ? 1 : 0;
-      const scShock  = econ.shock === 'supply_chain' ? 1 : 0;
-
-      return {
-        retail_closed_share: clamp01(MODEL.closures_base_u + 0.35 * uGap + 0.25 * priceP),
-        retail_price_tag_prob: clamp01(0.2 * priceP + 0.1 * posGap),
-
-        factory_smoke_level: clamp01(0.2 + 0.6 * posGap + 0.3 * expBoost - 0.5 * energyDrag),
-        warehouse_congestion_level: clamp01(0.8 * scShock),
-
-        housing_for_sale_density: clamp01(0.5 * realR + 0.3 * uGap),
-        foot_traffic_multiplier: clamp(0.3, 1.5,
-          0.9 + 0.5 * (st.citizen_activity - 1) - 0.1 * (econ.inflation_pct > 5 ? 1 : 0) - 0.1 * (econ.unemployment_pct > 8 ? 1 : 0)
-        ),
-        vehicle_activity_multiplier: clamp(0.3, 1.5, (oilShock ? 0.5 : 1.0) * (0.8 + 0.6 * (st.citizen_activity - 1))),
-        square_event_probability: clamp01(0.2 + 0.5 * (st.citizen_activity - 0.9)),
-        farm_yield_level: clamp01(0.6 + 0.3 * expBoost + 0.1 * (st.commodity_shock - 0.5))
-      };
-    }
-
-    // ===== Enhanced Auto-Links with Academic Rigor =====
+    // ===== Auto-Links =====
     function applyAutoLinks(previousEconomy, currentEconomy) {
       if (!previousEconomy) return currentEconomy;
-      
       const draft = {...currentEconomy};
       const prevGap = previousEconomy.gdp_growth_pct - MODEL.potential_growth;
       const currGap = draft.gdp_growth_pct - MODEL.potential_growth;
       const gapChange = currGap - prevGap;
-      
-      // Track which links are applied for reasoning
+
       const appliedLinks = [];
 
-      // 1) Okun with lagged response (smoother labour market)
-      if (SETTINGS.autoOkun && Math.abs(currGap) > 0.05) {
-        const uNew = draft.unemployment_pct - MODEL.okun_gamma * currGap;
-        draft.unemployment_pct = clamp(2, 15, uNew);
-        appliedLinks.push({
-          type: 'okun_lag',
-          gap: currGap,
-          newUnemployment: draft.unemployment_pct
-        });
+      // Okun
+      if (SETTINGS.autoOkun && Math.abs(gapChange) > 0.05) {
+        const unemploymentChange = MODEL.okun_beta * gapChange;
+        draft.unemployment_pct = clamp(2, 15, draft.unemployment_pct + unemploymentChange);
+        appliedLinks.push({ type:'okun', gapChange, unemploymentChange, newUnemployment: draft.unemployment_pct });
       }
 
-      // 2) Expectations-augmented Phillips + inertia
+      // Phillips (target uses MODEL.pi_target; in observer stepping we temporarily set pi_target to expectations)
       if (SETTINGS.autoPhillips) {
-        const expInfl = MODEL.exp_weight * stateLag.inflation_pct + (1 - MODEL.exp_weight) * MODEL.pi_target;
-        const phillipsTarget = expInfl + MODEL.phillips_kappa * currGap;
-        const newPi = MODEL.pi_inertia * draft.inflation_pct + (1 - MODEL.pi_inertia) * phillipsTarget;
-        draft.inflation_pct = clamp(0, 12, newPi);
-        appliedLinks.push({
-          type: 'phillips_exp',
-          outputGap: currGap,
-          expInfl,
-          target: phillipsTarget,
-          newInflation: draft.inflation_pct
-        });
+        const phillipsInflation = MODEL.pi_target + MODEL.phillips_kappa * currGap;
+        const inflationAdjustment = 0.3 * (phillipsInflation - draft.inflation_pct);
+        draft.inflation_pct = clamp(0, 12, draft.inflation_pct + inflationAdjustment);
+        if (Math.abs(inflationAdjustment) > 0.05) {
+          appliedLinks.push({ type:'phillips', outputGap: currGap, inflationTarget: phillipsInflation, adjustment: inflationAdjustment, newInflation: draft.inflation_pct });
+        }
       }
 
-      // 3) Supply shock pass-through (unchanged)
+      // Supply shock pass-through
       if (SETTINGS.autoOil) {
         const commodityPressure = Math.max(0, (draft.commodity_index - 120) / 40);
         const supplyInflation = commodityPressure * MODEL.commodity_oil_passthrough;
         if (supplyInflation > 0.1) {
           draft.inflation_pct = clamp(0, 12, draft.inflation_pct + supplyInflation);
-          appliedLinks.push({
-            type: 'supply_shock',
-            commodityIndex: draft.commodity_index,
-            inflationImpact: supplyInflation,
-            newInflation: draft.inflation_pct
-          });
+          appliedLinks.push({ type:'supply_shock', commodityIndex: draft.commodity_index, inflationImpact: supplyInflation, newInflation: draft.inflation_pct });
         }
       }
 
-      // 4) Taylor rule with policy smoothing (rate inertia)
+      // Taylor Rule
       if (SETTINGS.autoTaylor) {
-        const taylorRaw = MODEL.taylor_rstar + draft.inflation_pct + 
+        const taylorRate = MODEL.taylor_rstar + draft.inflation_pct + 
                           MODEL.taylor_phi_pi * (draft.inflation_pct - MODEL.pi_target) +
                           MODEL.taylor_phi_y * currGap;
-        const iSmoothed = MODEL.policy_smoothing * draft.interest_rate_pct + (1 - MODEL.policy_smoothing) * taylorRaw;
-        draft.interest_rate_pct = clamp(0, 10, iSmoothed);
-        appliedLinks.push({
-          type: 'taylor_smooth',
-          recommendedRate: taylorRaw,
-          newRate: draft.interest_rate_pct
-        });
+        const rateAdjustment = 0.4 * (taylorRate - draft.interest_rate_pct);
+        draft.interest_rate_pct = clamp(0, 10, draft.interest_rate_pct + rateAdjustment);
+        if (Math.abs(rateAdjustment) > 0.05) {
+          appliedLinks.push({ type:'taylor', recommendedRate: taylorRate, adjustment: rateAdjustment, newRate: draft.interest_rate_pct });
+        }
       }
 
-      // 5) Automatic stabilizers: Fiscal policy cushions downturns
+      // Automatic stabilizers
       if (SETTINGS.autoStab && currGap < -0.5) {
         const stabilizer_boost = -currGap * MODEL.auto_stabilizer_strength;
         draft.gdp_growth_pct = clamp(-5, 8, draft.gdp_growth_pct + stabilizer_boost);
-        appliedLinks.push({
-          type: 'auto_stabilizer',
-          outputGap: currGap,
-          fiscalBoost: stabilizer_boost,
-          newGrowth: draft.gdp_growth_pct
-        });
+        appliedLinks.push({ type:'auto_stabilizer', outputGap: currGap, fiscalBoost: stabilizer_boost, newGrowth: draft.gdp_growth_pct });
       }
 
-      // Store applied links for reasoning display
       draft._appliedLinks = appliedLinks;
       return draft;
     }
 
-    // ===== Enhanced Reasoning System =====
+    // ===== Enhanced Reasoning =====
     function buildEnhancedReasoning(previousEconomy, currentEconomy, economicState, userAction) {
       const sections = [];
-      
-      // Section 1: User Action Analysis
       if (userAction.control) {
         sections.push({
           title: "Initial Change",
           content: `You adjusted <strong>${getControlLabel(userAction.control)}</strong> from <span class="economic-value">${formatValue(userAction.oldValue)}</span> to <span class="economic-value">${formatValue(userAction.newValue)}</span>. This change initiates a chain of economic adjustments through established macroeconomic relationships.`
         });
       }
-
-      // Section 2: Output Gap Analysis  
       const outputGap = economicState.output_gap;
       const gapAnalysis = outputGap > 1 ? "positive (overheating)" : 
                          outputGap < -1 ? "negative (recession)" : "near potential";
-      
       sections.push({
         title: "Output Gap Assessment",
         content: `
@@ -606,25 +583,21 @@
         `
       });
 
-      // Section 3: Applied Economic Links
       if (currentEconomy._appliedLinks && currentEconomy._appliedLinks.length > 0) {
         let linkContent = "";
         currentEconomy._appliedLinks.forEach(link => {
           switch(link.type) {
             case 'okun':
-            case 'okun_lag':
-              linkContent += `<div class="reasoning-step">Okun's Law: Output gap of <span class="economic-value">${(link.gap ?? (outputGap)).toFixed(1)}pp</span> moves unemployment → <span class="economic-value">${(link.newUnemployment ?? currentEconomy.unemployment_pct).toFixed(1)}%</span> <span class="ref-tag">3</span></div>`;
+              linkContent += `<div class="reasoning-step">Okun's Law: GDP gap change of <span class="economic-value">${link.gapChange.toFixed(1)}pp</span> adjusts unemployment by <span class="economic-value">${link.unemploymentChange.toFixed(1)}pp</span> to <span class="economic-value">${link.newUnemployment.toFixed(1)}%</span> <span class="ref-tag">3</span></div>`;
               break;
             case 'phillips':
-            case 'phillips_exp':
-              linkContent += `<div class="reasoning-step">Phillips Curve: With expectations, inflation adjusts toward <span class="economic-value">${(link.target ?? (MODEL.pi_target + MODEL.phillips_kappa * outputGap)).toFixed(1)}%</span> → new π <span class="economic-value">${(link.newInflation ?? currentEconomy.inflation_pct).toFixed(1)}%</span> <span class="ref-tag">1</span><span class="ref-tag">2</span></div>`;
+              linkContent += `<div class="reasoning-step">Phillips Curve: Output gap of <span class="economic-value">${link.outputGap.toFixed(1)}pp</span> creates inflation pressure, adjusting toward <span class="economic-value">${link.inflationTarget.toFixed(1)}%</span> <span class="ref-tag">1</span><span class="ref-tag">2</span></div>`;
               break;
             case 'taylor':
-            case 'taylor_smooth':
-              linkContent += `<div class="reasoning-step">Taylor Rule (smoothed): Policy rate gravitates toward <span class="economic-value">${(link.recommendedRate ?? 0).toFixed(1)}%</span> → actual i <span class="economic-value">${(link.newRate ?? currentEconomy.interest_rate_pct).toFixed(1)}%</span> <span class="ref-tag">4</span></div>`;
+              linkContent += `<div class="reasoning-step">Taylor Rule: Policy rate adjusts toward <span class="economic-value">${link.recommendedRate.toFixed(1)}%</span> based on inflation and output gaps <span class="ref-tag">4</span></div>`;
               break;
             case 'supply_shock':
-              linkContent += `<div class="reasoning-step">Supply Shock: Commodity index <span class="economic-value">${link.commodityIndex}</span> adds <span class="economic-value">${link.inflationImpact.toFixed(1)}pp</span> to inflation <span class="ref-tag">5</span></div>`;
+              linkContent += `<div class="reasoning-step">Supply Shock: Commodity index of <span class="economic-value">${link.commodityIndex}</span> adds <span class="economic-value">${link.inflationImpact.toFixed(1)}pp</span> to inflation <span class="ref-tag">5</span></div>`;
               break;
             case 'auto_stabilizer':
               linkContent += `<div class="reasoning-step">Automatic Stabilizers: Fiscal cushioning adds <span class="economic-value">${link.fiscalBoost.toFixed(1)}pp</span> to GDP growth during downturn <span class="ref-tag">6</span></div>`;
@@ -638,10 +611,8 @@
         });
       }
 
-      // Section 4: Real Interest Rate Impact
       const realRate = economicState.real_rate;
       const realRateImpact = realRate > 2 ? "restrictive" : realRate < 0 ? "stimulative" : "neutral";
-      
       sections.push({
         title: "Real Interest Rate Effects",
         content: `
@@ -650,7 +621,6 @@
         `
       });
 
-      // Section 5: Sectoral Impacts
       const sectoralContent = `
         <div class="reasoning-step">Manufacturing Capacity: <span class="economic-value">${(economicState.factory_capacity * 100).toFixed(0)}%</span> 
           ${getImpactIndicator(economicState.factory_capacity, 0.7, 0.5)} 
@@ -665,23 +635,8 @@
           ${getImpactIndicator(economicState.citizen_activity, 1.1, 0.8)} 
           reflecting overall economic conditions</div>
       `;
-      
-      sections.push({
-        title: "Sectoral Economic Response",
-        content: sectoralContent
-      });
+      sections.push({ title: "Sectoral Economic Response", content: sectoralContent });
 
-      // --- New: Exam-style evaluation (helps 15/25 markers) ---
-      sections.push({
-        title: "Evaluation (Depends On)",
-        content: `
-          <div class="reasoning-step">Time lags: monetary policy and wage/price contracts delay effects.</div>
-          <div class="reasoning-step">Expectations & credibility: if agents expect lower inflation, disinflation is less costly.</div>
-          <div class="reasoning-step">External shocks: commodity/supply-chain shocks can offset demand management.</div>
-        `
-      });
-
-      // Section 6: Town Visualization Mapping
       sections.push({
         title: "Village Manifestation",
         content: `
@@ -732,12 +687,97 @@
     let tweenProgress = 1, isTransitioning = false, animationFrame = 0;
     let lastUserAction = {control: null, oldValue: null, newValue: null};
 
-    // --- New: last-period macro memory for expectations/lagged dynamics ---
-    let stateLag = {
-      inflation_pct: DEFAULT_ECONOMY.inflation_pct,
-      unemployment_pct: DEFAULT_ECONOMY.unemployment_pct,
-      interest_rate_pct: DEFAULT_ECONOMY.interest_rate_pct
-    };
+    // ===== Observer-time engine & history =====
+    const TIME = { months: 0, paused: true, stepMonths: 1, tickFrames: 30, frame: 0 };
+    const stateLag = { inflation_pct: DEFAULT_ECONOMY.inflation_pct };
+
+    const HISTORY = { max: 120, t: [], gdp: [], pi: [], u: [], i: [], gap: [] };
+
+    function ease(oldVal, target, speed){ return oldVal + speed*(target - oldVal); }
+
+    function smoothState(prev, next){
+      if(!prev || !Number.isFinite(prev.output_gap)) return next;
+      const s = {};
+      s.output_gap        = ease(prev.output_gap,        next.output_gap,        MODEL.adj.gdp);
+      s.unemployment_gap  = ease(prev.unemployment_gap,  next.unemployment_gap,  MODEL.adj.u);
+      s.inflation_gap     = ease(prev.inflation_gap,     next.inflation_gap,     MODEL.adj.pi);
+      s.real_rate         = ease(prev.real_rate,         next.real_rate,         MODEL.adj.i);
+      s.factory_capacity  = ease(prev.factory_capacity,  next.factory_capacity,  MODEL.adj.cap);
+      s.housing_activity  = ease(prev.housing_activity,  next.housing_activity,  MODEL.adj.house);
+      s.citizen_activity  = ease(prev.citizen_activity,  next.citizen_activity,  MODEL.adj.conf);
+      for(const k in next) if(!(k in s)) s[k] = typeof next[k]==='number' ? ease(prev[k]||0, next[k], 0.3) : next[k];
+      return s;
+    }
+
+    function gradualizeEconomy(prev, draft){
+      const e = {...draft};
+      e.gdp_growth_pct    = ease(prev.gdp_growth_pct,    draft.gdp_growth_pct,    MODEL.adj.gdp);
+      e.unemployment_pct  = ease(prev.unemployment_pct,  draft.unemployment_pct,  MODEL.adj.u);
+      e.inflation_pct     = ease(prev.inflation_pct,     draft.inflation_pct,     MODEL.adj.pi);
+      e.interest_rate_pct = ease(prev.interest_rate_pct, draft.interest_rate_pct, MODEL.adj.i);
+      e.commodity_index   = draft.commodity_index;
+      e.exports_pct_growth= draft.exports_pct_growth;
+      e.shock             = draft.shock;
+      return e;
+    }
+
+    function stepLabel(){
+      if(TIME.stepMonths===3){
+        const q = Math.floor((TIME.months % 12)/3) + 1;
+        return `Year ${Math.floor(TIME.months/12)}, Q${q}`;
+      }else{
+        const m = TIME.months % 12;
+        return `Year ${Math.floor(TIME.months/12)}, Month ${m}`;
+      }
+    }
+
+    function pushHistory(){
+      const s = computedState;
+      HISTORY.t.push(TIME.months);
+      HISTORY.gdp.push(currentEconomy.gdp_growth_pct);
+      HISTORY.pi.push(currentEconomy.inflation_pct);
+      HISTORY.u.push(currentEconomy.unemployment_pct);
+      HISTORY.i.push(currentEconomy.interest_rate_pct);
+      HISTORY.gap.push(s.output_gap);
+      ['t','gdp','pi','u','i','gap'].forEach(k=>{
+        if(HISTORY[k].length>HISTORY.max) HISTORY[k].splice(0, HISTORY[k].length-HISTORY.max);
+      });
+    }
+
+    function drawSparkline(canvasId, data, ymin=null, ymax=null){
+      const cv = document.getElementById(canvasId);
+      if(!cv) return;
+      const c2 = cv.getContext('2d');
+      c2.clearRect(0,0,cv.width,cv.height);
+      if(!data || data.length<2) return;
+
+      let min = ymin ?? Math.min(...data);
+      let max = ymax ?? Math.max(...data);
+      if(min===max){ min -= 1; max += 1; }
+
+      const n = data.length, w=cv.width, h=cv.height, pad=3;
+
+      if(min<0 && max>0){
+        const y0 = h - pad - (0 - min) * (h - 2*pad) / (max - min);
+        c2.strokeStyle = '#ddd';
+        c2.beginPath(); c2.moveTo(0,y0); c2.lineTo(w,y0); c2.stroke();
+      }
+
+      c2.strokeStyle = '#2E8B57';
+      c2.lineWidth = 1.5; c2.beginPath();
+      for(let i=0;i<n;i++){
+        const x = pad + i*(w-2*pad)/(n-1);
+        const y = h - pad - (data[i]-min)*(h-2*pad)/(max-min);
+        if(i===0) c2.moveTo(x,y); else c2.lineTo(x,y);
+      }
+      c2.stroke();
+    }
+    function renderHistory(){
+      drawSparkline('chartGDP',  HISTORY.gdp,  -5, 8);
+      drawSparkline('chartInfl', HISTORY.pi,    0, 12);
+      drawSparkline('chartUnemp',HISTORY.u,     2, 15);
+      drawSparkline('chartRate', HISTORY.i,     0, 10);
+    }
 
     // ===== Citizens and Vehicles =====
     let citizens = [];
@@ -755,7 +795,6 @@
         });
       }
     }
-
     function drawCitizen(c,state){
       const sp = c.speed * state.citizen_activity;
       const dx = c.targetX - c.x, dy = c.targetY - c.y;
@@ -829,7 +868,7 @@
       ctx.fill();
     }
 
-    // ===== Enhanced Rendering =====
+    // ===== Rendering =====
     function drawTile(x,y,type,state){
       const px = x*TILE_SIZE, py = y*TILE_SIZE;
       switch(type){
@@ -924,7 +963,7 @@
       retailState.clear();
       for(const {x,y} of retailTiles){
         const closed = Math.random() < state.shops_closed_rate;
-        const priceTag = !closed && (state.price_tag_prob ?? state.price_pressure) > 0.3 && Math.random() < (state.price_tag_prob ?? state.price_pressure);
+        const priceTag = !closed && state.price_pressure>0.3 && Math.random() < state.price_pressure;
         retailState.set(`${x},${y}`, {closed, priceTag});
       }
     }
@@ -1021,7 +1060,7 @@
       }
     }
 
-    // ===== UI Management =====
+    // ===== UI Elements =====
     const els = {
       gdp: document.getElementById('gdpGrowth'),
       u: document.getElementById('unemployment'),
@@ -1056,7 +1095,22 @@
       autoPhillips: document.getElementById('autoPhillips'),
       autoTaylor: document.getElementById('autoTaylor'),
       autoOil: document.getElementById('autoOil'),
-      autoStab: document.getElementById('autoStab')
+      autoStab: document.getElementById('autoStab'),
+
+      // Observer mode controls
+      simPlay: document.getElementById('simPlay'),
+      simPause: document.getElementById('simPause'),
+      simStep: document.getElementById('simStep'),
+      simClock: document.getElementById('simClock'),
+      timeScale: document.getElementById('timeScale'),
+      simSpeed: document.getElementById('simSpeed'),
+      simSpeedValue: document.getElementById('simSpeedValue'),
+      historyBtn: document.getElementById('historyBtn'),
+      historyContent: document.getElementById('historyContent'),
+      chartGDP: document.getElementById('chartGDP'),
+      chartInfl: document.getElementById('chartInfl'),
+      chartUnemp: document.getElementById('chartUnemp'),
+      chartRate: document.getElementById('chartRate'),
     };
 
     function updateSliderDisplays(){
@@ -1071,22 +1125,7 @@
     function updateEconomy(){
       oldComputedState = {...computedState};
       computedState = computeEconomicState(currentEconomy);
-
-      // --- Optional: apply deterministic Director mapping to reinforce visuals ---
-      const vdir = villageDirectorFromState(currentEconomy, computedState);
-      computedState.shops_closed_rate    = clamp(0,1, vdir.retail_closed_share);
-      computedState.price_tag_prob       = clamp(0,1, vdir.retail_price_tag_prob);
-      computedState.vehicle_activity     = clamp(0.3,1.5, vdir.vehicle_activity_multiplier);
-      computedState.warehouse_congestion = clamp(0,1, vdir.warehouse_congestion_level);
-      computedState.farm_productivity    = clamp(0.2,1, vdir.farm_yield_level);
-
       recomputeRetailState(computedState);
-
-      // --- New: remember last-period macro for expectations next tick ---
-      stateLag.inflation_pct    = currentEconomy.inflation_pct;
-      stateLag.unemployment_pct = currentEconomy.unemployment_pct;
-      stateLag.interest_rate_pct= currentEconomy.interest_rate_pct;
-
       tweenProgress = 0; isTransitioning = true;
       updateNarrative();
       updateDebugPanel();
@@ -1132,14 +1171,12 @@
         computedState, 
         lastUserAction
       );
-      
       const html = sections.map(section => `
         <div class="reasoning-section">
           <div class="reasoning-title">${section.title}</div>
           <div class="reasoning-content">${section.content}</div>
         </div>
       `).join('');
-      
       els.reasoningContent.innerHTML = html;
     }
 
@@ -1168,26 +1205,9 @@
         SETTINGS.autoTaylor = els.autoTaylor.checked;
         SETTINGS.autoOil = els.autoOil.checked;
         SETTINGS.autoStab = els.autoStab.checked;
-        
-        const prev = previousEconomy || {...currentEconomy};
-        const withLinks = applyAutoLinks(prev, {...currentEconomy});
-        previousEconomy = {...currentEconomy};
-        currentEconomy = withLinks;
-        
-        // Update sliders to show linked values
-        els.gdp.value = currentEconomy.gdp_growth_pct;
-        els.u.value = currentEconomy.unemployment_pct;
-        els.pi.value = currentEconomy.inflation_pct;
-        els.i.value = currentEconomy.interest_rate_pct;
-        els.com.value = currentEconomy.commodity_index;
-        els.ex.value = currentEconomy.exports_pct_growth;
-        
-        lastUserAction = {
-          control: 'autolinks',
-          oldValue: 'manual',
-          newValue: 'linked'
-        };
-        
+
+        // In observer mode, don't immediately re-link everything; just note the change.
+        lastUserAction = { control: 'autolinks', oldValue: 'manual', newValue: 'linked toggled' };
         updateEconomy();
         updateSliderDisplays();
       });
@@ -1207,8 +1227,6 @@
 
     function updateEconomyFromUI(ev) {
       previousEconomy = {...currentEconomy};
-      
-      // Capture user action details
       if (ev && ev.target) {
         const id = ev.target.id;
         const key = controlKeyFromId(id);
@@ -1220,7 +1238,7 @@
         };
       }
 
-      // Read current UI values
+      // Read current UI values directly (observer: sliders set levels; links will act when stepping)
       currentEconomy.gdp_growth_pct = parseFloat(els.gdp.value);
       currentEconomy.unemployment_pct = parseFloat(els.u.value);
       currentEconomy.inflation_pct = parseFloat(els.pi.value);
@@ -1229,36 +1247,22 @@
       currentEconomy.exports_pct_growth = parseFloat(els.ex.value);
       currentEconomy.shock = els.shock.value || null;
 
-      // Apply economic linkages
-      const linkedEconomy = applyAutoLinks(previousEconomy, currentEconomy);
-      currentEconomy = linkedEconomy;
-
-      // Update sliders to reflect linked values
-      els.gdp.value = currentEconomy.gdp_growth_pct;
-      els.u.value = currentEconomy.unemployment_pct;
-      els.pi.value = currentEconomy.inflation_pct;
-      els.i.value = currentEconomy.interest_rate_pct;
-      els.com.value = currentEconomy.commodity_index;
-      els.ex.value = currentEconomy.exports_pct_growth;
-
+      // No applyAutoLinks here; stepping applies links gradually.
       updateEconomy();
       updateSliderDisplays();
     }
 
-    // Hook up input events
     [els.gdp, els.u, els.pi, els.i, els.com, els.ex].forEach(el => {
       el.addEventListener('input', updateEconomyFromUI);
     });
     els.shock.addEventListener('change', updateEconomyFromUI);
 
-    // ===== Preset Functions =====
+    // Presets
     function applyPreset(name) {
       const p = PRESETS[name];
       if (!p) return;
-      
       previousEconomy = {...currentEconomy};
       currentEconomy = {...p};
-      
       els.gdp.value = p.gdp_growth_pct;
       els.u.value = p.unemployment_pct;
       els.pi.value = p.inflation_pct;
@@ -1267,13 +1271,7 @@
       els.ex.value = p.exports_pct_growth;
       els.shock.value = p.shock || '';
       els.scenarioTip.textContent = p.tip;
-      
-      lastUserAction = {
-        control: 'preset',
-        oldValue: 'previous scenario',
-        newValue: name
-      };
-      
+      lastUserAction = { control: 'preset', oldValue: 'previous scenario', newValue: name };
       updateEconomy();
       updateSliderDisplays();
     }
@@ -1281,7 +1279,6 @@
     function resetEconomy() {
       previousEconomy = {...currentEconomy};
       currentEconomy = {...DEFAULT_ECONOMY};
-      
       els.gdp.value = DEFAULT_ECONOMY.gdp_growth_pct;
       els.u.value = DEFAULT_ECONOMY.unemployment_pct;
       els.pi.value = DEFAULT_ECONOMY.inflation_pct;
@@ -1290,13 +1287,7 @@
       els.ex.value = DEFAULT_ECONOMY.exports_pct_growth;
       els.shock.value = '';
       els.scenarioTip.textContent = 'Select a preset to see different economic scenarios play out!';
-      
-      lastUserAction = {
-        control: 'reset',
-        oldValue: 'scenario',
-        newValue: 'baseline'
-      };
-      
+      lastUserAction = { control: 'reset', oldValue: 'scenario', newValue: 'baseline' };
       updateEconomy();
       updateSliderDisplays();
     }
@@ -1306,13 +1297,69 @@
     els.presetStagflation.addEventListener('click', () => applyPreset('stagflation'));
     els.btnReset.addEventListener('click', resetEconomy);
 
-    // ===== Debug and Glossary Toggles =====
+    // Debug and Glossary
     els.debugBtn.addEventListener('click', () => {
       els.debugContent.classList.toggle('open');
     });
-
     els.glossaryBtn.addEventListener('click', () => {
       els.glossary.classList.toggle('open');
+    });
+
+    // ===== Observer stepping =====
+    function stepObserver(){
+      previousEconomy = {...currentEconomy};
+
+      // Expectations-augmented Phillips: use expected inflation as temporary target
+      const expInfl = MODEL.exp_weight * stateLag.inflation_pct + (1 - MODEL.exp_weight) * MODEL.pi_target;
+      const oldTarget = MODEL.pi_target;
+      MODEL.pi_target = expInfl;
+
+      // Links produce target next macro
+      const linked = applyAutoLinks(previousEconomy, {...currentEconomy});
+
+      // Restore target
+      MODEL.pi_target = oldTarget;
+
+      // Gradual move toward linked state
+      currentEconomy = gradualizeEconomy(previousEconomy, linked);
+
+      // Compute sectors & smooth sectors
+      oldComputedState = {...computedState};
+      const fresh = computeEconomicState(currentEconomy);
+      computedState = Object.keys(oldComputedState).length ? smoothState(oldComputedState, fresh) : fresh;
+
+      // Update UI/panels
+      recomputeRetailState(computedState);
+      updateNarrative();
+      updateDebugPanel();
+      updateReasoningDisplay();
+      updateSliderDisplays();
+
+      // Update expectations lag
+      stateLag.inflation_pct = ease(stateLag.inflation_pct, currentEconomy.inflation_pct, 0.3);
+
+      // Time & history
+      TIME.months += TIME.stepMonths;
+      els.simClock.textContent = stepLabel();
+      pushHistory();
+      renderHistory();
+    }
+
+    // Wire Observer controls
+    els.simPlay.addEventListener('click', ()=>{ TIME.paused=false; });
+    els.simPause.addEventListener('click', ()=>{ TIME.paused=true; });
+    els.simStep.addEventListener('click', ()=>{ stepObserver(); });
+    els.timeScale.addEventListener('change', ()=>{
+      TIME.stepMonths = (els.timeScale.value==='quarter') ? 3 : 1;
+      els.simClock.textContent = stepLabel();
+    });
+    els.simSpeed.addEventListener('input', ()=>{
+      const v = parseInt(els.simSpeed.value,10);
+      els.simSpeedValue.textContent = v+'x';
+      TIME.tickFrames = Math.max(6, 36 - v*6); // 1x≈30, 5x≈6
+    });
+    els.historyBtn.addEventListener('click', ()=>{
+      els.historyContent.classList.toggle('open');
     });
 
     // ===== Animation Loop =====
@@ -1325,6 +1372,13 @@
           isTransitioning = false;
         }
       }
+
+      // Observer time stepping
+      TIME.frame++;
+      if(!TIME.paused && TIME.frame % TIME.tickFrames === 0){
+        stepObserver();
+      }
+
       render();
       requestAnimationFrame(animate);
     }
@@ -1334,35 +1388,30 @@
       resizeCanvas();
       initializeCitizens();
       initializeVehicles();
-      
-      // Initialize economic state
+
+      // Initialize state
       computedState = computeEconomicState(currentEconomy);
-
-      // Director mapping & retail recompute
-      const vdir = villageDirectorFromState(currentEconomy, computedState);
-      computedState.shops_closed_rate    = clamp(0,1, vdir.retail_closed_share);
-      computedState.price_tag_prob       = clamp(0,1, vdir.retail_price_tag_prob);
-      computedState.vehicle_activity     = clamp(0.3,1.5, vdir.vehicle_activity_multiplier);
-      computedState.warehouse_congestion = clamp(0,1, vdir.warehouse_congestion_level);
-      computedState.farm_productivity    = clamp(0.2,1, vdir.farm_yield_level);
-
       recomputeRetailState(computedState);
-      
+
       // Set up UI
       updateSliderDisplays();
       updateNarrative();
       updateDebugPanel();
-      
-      // Initialize reasoning display
+
+      // Reasoning display
       renderRefsPanel();
       els.refsPanel.classList.remove('open');
       updateReasoningDisplay();
-      
+
+      // Clock & history
+      els.simClock.textContent = stepLabel();
+      pushHistory(); renderHistory();
+
       // Start animation
       requestAnimationFrame(animate);
     }
 
-    // Start the simulation
+    // Start
     init();
   </script>
 </body>
