@@ -1,119 +1,122 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>EconoVille — Phase 1: Village Economy Prototype</title>
-  <style>
-    :root{
-      --bg:#0f172a;/*slate-900*/
-      --panel:#111827ee;/*gray-900*/
-      --panel2:#0b1224cc;
-      --text:#e5e7eb;/*gray-200*/
-      --muted:#9ca3af;/*gray-400*/
-      --accent:#22d3ee;/*cyan-400*/
-      --accent2:#a78bfa;/*violet-400*/
-      --good:#22c55e;/*green-500*/
-      --warn:#f59e0b;/*amber-500*/
-      --bad:#ef4444;/*red-500*/
-      --border: #1f2937;/*gray-800*/
-    }
-    *{box-sizing:border-box}
-    html,body{height:100%;}
-    body{
-      margin:0; background: radial-gradient(1200px 800px at 70% -10%, #1e293b 0%, #0b1224 40%, #050816 100%);
-      color:var(--text); font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial;
-    }
-    .shell{display:grid; grid-template-rows:auto 1fr auto; height:100%;}
-    header{display:flex; align-items:center; justify-content:space-between; padding:14px 18px; border-bottom:1px solid var(--border);}
-    header h1{font-size:18px; letter-spacing:0.4px; margin:0; font-weight:700}
-    header .tag{font-size:12px; color:var(--muted)}
-
-    .main{display:grid; grid-template-columns: 300px 1fr 300px; gap:14px; padding:14px;}
-
-    .panel{background:linear-gradient(180deg, var(--panel), var(--panel2)); border:1px solid var(--border); border-radius:14px; box-shadow: 0 10px 30px rgba(0,0,0,.35);}
-    .panel h2{font-size:13px; text-transform:uppercase; letter-spacing:.12em; color:var(--muted); margin:0 0 10px 0}
-
-    /* LEFT: Policy cards */
-    .left{padding:14px; overflow:auto}
-    .cards{display:grid; gap:10px}
-    .card{border:1px solid var(--border); background:#0b1224aa; border-radius:12px; padding:12px;}
-    .card h3{font-size:14px; margin:0 0 6px 0}
-    .card p{margin:0 0 10px 0; color:var(--muted); font-size:12px; line-height:1.35}
-    .meta{display:flex; gap:8px; font-size:11px; color:var(--muted); margin-bottom:10px}
-    .pill{padding:2px 8px; border:1px solid var(--border); border-radius:999px}
-    button.action{width:100%; padding:10px 12px; border:none; border-radius:10px; font-weight:700; color:#061015; background: linear-gradient(135deg, var(--accent), var(--accent2)); cursor:pointer}
-    button.action:disabled{opacity:.35; cursor:not-allowed}
-
-    /* CENTER: Village view */
-    .center{position:relative; padding:12px;}
-    .view{height:100%; min-height:420px; border-radius:14px; border:1px solid var(--border); background:
-      linear-gradient(180deg, rgba(30,41,59,.55), rgba(2,6,23,.7)),
-      radial-gradient(1200px 600px at 50% -10%, rgba(34,211,238,.15), transparent 50%),
-      url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="600" height="400"><defs><pattern id="g" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M0 20 H40 M20 0 V40" stroke="%231f2937" stroke-width="1"/></pattern></defs><rect width="100%" height="100%" fill="%230a0f1f"/><rect width="100%" height="100%" fill="url(%23g)"/></svg>');
-      background-size: cover; position:relative; overflow:hidden}
-    .hud{position:absolute; top:10px; left:10px; display:flex; gap:8px}
-    .badge{background:#0b1224cc; border:1px solid var(--border); padding:6px 10px; border-radius:999px; font-size:12px}
-    .stageBanner{position:absolute; top:12px; right:12px; background:#0b1224cc; border:1px solid var(--border); border-radius:12px; padding:8px 12px; font-size:12px}
-
-    .sprite{position:absolute; transition:transform .4s ease, opacity .4s ease;}
-    .sprite.hut{width:70px; height:50px; left:40px; bottom:40px; background:linear-gradient(180deg,#d4a373,#8d5524); border:2px solid #2b1d11; border-bottom-left-radius:8px; border-bottom-right-radius:8px}
-    .sprite.field{width:140px; height:80px; left:140px; bottom:36px; background:repeating-linear-gradient(45deg,#14532d 0 6px,#166534 6px 12px); border:2px solid #0e2518; border-radius:6px}
-    .sprite.granary{width:70px; height:52px; left:60px; bottom:110px; background:linear-gradient(180deg,#9ca3af,#6b7280); border:2px solid #111827; border-radius:6px; display:none}
-    .sprite.well{width:24px; height:24px; left:230px; bottom:128px; background:radial-gradient(circle,#93c5fd,#1d4ed8); border:2px solid #0b3b9a; border-radius:50%; display:none}
-    .sprite.canal{width:6px; height:120px; left:210px; bottom:50px; background:#22d3ee; border:1px solid #0c4a6e; border-radius:3px; display:none}
-    .sprite.council{width:84px; height:54px; left:250px; bottom:36px; background:linear-gradient(180deg,#fde68a,#b45309); border:2px solid #78350f; border-radius:8px; display:none}
-    .sprite.market{width:120px; height:36px; left:120px; bottom:140px; background:repeating-linear-gradient(90deg,#fca5a5 0 10px,#fdba74 10px 20px,#fde68a 20px 30px); border:2px solid #7c2d12; border-radius:8px; display:none}
-    .sprite.workshop{width:90px; height:50px; left:300px; bottom:110px; background:linear-gradient(180deg,#94a3b8,#475569); border:2px solid #1f2937; border-radius:8px; display:none}
-
-    /* RIGHT: Indicators */
-    .right{padding:14px;}
-    .meters{display:grid; gap:12px}
-    .meter{background:#0b1224aa; border:1px solid var(--border); border-radius:10px; padding:10px}
-    .meter header{display:flex; align-items:center; justify-content:space-between; padding:0; border:none}
-    .meter header h4{margin:0; font-size:12px; color:var(--muted); text-transform:uppercase; letter-spacing:.12em}
-    .bar{height:12px; background:#0b1224; border:1px solid var(--border); border-radius:999px; overflow:hidden}
-    .fill{height:100%; width:0%; background:linear-gradient(90deg, var(--good), var(--accent)); transition:width .4s ease}
-    .bar.bad .fill{background:linear-gradient(90deg, var(--bad), #f97316)}
-    .stat{font-size:12px; color:var(--muted); margin-top:6px}
-    .kpi{display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:10px}
-    .chip{border:1px solid var(--border); border-radius:8px; padding:6px 8px; font-size:12px; color:var(--muted)}
-
-    /* BOTTOM: Reasoning */
-    .bottom{margin:0 14px 14px 14px; padding:12px;}
-    .reason{border:1px solid var(--border); border-radius:12px; background:#0b1224aa; padding:12px}
-    .reason b{color:#e2e8f0}
-    .btnRow{display:flex; gap:10px; margin-top:10px}
-    .primary{background:linear-gradient(135deg, var(--accent), var(--accent2)); border:none; color:#041018; border-radius:10px; padding:10px 12px; font-weight:800; cursor:pointer}
-    .ghost{background:transparent; border:1px solid var(--border); color:var(--text); border-radius:10px; padding:10px 12px; cursor:pointer}
-
-    .toast{position:fixed; bottom:18px; right:18px; background:#0b1224ee; border:1px solid var(--border); padding:10px 12px; border-radius:10px; font-size:13px; display:none}
-  </style>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>EconoVille — Phase 1 (Village Economy, Enhanced)</title>
+<style>
+:root{
+  --bg:#0f172a;--panel:#111827ee;--panel2:#0b1224cc;--text:#e5e7eb;
+  --muted:#9ca3af;--accent:#22d3ee;--accent2:#a78bfa;
+  --good:#22c55e;--warn:#f59e0b;--bad:#ef4444;--border:#1f2937;
+}
+*{box-sizing:border-box} html,body{height:100%}
+body{
+  margin:0;background:radial-gradient(1200px 800px at 70% -10%,#1e293b 0%,#0b1224 40%,#050816 100%);
+  color:var(--text);font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial
+}
+.shell{display:grid;grid-template-rows:auto 1fr auto;min-height:100%}
+header{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border)}
+header h1{font-size:18px;margin:0;font-weight:800;letter-spacing:.3px}
+header .tag{font-size:12px;color:var(--muted)}
+.main{display:grid;grid-template-columns:320px 1fr 320px;gap:14px;padding:14px}
+.panel{
+  background:linear-gradient(180deg,var(--panel),var(--panel2));
+  border:1px solid var(--border);border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.35)
+}
+.panel h2{font-size:12px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);margin:0 0 10px}
+/* left cards */
+.left{padding:14px;overflow:auto}.cards{display:grid;gap:10px}
+.card{border:1px solid var(--border);background:#0b1224aa;border-radius:12px;padding:12px}
+.card h3{margin:0 0 6px;font-size:14px}.card p{margin:0 0 8px;color:var(--muted);font-size:12px;line-height:1.35}
+.meta{display:flex;gap:8px;font-size:11px;color:var(--muted);margin-bottom:10px;flex-wrap:wrap}
+.pill{padding:2px 8px;border:1px solid var(--border);border-radius:999px}
+.pill.cd{border-style:dashed}
+button.action{
+  width:100%;padding:10px 12px;border:none;border-radius:10px;font-weight:800;color:#061015;
+  background:linear-gradient(135deg,var(--accent),var(--accent2));cursor:pointer
+}
+button.action:disabled{opacity:.35;cursor:not-allowed}
+/* center view */
+.center{position:relative;padding:12px}
+.view{
+  height:100%;min-height:460px;border-radius:14px;border:1px solid var(--border);
+  background:linear-gradient(180deg,rgba(30,41,59,.55),rgba(2,6,23,.7)),
+             radial-gradient(1200px 600px at 50% -10%,rgba(34,211,238,.15),transparent 50%),
+             url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="600" height="400"><defs><pattern id="g" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M0 20 H40 M20 0 V40" stroke="%231f2937" stroke-width="1"/></pattern></defs><rect width="100%" height="100%" fill="%230a0f1f"/><rect width="100%" height="100%" fill="url(%23g)"/></svg>');
+  background-size:cover;position:relative;overflow:hidden
+}
+.hud{position:absolute;top:10px;left:10px;display:flex;gap:8px;flex-wrap:wrap}
+.badge{background:#0b1224cc;border:1px solid var(--border);padding:6px 10px;border-radius:999px;font-size:12px}
+.stageBanner{position:absolute;top:12px;right:12px;background:#0b1224cc;border:1px solid var(--border);
+  border-radius:12px;padding:8px 12px;font-size:12px}
+.sprite{position:absolute;transition:transform .4s ease,opacity .4s ease}
+.sprite.hut{width:70px;height:50px;left:40px;bottom:40px;background:linear-gradient(180deg,#d4a373,#8d5524);
+  border:2px solid #2b1d11;border-bottom-left-radius:8px;border-bottom-right-radius:8px}
+.sprite.field{width:140px;height:80px;left:140px;bottom:36px;background:repeating-linear-gradient(45deg,#14532d 0 6px,#166534 6px 12px);
+  border:2px solid #0e2518;border-radius:6px}
+.sprite.granary{width:70px;height:52px;left:60px;bottom:110px;background:linear-gradient(180deg,#9ca3af,#6b7280);
+  border:2px solid #111827;border-radius:6px;display:none}
+.sprite.well{width:24px;height:24px;left:230px;bottom:128px;background:radial-gradient(circle,#93c5fd,#1d4ed8);
+  border:2px solid #0b3b9a;border-radius:50%;display:none}
+.sprite.canal{width:6px;height:120px;left:210px;bottom:50px;background:#22d3ee;border:1px solid #0c4a6e;border-radius:3px;display:none}
+.sprite.council{width:84px;height:54px;left:250px;bottom:36px;background:linear-gradient(180deg,#fde68a,#b45309);
+  border:2px solid #78350f;border-radius:8px;display:none}
+.sprite.market{width:120px;height:36px;left:120px;bottom:140px;background:repeating-linear-gradient(90deg,#fca5a5 0 10px,#fdba74 10px 20px,#fde68a 20px 30px);
+  border:2px solid #7c2d12;border-radius:8px;display:none}
+.sprite.workshop{width:90px;height:50px;left:300px;bottom:110px;background:linear-gradient(180deg,#94a3b8,#475569);
+  border:2px solid #1f2937;border-radius:8px;display:none}
+/* right indicators */
+.right{padding:14px}.meters{display:grid;gap:12px}
+.meter{background:#0b1224aa;border:1px solid var(--border);border-radius:10px;padding:10px}
+.meter header{display:flex;align-items:center;justify-content:space-between;padding:0;border:none}
+.meter header h4{margin:0;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.12em}
+.bar{height:12px;background:#0b1224;border:1px solid var(--border);border-radius:999px;overflow:hidden}
+.fill{height:100%;width:0%;background:linear-gradient(90deg,var(--good),var(--accent));transition:width .4s ease}
+.bar.bad .fill{background:linear-gradient(90deg,var(--bad),#f97316)}
+.stat{font-size:12px;color:var(--muted);margin-top:6px}
+.kpi{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.chip{border:1px solid var(--border);border-radius:8px;padding:6px 8px;font-size:12px;color:var(--muted)}
+/* bottom */
+.bottom{margin:0 14px 14px;padding:12px}
+.reason{border:1px solid var(--border);border-radius:12px;background:#0b1224aa;padding:12px}
+.reason b{color:#e2e8f0}
+.btnRow{display:flex;gap:10px;margin-top:10px;flex-wrap:wrap}
+.primary{background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;color:#041018;border-radius:10px;
+  padding:10px 12px;font-weight:800;cursor:pointer}
+.ghost{background:transparent;border:1px solid var(--border);color:var(--text);border-radius:10px;padding:10px 12px;cursor:pointer}
+.toast{position:fixed;bottom:18px;right:18px;background:#0b1224ee;border:1px solid var(--border);padding:10px 12px;
+  border-radius:10px;font-size:13px;display:none}
+</style>
 </head>
 <body>
   <div class="shell">
     <header>
       <div>
         <h1>EconoVille — Phase 1: Village Economy</h1>
-        <div class="tag">Prototype • Subsistence → Surplus → Proto‑Institutions</div>
+        <div class="tag">Subsistence → Surplus → Proto-Institutions (Lewis • Malthus • Rodrik • Europe)</div>
       </div>
-      <div class="tag">Turn: <span id="turn">1</span> • Season: <span id="season">Spring</span></div>
+      <div class="tag">
+        Date: <span id="date">Year 1, Month 1</span> •
+        Turn: <span id="turn">1</span> •
+        Season: <span id="season">Spring</span>
+      </div>
     </header>
 
     <div class="main">
-      <!-- LEFT: Policy cards -->
+      <!-- LEFT -->
       <aside class="panel left">
         <h2>Projects & Policies</h2>
         <div class="cards" id="cards"></div>
       </aside>
 
-      <!-- CENTER: Village view -->
+      <!-- CENTER -->
       <section class="panel center">
         <div class="view" id="view">
           <div class="hud">
             <div class="badge">Population: <span id="pop">100</span></div>
             <div class="badge">Political Power: <span id="pp">10</span></div>
-            <div class="badge">Food: <span id="food">100</span></div>
+            <div class="badge">Food (this season): <span id="food">100</span></div>
           </div>
           <div class="stageBanner" id="stage">Stage: Village (Phase 1)</div>
           <div class="sprite hut" title="Homes"></div>
@@ -127,7 +130,7 @@
         </div>
       </section>
 
-      <!-- RIGHT: Indicators -->
+      <!-- RIGHT -->
       <aside class="panel right">
         <h2>Village Indicators</h2>
         <div class="meters">
@@ -159,263 +162,355 @@
       </aside>
     </div>
 
-    <!-- BOTTOM: Reasoning panel & controls -->
+    <!-- BOTTOM -->
     <div class="bottom">
       <div class="reason" id="reason">
-        <b>Welcome!</b> You lead a subsistence village. Build irrigation, wells, a granary, and a council to create a food surplus and stable institutions. Then advance seasons to see outcomes.
+        <b>Welcome!</b> You lead a subsistence village. Build irrigation, wells, a granary, and a council to create a food surplus and stable institutions.
+        Use ▶ Play to autoplay seasons; adjust speed at any time. Community Gathering (0 PP) helps build trust (cooldown).
       </div>
       <div class="btnRow">
         <button class="ghost" id="btnReset">Reset</button>
-        <button class="primary" id="btnAdvance">Advance Season</button>
+        <button class="primary" id="btnPlay">▶ Play</button>
+        <button class="ghost" id="btnAdvance">Step Season</button>
+        <select class="ghost" id="speed" title="Game speed">
+          <option value="1">1x</option>
+          <option value="1.5">1.5x</option>
+          <option value="2">2x</option>
+          <option value="3">3x</option>
+        </select>
       </div>
     </div>
   </div>
 
   <div class="toast" id="toast"></div>
 
-  <script>
-    // === EconoVille Phase 1 Prototype ===
-    // Compact model grounded in your notes:
-    // Agriculture: YA = A * Land^0.3 * LA^0.7  (simplified)
-    // Surplus when Food_output > Pop * needs. Surplus unlocks proto‑industry (Lewis)
-    // Health, Trust, Stability mediate event risks (Rodrik institutions).
+<script>
+/* ==========================
+   EconoVille Phase 1 (Enhanced)
+   DevEcon: Malthus (food constraint), Lewis (surplus → labor shift),
+            Rodrik (institutions/legitimacy), Europe (plough, granaries, fairs)
+   ========================== */
 
-    const S = {
-      turn: 1,
-      seasonIdx: 0,
-      seasons: ["Spring","Summer","Autumn","Winter"],
-      pop: 100,
-      food: 100,
-      needsPerCap: 0.9, // calories proxy per season
-      land: 1.0,
-      A: 1.0, // agri tech multiplier
-      losses: 0.12, // spoilage/disease baseline
-      health: 0.35, // 0..1
-      trust: 0.40, // 0..1 (political power proxy)
-      stability: 0.45, // 0..1
-      pp: 10, // political power points (spend to enact)
-      built: { well:false, granary:false, irrigation:false, council:false, fair:false, workshop:false, plough:false },
-      eventsLast: [],
-    };
+let TIMER = null;          // season auto-tick
+let SPEED = 1;             // 1x, 1.5x, 2x, 3x
+let MONTH_TIMER = null;    // smooth month ticker
 
-    // === UI helpers ===
-    const el = id => document.getElementById(id);
-    const fmtPct = x => Math.round(x*100)+"%";
-    const toast = (msg)=>{ const t=el('toast'); t.textContent=msg; t.style.display='block'; setTimeout(()=>t.style.display='none', 2000)}
+const S = {
+  // time
+  turn: 1,
+  seasonIdx: 0,
+  seasons: ["Spring","Summer","Autumn","Winter"],
+  year: 1,
+  month: 1, // 1..12
+  // demography & production
+  pop: 100,
+  needsPerCap: 0.9,
+  land: 1.0,
+  A: 1.0,       // agri tech
+  losses: 0.12, // spoilage baseline
+  // institutions / state capacity
+  health: 0.35,     // 0..1
+  trust: 0.40,      // 0..1
+  stability: 0.45,  // 0..1
+  pp: 10,           // political power
+  // builds
+  built: { well:false, granary:false, irrigation:false, council:false, fair:false, workshop:false, plough:false },
+  // cooldowns (by turn)
+  cooldowns: { gatherReadyAt: 1 },
+  eventsLast: [],
+};
 
-    function recompute(reason=""){
-      // Production (toy Cobb–Douglas with labor share implicit ≈ population share in agri stage)
-      const LA = S.pop * 0.9; // ~90% farmers this phase
-      const tech = S.A * (S.built.irrigation?1.15:1) * (S.built.plough?1.25:1);
-      let output = tech * Math.pow(S.land,0.3) * Math.pow(LA,0.7);
-      // Granary reduces losses; wells improve health (reduce disease losses later)
-      const lossBase = S.losses * (S.built.granary?0.6:1);
-      const foodOut = Math.max(0, output * (1 - lossBase));
-      const needs = S.pop * S.needsPerCap;
-      const surplus = Math.round(foodOut - needs);
+// UI helpers
+const el = id => document.getElementById(id);
+const toast = (msg)=>{ const t=el('toast'); t.innerHTML=msg; t.style.display='block'; setTimeout(()=>t.style.display='none', 2200) };
+function setDateDisplay(){ el('date').textContent = `Year ${S.year}, Month ${S.month}`; }
 
-      // Meters
-      const foodRatio = Math.max(0, Math.min(1, foodOut/(needs*1.2)));
-      setBar('Food', foodRatio, foodOut, needs, surplus);
-      setBar('Health', S.health);
-      setBar('Trust', S.trust);
-      setBar('Stab', S.stability);
+// ======== Core recompute (HUD + meters + sprites) ========
+function recompute(reason=""){
+  // Production (toy Cobb–Douglas)
+  const LA = S.pop * 0.9; // 90% farmers
+  const tech = S.A * (S.built.irrigation?1.15:1) * (S.built.plough?1.25:1);
+  const output = tech * Math.pow(S.land,0.3) * Math.pow(LA,0.7);
+  const lossBase = S.losses * (S.built.granary?0.6:1);
+  const foodOut = Math.max(0, output * (1 - lossBase));
+  const needs = S.pop * S.needsPerCap;
+  const surplus = Math.round(foodOut - needs);
 
-      // HUD
-      el('pop').textContent = S.pop;
-      el('pp').textContent = S.pp;
-      el('food').textContent = Math.round(foodOut);
-      el('season').textContent = S.seasons[S.seasonIdx];
-      el('kSeason').textContent = S.seasons[S.seasonIdx];
-      el('kEvents').textContent = S.eventsLast.join(', ') || 'None';
+  const foodRatio = Math.max(0, Math.min(1, foodOut/(needs*1.2)));
+  setBar('Food', foodRatio, foodOut, needs, surplus);
+  setBar('Health', S.health);
+  setBar('Trust', S.trust);
+  setBar('Stab', S.stability);
 
-      // Sprites visibility
-      el('spr_well').style.display = S.built.well? 'block':'none';
-      el('spr_granary').style.display = S.built.granary? 'block':'none';
-      el('spr_canal').style.display = S.built.irrigation? 'block':'none';
-      el('spr_council').style.display = S.built.council? 'block':'none';
-      el('spr_market').style.display = S.built.fair? 'block':'none';
-      el('spr_workshop').style.display = S.built.workshop? 'block':'none';
+  // HUD
+  el('pop').textContent = S.pop;
+  el('pp').textContent = Math.floor(S.pp);
+  el('food').textContent = Math.round(foodOut);
+  el('season').textContent = S.seasons[S.seasonIdx];
+  el('kSeason').textContent = S.seasons[S.seasonIdx];
+  el('kEvents').textContent = S.eventsLast.join(', ') || 'None';
+  setDateDisplay();
 
-      if(reason) el('reason').innerHTML = reason;
+  // Sprites
+  el('spr_well').style.display     = S.built.well? 'block':'none';
+  el('spr_granary').style.display  = S.built.granary? 'block':'none';
+  el('spr_canal').style.display    = S.built.irrigation? 'block':'none';
+  el('spr_council').style.display  = S.built.council? 'block':'none';
+  el('spr_market').style.display   = S.built.fair? 'block':'none';
+  el('spr_workshop').style.display = S.built.workshop? 'block':'none';
 
-      // Phase 2 teaser unlock
-      if (surplus > 0 && (S.built.granary || S.built.irrigation) && !S.built.workshop) {
-        // allow proto‑industry card to appear
-        mountCards();
-      }
+  if(reason) el('reason').innerHTML = reason;
+
+  // Show proto-industry card when conditions are met
+  if (surplus > 0 && (S.built.granary || S.built.irrigation) && !S.built.workshop) {
+    mountCards();
+  }
+}
+function setBar(kind, val, foodOut, needs, surplus){
+  const fill = el('fill'+kind);
+  const lbl = el(kind.toLowerCase()+"Lbl");
+  fill.style.width = Math.round(val*100)+'%';
+  if(kind==='Food'){
+    el('foodLbl').textContent = Math.round(val*100)+'%';
+    el('foodStock').textContent = Math.round(foodOut);
+    el('foodNeeds').textContent = Math.round(needs);
+    el('foodSurplus').textContent = surplus;
+    const bar = el('barFood');
+    bar.classList.toggle('bad', surplus < 0);
+  } else {
+    lbl.textContent = Math.round(val*100)+'%';
+  }
+}
+
+// ======== Policy Cards ========
+const ALL_CARDS = [
+  // NEW: Community Gathering (0 PP, cooldown)
+  { id:'gather', name:'Community Gathering', cost:{pp:0},
+    desc:'Hold a village gathering to build legitimacy. +Trust, small PP gain. Cooldown: 4 seasons.',
+    tip:'Civic events build soft power; legitimacy converts cooperation into policy space.',
+    can:()=> S.turn >= S.cooldowns.gatherReadyAt,
+    do:()=>{ S.trust = Math.min(1, S.trust+0.06); S.pp += 1; S.cooldowns.gatherReadyAt = S.turn + 4; }
+  },
+  { id:'well', name:'Build Wells & Sanitation', cost:{pp:2},
+    desc:'Reduce disease; improves health and lowers mortality risk.',
+    tip:'Public health raises labour supply and resilience. (DevEcon: human capital; Europe: sanitation)',
+    can:()=>!S.built.well,
+    do:()=>{ S.built.well=true; S.health = Math.min(1, S.health+0.25); S.stability = Math.min(1, S.stability+0.05); }
+  },
+  { id:'granary', name:'Construct Granary Storage', cost:{pp:3},
+    desc:'Cut spoilage; buffers bad harvests; stabilises consumption.',
+    tip:'Granaries reduce famine volatility; classic pre-modern tech (Europe).',
+    can:()=>!S.built.granary,
+    do:()=>{ S.built.granary=true; S.stability = Math.min(1, S.stability+0.10); }
+  },
+  { id:'irrigation', name:'Dig Irrigation Ditch', cost:{pp:3},
+    desc:'+15% effective yields by securing water to fields.',
+    tip:'Raises A (agri TFP). (Lewis precondition: food surplus before labour moves).',
+    can:()=>!S.built.irrigation,
+    do:()=>{ S.built.irrigation=true; S.A *= 1.05; }
+  },
+  { id:'plough', name:'Adopt Heavy Plough / Rotation', cost:{pp:4},
+    desc:'+25% yield jump via better tilling & cropping system.',
+    tip:'Medieval Europe divergence: heavy plough + crop rotation on heavy soils.',
+    can:()=>!S.built.plough,
+    do:()=>{ S.built.plough=true; S.A *= 1.10; S.trust = Math.min(1, S.trust+0.03); }
+  },
+  { id:'council', name:'Form Village Council', cost:{pp:3},
+    desc:'Creates legitimacy; resolves disputes; stability boost. Generates PP when surplus is positive.',
+    tip:'Rodrik: market-creating institutions lower transaction costs.',
+    can:()=>!S.built.council,
+    do:()=>{ S.built.council=true; S.trust = Math.min(1, S.trust+0.20); S.stability = Math.min(1, S.stability+0.15); }
+  },
+  { id:'literacy', name:'Run Literacy Classes', cost:{pp:2},
+    desc:'Small current boost; unlocks faster tech later.',
+    tip:'Human capital raises productivity now and later (MRW / endogenous growth).',
+    can:()=>true,
+    do:()=>{ S.A *= 1.02; S.trust = Math.min(1, S.trust+0.05); }
+  },
+  { id:'fair', name:'Host a Market Fair', cost:{pp:2},
+    desc:'Proto-trade; periodic PP income; small stability bump.',
+    tip:'Village fairs thickened markets; Europe commercialisation.',
+    can:()=>!S.built.fair,
+    do:()=>{ S.built.fair=true; S.trust = Math.min(1, S.trust+0.08); S.stability = Math.min(1, S.stability+0.05); }
+  },
+  { id:'workshop', name:'Open Community Workshop', cost:{pp:4},
+    desc:'Start proto-industry; diverts a bit of labour from farms.',
+    tip:'Lewis: surplus labour moves to modern sector once food secure.',
+    can:()=> (S.built.granary || S.built.irrigation) && !S.built.workshop,
+    do:()=>{ S.built.workshop=true; }
+  },
+];
+
+function mountCards(){
+  const wrap = el('cards');
+  wrap.innerHTML = '';
+  ALL_CARDS.forEach(c=>{
+    if(!c.can()) return;
+    const div = document.createElement('div');
+    div.className = 'card';
+    const cdText = c.id==='gather' ? `<span class="pill cd">Cooldown: ${Math.max(0, (S.cooldowns.gatherReadyAt - S.turn))} seasons</span>` : '';
+    div.innerHTML = `
+      <h3>${c.name}</h3>
+      <div class="meta"><span class="pill">Cost: PP ${c.cost.pp}</span>${cdText}<span class="pill" title="${c.tip}">Info</span></div>
+      <p>${c.desc}</p>
+      <button class="action">Enact</button>
+    `;
+    const btn = div.querySelector('button');
+    btn.disabled = (S.pp < c.cost.pp);
+    btn.addEventListener('click', ()=>{
+      if(S.pp < c.cost.pp){ toast('Not enough Political Power'); return; }
+      S.pp -= c.cost.pp; c.do();
+      recompute(`You enacted <b>${c.name}</b>. ${c.desc} <br><i>${c.tip}</i>`);
+      mountCards();
+    });
+    wrap.appendChild(div);
+  });
+}
+
+// ======== Ambient Micro-Events (seasonal) ========
+function ambientEvents(net){
+  // low probabilities; flavor + mild modifiers
+  const events = [];
+  // Good Rains: boost TFP temporarily
+  if(Math.random() < 0.10){
+    events.push('Good Rains');
+    S.A *= 1.01;
+  }
+  // Skilled Hunter: temporary food bonus (modeled via tiny pop birth bump)
+  if(Math.random() < 0.07){
+    events.push('Skilled Hunter');
+    S.trust = Math.min(1, S.trust + 0.01);
+  }
+  // Peaceful Festival: if Market Fair exists
+  if(S.built.fair && Math.random() < 0.12){
+    events.push('Peaceful Festival');
+    S.trust = Math.min(1, S.trust + 0.03);
+    S.stability = Math.min(1, S.stability + 0.02);
+  }
+  // Bandit Sighting: mitigated by Council
+  if(Math.random() < (S.built.council? 0.03: 0.10)){
+    events.push('Bandit Sighting');
+    S.stability = Math.max(0, S.stability - (S.built.council? 0.01: 0.04));
+  }
+  // Narrative consolidation
+  if(events.length) S.eventsLast = S.eventsLast.concat(events);
+}
+
+// ======== Season advance (economy + events + PP) ========
+function advanceSeason(){
+  S.turn++; S.seasonIdx = (S.seasonIdx+1)%4; el('turn').textContent = S.turn;
+
+  // Production snapshot for outcomes
+  const LA = S.pop * 0.9;
+  const tech = S.A * (S.built.irrigation?1.15:1) * (S.built.plough?1.25:1);
+  const output = tech * Math.pow(S.land,0.3) * Math.pow(LA,0.7);
+  const lossBase = S.losses * (S.built.granary?0.6:1);
+  const foodOut = Math.max(0, output * (1 - lossBase));
+  const needs = S.pop * S.needsPerCap;
+  const net = Math.round(foodOut - needs);
+
+  S.eventsLast = [];
+
+  // Disease risk (lower with wells)
+  let deathRate = 0.02 * (1 - S.health);
+  const diseaseRisk = (S.built.well? 0.03: 0.10) * (1 - S.health);
+  if(Math.random() < diseaseRisk){
+    const dead = Math.max(1, Math.round(S.pop * (0.02 + Math.random()*0.03)));
+    S.pop = Math.max(10, S.pop - dead); S.eventsLast.push('Disease');
+    S.stability = Math.max(0, S.stability - 0.05);
+  }
+  // Famine risk if net negative
+  if(net < 0){
+    const famineRisk = (S.built.granary? 0.15: 0.45);
+    if(Math.random() < famineRisk){
+      const dead = Math.max(1, Math.round(S.pop * (0.03 + Math.random()*0.04)));
+      S.pop = Math.max(10, S.pop - dead); S.eventsLast.push('Famine');
+      S.trust = Math.max(0, S.trust - 0.08); S.stability = Math.max(0, S.stability - 0.08);
     }
+  }
+  // Disputes if low stability and no council
+  if(S.stability < 0.35 && !S.built.council && Math.random()<0.25){
+    S.eventsLast.push('Dispute'); S.trust = Math.max(0, S.trust - 0.06);
+  }
 
-    function setBar(kind, val, foodOut, needs, surplus){
-      const fill = el('fill'+kind);
-      const lbl = el(kind.toLowerCase()+"Lbl");
-      fill.style.width = Math.round(val*100)+'%';
-      if(kind==='Food'){
-        el('foodLbl').textContent = Math.round(val*100)+'%';
-        el('foodStock').textContent = Math.round(foodOut);
-        el('foodNeeds').textContent = Math.round(needs);
-        el('foodSurplus').textContent = surplus;
-        const bar = el('barFood');
-        bar.classList.toggle('bad', surplus < 0);
-      } else {
-        lbl.textContent = Math.round(val*100)+'%';
-      }
-    }
+  // Ambient micro-events
+  ambientEvents(net);
 
-    // === Cards ===
-    const ALL_CARDS = [
-      {
-        id:'well', name:'Build Wells & Sanitation', cost:{pp:2},
-        desc:'Reduce disease; improves health and lowers mortality risk.',
-        tip:'Public health raises labour supply and resilience. (DevEcon: human capital; Europe: sanitation)',
-        can:()=>!S.built.well,
-        do:()=>{ S.built.well=true; S.health = Math.min(1, S.health+0.25); S.stability = Math.min(1, S.stability+0.05); }
-      },
-      {
-        id:'granary', name:'Construct Granary Storage', cost:{pp:3},
-        desc:'Cut spoilage; buffers bad harvests; stabilises consumption.',
-        tip:'Granaries reduce famine volatility; classic pre‑modern tech (Europe).',
-        can:()=>!S.built.granary,
-        do:()=>{ S.built.granary=true; S.stability = Math.min(1, S.stability+0.1); }
-      },
-      {
-        id:'irrigation', name:'Dig Irrigation Ditch', cost:{pp:3},
-        desc:'+15% effective yields by securing water to fields.',
-        tip:'Raises A (agri TFP). (Lewis precondition: food surplus before labour moves)',
-        can:()=>!S.built.irrigation,
-        do:()=>{ S.built.irrigation=true; S.A *= 1.05; }
-      },
-      {
-        id:'plough', name:'Adopt Heavy Plough / Rotation', cost:{pp:4},
-        desc:'+25% yield jump via better tilling & cropping system.',
-        tip:'Medieval Europe divergence story: heavy plough on heavy soils.',
-        can:()=>!S.built.plough,
-        do:()=>{ S.built.plough=true; S.A *= 1.1; S.trust = Math.min(1, S.trust+0.03); }
-      },
-      {
-        id:'council', name:'Form Village Council', cost:{pp:3},
-        desc:'Creates legitimacy; resolves disputes; stability boost.',
-        tip:'Rodrik: market‑creating institutions lower transaction costs.',
-        can:()=>!S.built.council,
-        do:()=>{ S.built.council=true; S.trust = Math.min(1, S.trust+0.2); S.stability = Math.min(1, S.stability+0.15); }
-      },
-      {
-        id:'literacy', name:'Run Literacy Classes', cost:{pp:2},
-        desc:'Small current boost; unlocks faster tech later.',
-        tip:'Human capital raises productivity now and later (MRW / endogenous growth).',
-        can:()=>true,
-        do:()=>{ S.A *= 1.02; S.trust = Math.min(1, S.trust+0.05); }
-      },
-      {
-        id:'fair', name:'Host a Market Fair', cost:{pp:2},
-        desc:'Proto‑trade; raises trust & small stability bump.',
-        tip:'Village fairs thickened markets; Europe commercialisation.',
-        can:()=>!S.built.fair,
-        do:()=>{ S.built.fair=true; S.trust = Math.min(1, S.trust+0.08); S.stability = Math.min(1, S.stability+0.05); }
-      },
-      {
-        id:'workshop', name:'Open Community Workshop', cost:{pp:4},
-        desc:'Start proto‑industry; diverts a bit of labour from farms.',
-        tip:'Lewis: surplus labour moves to modern sector once food secure.',
-        can:()=> (S.built.granary || S.built.irrigation) && !S.built.workshop,
-        do:()=>{ S.built.workshop=true; /* tiny food output reduction to reflect labour shift */ S.A *= 1.0; }
-      },
-    ];
+  // Natural births scale with surplus (Malthusian intuition)
+  const births = Math.max(0, Math.round((net>0? net:0) * 0.05));
+  const naturalDeaths = Math.round(S.pop * deathRate);
+  S.pop = Math.max(10, S.pop + births - naturalDeaths);
 
-    function mountCards(){
-      const wrap = el('cards');
-      wrap.innerHTML = '';
-      ALL_CARDS.forEach(c=>{
-        if(!c.can()) return;
-        const div = document.createElement('div');
-        div.className = 'card';
-        div.innerHTML = `
-          <h3>${c.name}</h3>
-          <div class="meta"><span class="pill">Cost: PP ${c.cost.pp}</span><span class="pill" title="${c.tip}">Info</span></div>
-          <p>${c.desc}</p>
-          <button class="action">Enact</button>
-        `;
-        const btn = div.querySelector('button');
-        btn.disabled = (S.pp < c.cost.pp);
-        btn.addEventListener('click', ()=>{
-          if(S.pp < c.cost.pp){ toast('Not enough Political Power'); return; }
-          S.pp -= c.cost.pp; c.do();
-          recompute(`You enacted <b>${c.name}</b>. ${c.desc} <br><i>${c.tip}</i>`);
-          mountCards();
-        });
-        wrap.appendChild(div);
-      });
-    }
+  // Political Power income (legitimacy engine)
+  // +1 surplus, +1 if council & surplus, +0.5 if fair, +[0..1] from trust; penalties for crises
+  let ppGain = 0;
+  if (net > 0) ppGain += 1;
+  if (S.built.council && net>0) ppGain += 1;
+  if (S.built.fair) ppGain += 0.5;
+  ppGain += Math.max(0, Math.floor(S.trust*1)); // 0..1
+  if (S.eventsLast.includes('Famine')) ppGain -= 1;
+  if (S.eventsLast.includes('Dispute')) ppGain -= 0.5;
+  S.pp = Math.max(0, Math.min(99, S.pp + ppGain));
 
-    // === Advance season (events & dynamics) ===
-    function advanceSeason(){
-      S.turn++; S.seasonIdx = (S.seasonIdx+1)%4; el('turn').textContent = S.turn; 
+  // Trust & Stability drift with institutions and outcomes
+  if(net>0 && S.built.council){ S.trust = Math.min(1, S.trust + 0.03); }
+  if(S.built.council){ S.stability = Math.min(1, S.stability + 0.02); }
+  if(net<0){ S.stability = Math.max(0, S.stability - 0.01); }
 
-      // Compute outputs to update stocks & events
-      const LA = S.pop * 0.9;
-      const tech = S.A * (S.built.irrigation?1.15:1) * (S.built.plough?1.25:1);
-      const output = tech * Math.pow(S.land,0.3) * Math.pow(LA,0.7);
-      const lossBase = S.losses * (S.built.granary?0.6:1);
-      const foodOut = Math.max(0, output * (1 - lossBase));
-      const needs = S.pop * S.needsPerCap;
-      const net = Math.round(foodOut - needs);
+  // Phase 1 completion hint
+  const ready = (net>0) && (S.built.council || S.built.granary) && (S.built.irrigation || S.built.plough);
+  const msg = ready
+    ? `Surplus sustained and institutions forming. <b>Proto-Industry unlocked next</b>.`
+    : `Season passed. Net food: <b>${net>=0? '+'+net: net}</b>. Events: <b>${S.eventsLast.join(', ')||'None'}</b>. PP change: <b>${ppGain.toFixed(1)}</b>`;
 
-      S.eventsLast = [];
+  recompute(msg);
+  mountCards();
+}
 
-      // Health & mortality
-      let deathRate = 0.02 * (1 - S.health); // better health lowers deaths
-      // Disease event chance drops if well/medicine exists
-      const diseaseRisk = (S.built.well? 0.03: 0.10) * (1 - S.health);
-      if(Math.random() < diseaseRisk){
-        const dead = Math.max(1, Math.round(S.pop * (0.02 + Math.random()*0.03)));
-        S.pop = Math.max(10, S.pop - dead); S.eventsLast.push('Disease');
-        S.stability = Math.max(0, S.stability - 0.05);
-      }
-      // Famine if negative net and no granary buffer
-      if(net < 0){
-        const famineRisk = (S.built.granary? 0.15: 0.45);
-        if(Math.random() < famineRisk){
-          const dead = Math.max(1, Math.round(S.pop * (0.03 + Math.random()*0.04)));
-          S.pop = Math.max(10, S.pop - dead); S.eventsLast.push('Famine');
-          S.trust = Math.max(0, S.trust - 0.08); S.stability = Math.max(0, S.stability - 0.08);
-        }
-      }
-      // Disputes if low stability and no council
-      if(S.stability < 0.35 && !S.built.council && Math.random()<0.25){
-        S.eventsLast.push('Dispute'); S.trust = Math.max(0, S.trust - 0.06);
-      }
+// ======== Autoplay + Month Ticker ========
+function start(){
+  if(TIMER) return;
+  const base = 4000; // ms per season at 1x
+  TIMER = setInterval(advanceSeason, base / SPEED);
+  el('btnPlay').textContent='⏸ Pause';
+  startMonthTicker();
+}
+function stop(){
+  if(!TIMER) return;
+  clearInterval(TIMER); TIMER=null;
+  el('btnPlay').textContent='▶ Play';
+  stopMonthTicker();
+}
+function startMonthTicker(){
+  if(MONTH_TIMER) return;
+  const base = 1000; // ms per month at 1x (visual only)
+  MONTH_TIMER = setInterval(()=>{
+    // Advance month; every 3 months, bump season internally already handled by season timer
+    S.month++; if(S.month>12){ S.month=1; S.year++; }
+    setDateDisplay();
+  }, base / SPEED);
+}
+function stopMonthTicker(){ if(!MONTH_TIMER) return; clearInterval(MONTH_TIMER); MONTH_TIMER=null; }
 
-      // Natural births scale with surplus (Malthusian)
-      const births = Math.max(0, Math.round((net>0? net:0) * 0.05));
-      const naturalDeaths = Math.round(S.pop * deathRate);
-      S.pop = Math.max(10, S.pop + births - naturalDeaths);
+// ======== Reset ========
+function reset(){
+  stop();
+  Object.assign(S, {
+    turn:1, seasonIdx:0, year:1, month:1,
+    pop:100, needsPerCap:0.9, land:1.0, A:1.0, losses:0.12,
+    health:0.35, trust:0.40, stability:0.45, pp:10,
+    built:{well:false,granary:false,irrigation:false,council:false,fair:false,workshop:false,plough:false},
+    cooldowns:{gatherReadyAt:1}, eventsLast:[]
+  });
+  mountCards(); recompute('Reset to starting conditions.');
+}
 
-      // Trust regeneration when surplus & council present
-      if(net>0 && S.built.council){ S.trust = Math.min(1, S.trust + 0.03); S.pp += 1; }
-      // Stability drift toward middle with council
-      if(S.built.council){ S.stability = Math.min(1, S.stability + 0.02); }
-      if(net<0){ S.stability = Math.max(0, S.stability - 0.01); }
-
-      // Phase 1 completion hint
-      const phase1Ready = (net>0) && (S.built.council || S.built.granary) && (S.built.irrigation || S.built.plough);
-      const msg = phase1Ready
-        ? `Surplus sustained and institutions forming. <b>Proto‑Industry unlocked next</b>.` 
-        : `Season passed. Net food: <b>${net>=0? '+'+net: net}</b>. Events: <b>${S.eventsLast.join(', ')||'None'}</b>.`;
-
-      recompute(msg);
-    }
-
-    // === Reset ===
-    function reset(){
-      Object.assign(S, {turn:1, seasonIdx:0, pop:100, food:100, needsPerCap:0.9, land:1.0, A:1.0, losses:0.12,
-        health:0.35, trust:0.40, stability:0.45, pp:10, built:{well:false,granary:false,irrigation:false,council:false,fair:false,workshop:false,plough:false}, eventsLast:[]});
-      mountCards(); recompute('Reset to starting conditions.');
-    }
-
-    // Init
-    mountCards(); recompute();
-    el('btnAdvance').addEventListener('click', advanceSeason);
-    el('btnReset').addEventListener('click', reset);
-  </script>
+// ======== Init ========
+mountCards(); recompute();
+el('btnAdvance').addEventListener('click', advanceSeason);
+el('btnReset').addEventListener('click', reset);
+el('btnPlay').addEventListener('click', ()=> (TIMER? stop(): start()));
+el('speed').addEventListener('change', (e)=>{ SPEED = parseFloat(e.target.value||'1'); if(TIMER){ stop(); start(); } if(MONTH_TIMER){ stopMonthTicker(); startMonthTicker(); }});
+</script>
 </body>
 </html>
