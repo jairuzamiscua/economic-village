@@ -3,850 +3,380 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>EconoVille — Phase 1 (Agrarian + Events)</title>
-<style>
-:root{
-  --bg:#0b1022;--panel:#0f172aee;--panel2:#0b1224cc;--text:#e5e7eb;--muted:#94a3b8;
-  --accent:#22d3ee;--accent2:#a78bfa;--good:#22c55e;--warn:#f59e0b;--bad:#ef4444;--border:#1f2937;
-}
-*{box-sizing:border-box}html,body{height:100%}
-body{margin:0;background:
-  radial-gradient(1200px 800px at 70% -10%, #1e293b 0%, #0b1224 45%, #070b16 100%),
-  linear-gradient(180deg, #060912, #060912);
-  color:var(--text);font-family:Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial}
-h1,h2,h3{margin:0}
-.shell{display:grid;grid-template-rows:auto 1fr;min-height:100%}
-header{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border)}
-header h1{font-size:18px;font-weight:800}
-header .tag{font-size:12px;color:var(--muted)}
-.controls{display:flex;gap:8px;align-items:center}
-.btn{border:1px solid var(--border);background:#0b1224dd;color:var(--text);border-radius:8px;padding:6px 10px;cursor:pointer;font-size:12px}
-.btn.primary{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#041018;border:none}
-.toggle{padding:6px 10px;border-radius:8px;border:1px solid var(--border);cursor:pointer}
-.main{display:grid;grid-template-columns:380px 1fr 420px;gap:14px;padding:14px}
-.panel{background:linear-gradient(180deg,var(--panel),var(--panel2));border:1px solid var(--border);border-radius:14px;box-shadow:0 12px 36px rgba(0,0,0,.35)}
-.panel h2{font-size:12px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);margin:0 0 10px}
-.left,.right{padding:14px;overflow:auto;max-height:calc(100vh - 96px)}
-.center{position:relative;padding:12px}
-
-/* MAP */
-.view{height:100%;min-height:640px;border-radius:14px;border:1px solid var(--border);
-background:
-  radial-gradient(1200px 800px at 30% -20%, rgba(34,211,238,.07), transparent 50%),
-  linear-gradient(180deg, rgba(2,6,23,.25), rgba(2,6,23,.65)),
-  url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="680"><defs><linearGradient id="sky" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="%231a2b57"/><stop offset="1" stop-color="%23091121"/></linearGradient><linearGradient id="ground" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="%230b3a1e"/><stop offset="1" stop-color="%23061812"/></linearGradient></defs><rect width="100%" height="45%" fill="url(%23sky)"/><rect y="45%" width="100%" height="55%" fill="url(%23ground)"/></svg>');
-background-size:cover;position:relative;overflow:hidden}
-.hud{position:absolute;top:10px;left:10px;display:flex;gap:8px;flex-wrap:wrap;z-index:10}
-.badge{background:#0b1224cc;border:1px solid var(--border);padding:6px 10px;border-radius:999px;font-size:12px}
-.grid{position:absolute;left:20px;right:20px;bottom:20px;top:100px;border:1px dashed #33415555;border-radius:10px}
-.icon{position:absolute;width:86px;height:74px;border-radius:10px;border:1px solid rgba(0,0,0,.35);box-shadow:0 12px 26px rgba(0,0,0,.35);background-size:cover;cursor:pointer;display:flex;align-items:flex-end;justify-content:center}
-.icon.farm{background:repeating-linear-gradient(45deg,#166534 0 7px,#0e9f6e 7px 14px)}
-.icon.house{background:linear-gradient(#d1d5db,#6b7280)}
-.icon.house.occupied::after{content:'';position:absolute;top:4px;right:8px;width:8px;height:8px;border-radius:50%;background:radial-gradient(circle,#fff,#94a3b8);box-shadow:0 0 8px 3px rgba(255,255,255,.25)}
-.icon.well{background:radial-gradient(circle,#93c5fd,#1d4ed8)}
-.icon.granary{background:linear-gradient(#9ca3af,#6b7280)}
-.icon.livestock{background:linear-gradient(135deg,#a16207,#854d0e)}
-.icon.market{background:linear-gradient(90deg,#ef4444,#f59e0b,#facc15)}
-.icon.path{background:repeating-linear-gradient(90deg,#9ca3af 0 6px,#374151 6px 12px)}
-.site{filter:grayscale(.8) brightness(.75)}
-.ring{position:absolute;width:44px;height:44px;border-radius:50%;
-background:radial-gradient(circle at 50% 50%, rgba(0,0,0,.6) 30%, transparent 31%), conic-gradient(var(--accent) calc(var(--pct,0)*1%), rgba(255,255,255,.12) 0);
-border:1px solid rgba(255,255,255,.1);left:18px;top:12px}
-.lbl{position:absolute;bottom:6px;left:6px;right:6px;text-align:center;font-size:10px;background:#0006;padding:2px 5px;border-radius:6px}
-.peeps{position:absolute;bottom:18px;left:6px;display:flex;gap:4px}
-.peep{width:6px;height:6px;border-radius:50%;background:#eab308;box-shadow:0 0 6px #0008}
-
-/* resource nodes */
-.node{position:absolute;width:56px;height:56px;border-radius:12px;border:1px solid #0004;box-shadow:0 8px 18px rgba(0,0,0,.35);cursor:pointer;transition:transform .15s}
-.node:hover{transform:scale(1.06)}
-.node.tree{background:radial-gradient(circle,#14532d,#052e16)}
-.node.rock{background:radial-gradient(circle,#6b7280,#111827)}
-
-/* LEFT controls */
-.group{background:#0b1224aa;border:1px solid var(--border);border-radius:12px;padding:10px;margin-bottom:12px}
-.group h3{margin:0 0 8px;font-size:13px}
-.slider-row{margin:8px 0}
-.slider-label{display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px}
-input[type="range"]{width:100%;accent-color:var(--accent)}
-.small{font-size:11px;color:var(--muted)}
-.row{display:flex;gap:8px;align-items:center;margin:6px 0}
-
-/* palette (drag & drop) */
-.palette{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
-.tile{display:flex;gap:8px;align-items:center;border:1px solid var(--border);background:#0b1224dd;border-radius:10px;padding:8px;cursor:grab}
-.tile:active{cursor:grabbing}
-.tile .i{width:30px;height:30px;border-radius:8px;border:1px solid #0003}
-.i.farm{background:repeating-linear-gradient(45deg,#166534 0 7px,#0e9f6e 7px 14px)}
-.i.well{background:radial-gradient(circle,#93c5fd,#1d4ed8)}
-.i.granary{background:linear-gradient(#9ca3af,#6b7280)}
-.i.livestock{background:linear-gradient(135deg,#a16207,#854d0e)}
-.i.house{background:linear-gradient(#d1d5db,#6b7280)}
-.i.path{background:repeating-linear-gradient(90deg,#9ca3af 0 6px,#374151 6px 12px)}
-.i.market{background:linear-gradient(90deg,#ef4444,#f59e0b,#facc15)}
-.meta{margin-left:auto;font-size:11px;color:var(--muted)}
-
-/* tech */
-.tabs{display:flex;gap:6px;margin-bottom:8px}
-.tab{border:1px solid var(--border);background:#0b1224aa;color:var(--text);border-radius:8px;padding:6px 8px;font-size:12px;cursor:pointer}
-.tab.active{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#041018;border:none}
-.tech-tree .tech-node{background:#0b1224aa;border:1px solid var(--border);border-radius:10px;padding:10px;margin-bottom:8px}
-.tech-node.locked{opacity:.6}
-.tech-node.complete{border-color:var(--good);background:#0b1224dd}
-.tech-head{display:flex;justify-content:space-between;margin-bottom:6px}
-
-/* RIGHT meters */
-.meter{background:#0b1224aa;border:1px solid var(--border);border-radius:10px;padding:10px;margin-bottom:12px}
-.meter header{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
-.meter h4{margin:0;font-size:13px}
-.bar{height:10px;background:#0b1224;border:1px solid var(--border);border-radius:999px;overflow:hidden}
-.fill{height:100%;width:0%;background:linear-gradient(90deg,var(--good),var(--accent));transition:width .35s ease}
-.kpi{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
-.chip{border:1px solid var(--border);border-radius:8px;padding:6px 8px;font-size:12px;color:var(--muted)}
-.wbox{display:flex;gap:8px;align-items:center;border:1px solid var(--border);border-radius:10px;background:#0b1224aa;padding:8px;margin-bottom:8px}
-.wsym{width:28px;height:28px;border-radius:8px}
-.wsym.sunny{background:radial-gradient(circle,#fde68a,#f59e0b)}
-.wsym.rain{background:radial-gradient(circle,#60a5fa,#2563eb)}
-.wsym.storm{background:conic-gradient(#60a5fa, #1e40af, #111827)}
-.wsym.drought{background:repeating-linear-gradient(45deg,#b45309 0 6px,#78350f 6px 12px)}
-.face{font-size:18px}
-
-/* overlays/modals */
-.overlay{position:fixed;inset:0;background:#000000a0;display:none;align-items:center;justify-content:center;z-index:3000}
-.card{max-width:760px;background:linear-gradient(180deg,var(--panel),#0a1229);border:1px solid var(--border);border-radius:16px;padding:18px}
-.card h3{margin-bottom:6px}
-.card p{color:var(--muted)}
-.ops{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
-.op{flex:1;min-width:200px;border:1px solid var(--border);border-radius:10px;padding:10px;background:#0b1224dd;cursor:pointer}
-.op:hover{background:#13203dcc}
-.closebar{display:flex;justify-content:flex-end;margin-top:10px}
-
-/* Intro */
-.intro{position:fixed;inset:0;background:
-  radial-gradient(1200px 800px at 70% -10%, rgba(167,139,250,.2), rgba(34,211,238,.08) 45%, transparent 60%),
-  #060912ee;
-display:flex;align-items:center;justify-content:center;z-index:3500}
-.intro-card{max-width:880px;background:linear-gradient(180deg,var(--panel),#0a1229);border:1px solid var(--border);border-radius:16px;padding:22px}
-.intro h1{font-size:22px;margin-bottom:8px}
-.intro p{color:var(--muted);line-height:1.5}
-.intro .row{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
-
-/* Achievements */
-.ach{background:#0b1224aa;border:1px solid var(--border);border-radius:12px;padding:10px;margin-top:10px}
-.badges{display:flex;gap:8px;flex-wrap:wrap}
-.badgeA{border:1px dashed #334155;border-radius:999px;padding:6px 10px;font-size:12px;color:#cbd5e1;opacity:.6}
-.badgeA.unlocked{border-style:solid;background:linear-gradient(135deg, #22c55e55, #22d3ee33);opacity:1}
-
-/* toast, tooltip, drophint */
-.toast{position:fixed;bottom:18px;right:18px;background:#0b1224ee;border:1px solid var(--border);padding:10px 12px;border-radius:10px;font-size:13px;display:none;z-index:4000}
-.dropHint{position:absolute;inset:0;border:2px dashed #22d3ee66;border-radius:10px;display:none;pointer-events:none}
-</style>
+<title>EconoVille - Phase 1: Agrarian Economy Simulator</title>
+<link rel="stylesheet" href="styles.css">
 </head>
 <body>
-<div class="shell">
 
-  <!-- INTRO -->
-  <div class="intro" id="intro">
-    <div class="intro-card">
-      <h1>EconoVille — Phase 1: Pure Agrarian</h1>
-      <p><b>Goal:</b> escape subsistence. Phase 1 models <i>Malthusian</i> land pressure (diminishing returns) and
-        <i>Smithian</i> productivity & market widening (tools, rotation, paths, market day). Barter first; caravans sell surplus.</p>
-      <p><b>Loop:</b> Problem → Choice → Outcome → New Problem. Watch <b>Real Wage</b>, <b>Food Security</b>, <b>Land Pressure</b>.</p>
-      <div class="row">
-        <button class="btn primary" id="btnStart">Start Game</button>
-        <button class="btn" id="btnHow">Quick Tips</button>
-      </div>
-      <div class="group" id="tips" style="display:none;margin-top:12px">
-        <h3>Quick Tips</h3>
-        <ul class="small" style="margin:0 0 0 16px;line-height:1.4">
-          <li>Drag a <b>Farm</b> onto the map; then <b>Well</b> → <b>Granary</b>.</li>
-          <li>Unlock <b>Seed Selection</b> & <b>Hand Tools</b> → cheap TFP.</li>
-          <li>Set some farms <b>Legume</b>/ <b>Fallow</b> to restore soil.</li>
-          <li>Send a <b>Caravan</b> once stock is healthy.</li>
-        </ul>
-      </div>
+<!-- Landing Screen -->
+<div id="landing" class="landing">
+  <div class="landing-content">
+    <h1>EconoVille: Phase 1</h1>
+    <h2>Agrarian Economy (800-1500 AD)</h2>
+    <p>Simulate the economic development of a pre-industrial village. Master the transition from subsistence farming to sustainable growth.</p>
+    
+    <div class="learn-box">
+      <h3>Economic Concepts:</h3>
+      <ul>
+        <li><strong>Malthusian Trap</strong> - Population growth vs food supply dynamics</li>
+        <li><strong>Diminishing Returns</strong> - How land scarcity constrains growth</li>
+        <li><strong>Smithian Growth</strong> - Productivity gains from specialization</li>
+        <li><strong>Institutional Effects</strong> - Commons vs enclosure trade-offs</li>
+        <li><strong>Capital Accumulation</strong> - Tools and infrastructure investment</li>
+      </ul>
+    </div>
+    
+    <div class="button-row">
+      <button class="btn-large primary" id="btnStart">Start Game</button>
+      <button class="btn-large" id="btnHowTo">How To Play</button>
+    </div>
+    
+    <div class="credits">
+      <p>Built with economic development theory | <a href="https://github.com/yourusername/econoville" target="_blank">View on GitHub</a></p>
     </div>
   </div>
+</div>
 
-  <!-- VICTORY/DEFEAT -->
-  <div class="overlay" id="outcome">
-    <div class="card" id="outcomeCard">
-      <h3 id="outcomeTitle">Milestone</h3>
-      <p id="outcomeMsg"></p>
-      <div class="ops">
-        <div class="op" id="btnReplay">Replay Phase 1</div>
-        <div class="op" id="btnTeaser">Preview Phase 2</div>
-      </div>
-      <div class="closebar"><button class="btn" id="btnCloseOutcome">Close</button></div>
+<!-- How To Play Modal -->
+<div class="modal" id="howToModal">
+  <div class="modal-content">
+    <button class="modal-close" id="howToClose">×</button>
+    <h3>How To Play</h3>
+    <div class="how-to-content">
+      <h4>Goal</h4>
+      <p>Develop your village from subsistence farming to a thriving agrarian economy. Unlock Phase 2 by meeting all win conditions.</p>
+      
+      <h4>Controls</h4>
+      <ul>
+        <li><strong>Labor Sliders</strong> - Allocate population to farming, building, and herding</li>
+        <li><strong>Work Intensity</strong> - Higher output but lowers morale</li>
+        <li><strong>Drag Buildings</strong> - Drag from palette onto the map to construct</li>
+        <li><strong>Click Resources</strong> - Trees and rocks provide materials</li>
+        <li><strong>Crop Selection</strong> - Choose wheat (high yield), rye (hardy), or legumes (soil+)</li>
+        <li><strong>Tech Tree</strong> - Unlock improvements with materials</li>
+      </ul>
+      
+      <h4>Key Mechanics</h4>
+      <ul>
+        <li><strong>Real Wage</strong> - Below 1.0 = crisis, above 1.5 = prosperity</li>
+        <li><strong>Soil Quality</strong> - Degrades without crop rotation</li>
+        <li><strong>Event Cards</strong> - Make decisions when cards appear</li>
+        <li><strong>Malthusian Cycles</strong> - Population pressure causes wage collapse, famines reset the cycle</li>
+      </ul>
+      
+      <h4>Win Conditions</h4>
+      <p>Meet all requirements to unlock Phase 2:</p>
+      <ul>
+        <li>Population > 150</li>
+        <li>Real Wage > 1.3 for 1 full year</li>
+        <li>Market infrastructure built</li>
+        <li>3+ capital goods (mills/workshops)</li>
+      </ul>
     </div>
   </div>
+</div>
 
-  <!-- EVENT CARDS -->
-  <div class="overlay" id="eventOverlay">
-    <div class="card" id="eventCard">
-      <h3 id="eventTitle">Event</h3>
-      <p id="eventText">...</p>
-      <div class="ops" id="eventChoices"></div>
-      <div class="closebar"><button class="btn" id="eventDismiss" style="display:none">OK</button></div>
-    </div>
-  </div>
-
-  <!-- SEASONAL CROP PICKER -->
-  <div class="overlay" id="seasonOverlay">
-    <div class="card">
-      <h3>New Season: Adjust Crops?</h3>
-      <p class="small">Select crop for each farm (optional). Leave blank to keep current.</p>
-      <div id="seasonList" class="ops"></div>
-      <div class="closebar"><button class="btn primary" id="seasonApply">Apply</button></div>
-    </div>
-  </div>
-
-  <header>
-    <div>
-      <h1>EconoVille — Phase 1 (Agrarian + Events)</h1>
-      <div class="tag">Day <span id="day">1</span> • Year <span id="year">1</span> • Season: <span id="season">Spring</span></div>
-    </div>
-    <div class="controls">
-      <span id="mood" class="face">🙂</span>
-      <button class="toggle" id="btnPause">⏸ Pause</button>
-      <select class="btn" id="speedSel" title="Speed">
-        <option value="3" selected>1× (3s/day)</option>
-        <option value="1.5">2× (1.5s)</option>
-        <option value="0.8">5× (0.8s)</option>
-        <option value="0">Paused</option>
+<!-- Main Game -->
+<div id="gameContainer" class="shell" style="display:none">
+<header>
+  <div>
+    <h1>EconoVille — Phase 1: Agrarian Economy</h1>
+    <div class="header-stats">
+      <span>Day <span id="day">1</span> • Year <span id="year">1</span> • <span id="season">Spring</span></span>
+      <button class="btn-icon" id="btnPause" title="Pause/Resume">⏸</button>
+      <select class="speed-select" id="speedSelect">
+        <option value="4000">0.5x</option>
+        <option value="2000" selected>1x</option>
+        <option value="1000">2x</option>
+        <option value="500">4x</option>
       </select>
-      <button class="btn" id="stepOne">Step +1 day</button>
-      <button class="btn" id="btnSave">Save</button>
-      <button class="btn" id="btnLoad">Load</button>
-      <button class="btn" id="btnReset">Reset</button>
     </div>
-  </header>
+  </div>
+  <div class="header-buttons">
+    <button class="btn" id="btnTech">Tech Tree</button>
+    <button class="btn" id="btnTheory">Theory</button>
+    <button class="btn" id="btnProgress">Progress</button>
+    <button class="btn" id="btnExport">Export Data</button>
+    <button class="btn" id="btnSave">Save</button>
+    <button class="btn" id="btnReset">Reset</button>
+  </div>
+</header>
 
-  <div class="main">
-    <!-- LEFT -->
-    <aside class="panel left">
-      <h2>Labor & Intensity</h2>
-      <div class="group">
-        <div class="slider-row">
-          <div class="slider-label"><span>Farmers</span><span id="farmerPct">60%</span></div>
-          <input type="range" min="0" max="100" value="60" id="farmerSlider"/>
+<div class="main">
+  <!-- Left Panel -->
+  <aside class="panel left">
+    <h2>Labor Allocation</h2>
+    <div class="labor">
+      <div class="slider-row">
+        <div class="slider-label">
+          <span class="tooltip-trigger">Farmers<span class="tooltip-icon">?</span>
+            <span class="tooltip">Work farms to produce food. More farmers = more food but fewer builders.</span>
+          </span>
+          <span id="farmerPct">50%</span>
         </div>
-        <div class="slider-row">
-          <div class="slider-label"><span>Builders</span><span id="builderPct">20%</span></div>
-          <input type="range" min="0" max="100" value="20" id="builderSlider"/>
+        <input type="range" min="0" max="100" value="50" id="farmerSlider"/>
+      </div>
+      <div class="slider-row">
+        <div class="slider-label">
+          <span class="tooltip-trigger">Builders<span class="tooltip-icon">?</span>
+            <span class="tooltip">Construct buildings faster. Balance with food production needs.</span>
+          </span>
+          <span id="builderPct">30%</span>
         </div>
-        <div class="slider-row">
-          <div class="slider-label"><span>Herders</span><span id="herderPct">10%</span></div>
-          <input type="range" min="0" max="100" value="10" id="herderSlider"/>
-        </div>
-        <div class="slider-row">
-          <div class="slider-label"><span>Labor Intensity</span><span id="intensityLbl">1.0×</span></div>
-          <input type="range" min="80" max="130" value="100" id="intensitySlider"/>
-          <div class="small">More hours → more output but health/morale drift down.</div>
-        </div>
-        <div class="small">Total Pop: <b id="popTotal">80</b></div>
+        <input type="range" min="0" max="100" value="30" id="builderSlider"/>
       </div>
-
-      <h2>Enclosure Policy</h2>
-      <div class="group">
-        <div class="row"><label><input type="radio" name="encl" value="open" checked/> Open Commons</label></div>
-        <div class="row"><label><input type="radio" name="encl" value="partial"/> Partial Enclosure</label></div>
-        <div class="row"><label><input type="radio" name="encl" value="enclosed"/> Enclosed</label></div>
-        <div class="small">Enclosing raises TFP (+10%/+20%) & cuts spoilage but hurts Equity/Morale; full may displace pop.</div>
-      </div>
-
-      <h2>Technology</h2>
-      <div class="tabs" id="techTabs"></div>
-      <div class="tech-tree" id="techTree"></div>
-
-      <h2>Build Palette (drag onto map)</h2>
-      <div class="palette" id="palette"></div>
-    </aside>
-
-    <!-- CENTER -->
-    <section class="panel center">
-      <div class="view" id="view">
-        <div class="hud">
-          <div class="badge">Pop: <span id="pop">80</span>/<span id="cap">100</span></div>
-          <div class="badge">Materials: <span id="mat">30</span></div>
-          <div class="badge">Food: <span id="foodStock">20</span></div>
-          <div class="badge">Livestock: <span id="livestock">0</span></div>
-          <div class="badge">Debt: <span id="debt">0</span></div>
+      <div class="slider-row">
+        <div class="slider-label">
+          <span class="tooltip-trigger">Herders<span class="tooltip-icon">?</span>
+            <span class="tooltip">Tend livestock for food and manure. Requires Livestock tech.</span>
+          </span>
+          <span id="herderPct">10%</span>
         </div>
-        <div class="grid" id="grid">
-          <div class="dropHint" id="dropHint"></div>
+        <input type="range" min="0" max="100" value="10" id="herderSlider"/>
+      </div>
+      <div class="slider-row">
+        <div class="slider-label">
+          <span class="tooltip-trigger">Work Intensity<span class="tooltip-icon">?</span>
+            <span class="tooltip">Higher intensity = more output but lower morale. Based on "Industrious Revolution" theory.</span>
+          </span>
+          <span id="intensityPct">100%</span>
+        </div>
+        <input type="range" min="50" max="150" value="100" id="intensitySlider"/>
+      </div>
+      <div class="stat">Pop: <b id="popTotal">80</b> • Idle: <b id="idlePct">10%</b></div>
+    </div>
+
+    <h2>Crop Selection</h2>
+    <div class="info-box">
+      <div class="crop-select">
+        <div class="crop-btn active" data-crop="wheat">
+          <div class="crop-name">Wheat</div>
+          <small>High yield<br>Drought risk</small>
+        </div>
+        <div class="crop-btn" data-crop="rye">
+          <div class="crop-name">Rye</div>
+          <small>Hardy<br>Lower yield</small>
+        </div>
+        <div class="crop-btn" data-crop="legumes">
+          <div class="crop-name">Legumes</div>
+          <small>Soil restore<br>Nitrogen fix</small>
         </div>
       </div>
-    </section>
+    </div>
 
-    <!-- RIGHT -->
-    <aside class="panel right">
-      <h2>Village Status</h2>
-      <div class="meter">
-        <header><h4>Food Security</h4><span id="foodLbl">0%</span></header>
-        <div class="bar"><div class="fill" id="fillFood"></div></div>
-        <div class="small">Daily: <span id="foodDaily">0</span> • Need: <span id="foodNeed">16</span> • Stock: <span id="foodStockVal">20</span></div>
+    <h2>Land Policy</h2>
+    <div class="policy">
+      <div class="stat">
+        Current: <b id="landPolicy">Commons</b>
+        <span class="tooltip-trigger"><span class="tooltip-icon">?</span>
+          <span class="tooltip">Commons = equal access, lower efficiency. Enclosure = +15% productivity but inequality rises.</span>
+        </span>
+      </div>
+      <button class="btn policy-btn" id="btnEnclosure">Enclose Land</button>
+    </div>
+
+    <h2>Buildings (Drag to Map)</h2>
+    <div class="build-palette" id="buildPalette"></div>
+
+    <div class="info-box">
+      <h2 style="margin:0 0 8px">Land Health</h2>
+      <div class="stat">Soil Quality: <b id="landQual">100%</b></div>
+      <div class="stat-small">Degrades without crop rotation</div>
+    </div>
+  </aside>
+
+  <!-- Center Map -->
+  <section class="panel center">
+    <div class="view">
+      <div class="hud">
+        <div class="badge">Pop: <span id="pop">80</span>/<span id="cap">100</span></div>
+        <div class="badge" id="wagebadge">
+          <span class="tooltip-trigger">Wage: <span id="realWage">1.0</span>
+            <span class="tooltip">Real Wage = Food per capita / Subsistence. Below 1.0 = crisis!</span>
+          </span>
+        </div>
+        <div class="badge">Materials: <span id="mat">30</span></div>
+        <div class="badge">Food: <span id="foodStock">20</span></div>
+        <div class="badge">Animals: <span id="livestock">0</span></div>
+      </div>
+      <div class="grid" id="grid"></div>
+      <div class="ground" id="ground"></div>
+    </div>
+  </section>
+
+  <!-- Right Panel -->
+  <aside class="panel right">
+    <h2>Economic Indicators</h2>
+    
+    <div class="meter">
+      <header>
+        <h4 class="tooltip-trigger">Real Wage<span class="tooltip-icon">?</span>
+          <span class="tooltip">Malthusian indicator: when population grows faster than food, wages fall to subsistence (1.0). Crises reset the cycle.</span>
+        </h4>
+        <span id="wageLbl">100%</span>
+      </header>
+      <div class="bar"><div class="fill" id="fillWage"></div></div>
+      <div class="stat"><span id="wageStatus">Subsistence = 1.0</span></div>
+    </div>
+
+    <div class="meter">
+      <header><h4>Food Security</h4><span id="foodLbl">0%</span></header>
+      <div class="bar"><div class="fill" id="fillFood"></div></div>
+      <div class="stat">Daily need: <span id="foodNeed">16</span></div>
+    </div>
+
+    <div class="meter">
+      <header><h4>Health</h4><span id="healthLbl">60%</span></header>
+      <div class="bar"><div class="fill" id="fillHealth"></div></div>
+      <div class="stat">Disease risk: <span id="diseaseRisk">1.0%</span></div>
+    </div>
+
+    <div class="meter">
+      <header><h4>Morale</h4><span id="moraleLbl">60%</span></header>
+      <div class="bar"><div class="fill" id="fillMorale"></div></div>
+      <div class="stat">Affects productivity ±10%</div>
+    </div>
+
+    <div class="info-box">
+      <h2 style="margin:0 0 8px">Theory Active</h2>
+      <div class="stat" id="theoryStatus">Malthusian Trap</div>
+    </div>
+
+    <div class="info-box">
+      <h2 style="margin:0 0 8px">Game Log</h2>
+      <div class="stat" id="gameLog">Time will start when you interact...</div>
+    </div>
+  </aside>
+</div>
+</div>
+
+<!-- Event Card -->
+<div class="event-card" id="eventCard">
+  <div class="event-content">
+    <h3 id="eventTitle">Event</h3>
+    <p id="eventDesc">Description</p>
+    <div class="event-effect" id="eventEffect"></div>
+    <div class="event-buttons">
+      <button class="btn primary" id="eventAccept">Accept</button>
+      <button class="btn" id="eventDecline">Decline</button>
+    </div>
+  </div>
+</div>
+
+<!-- Tech Tree Modal -->
+<div class="modal" id="techModal">
+  <div class="modal-content large">
+    <button class="modal-close" id="techClose">×</button>
+    <h3>Technology Tree - Agrarian Phase</h3>
+    <div class="tech-grid" id="techGrid"></div>
+  </div>
+</div>
+
+<!-- Theory Modal -->
+<div class="modal" id="theoryModal">
+  <div class="modal-content">
+    <button class="modal-close" id="theoryClose">×</button>
+    <h3>Economic Theory Explained</h3>
+    <div class="theory-content">
+      <div class="theory-section">
+        <h4>Malthusian Trap</h4>
+        <p>Thomas Malthus (1798) observed that population grows geometrically while food supply grows arithmetically. Result: wages fall to subsistence, checking population growth through "positive checks" (famine, disease).</p>
+        <p><strong>In-game:</strong> Watch Real Wage. When it falls below 1.0, you're in crisis. Famines kill population, temporarily raising wages for survivors.</p>
       </div>
 
-      <div class="meter">
-        <header><h4>Real Wage (food/worker)</h4><span id="wageLbl">1.00×</span></header>
-        <div class="bar"><div class="fill" id="fillWage"></div></div>
-        <div class="small">Living standards rebound after shocks.</div>
+      <div class="theory-section">
+        <h4>Diminishing Returns to Land</h4>
+        <p>David Ricardo's core insight: as more farmers work fixed land, marginal productivity falls. Each additional farm produces less than the previous one.</p>
+        <p><strong>In-game:</strong> First farm produces lots of food. Tenth farm produces much less per farmer. Land quality also degrades without rotation.</p>
       </div>
 
-      <div class="meter">
-        <header><h4>Land Pressure</h4><span id="pressureLbl">0.0</span></header>
-        <div class="bar"><div class="fill" id="fillPressure"></div></div>
-        <div class="small">Farmers per farm; higher → lower marginal product.</div>
+      <div class="theory-section">
+        <h4>Smithian Growth</h4>
+        <p>Adam Smith (1776): productivity gains from division of labor and specialization. "Extent of market" determines how much specialization is possible.</p>
+        <p><strong>In-game:</strong> Tech upgrades (Tools, Heavy Plough, Seed Selection) represent TFP growth. Market Road enables surplus trade.</p>
       </div>
 
-      <div class="meter"><header><h4>Health</h4><span id="healthLbl">60%</span></header><div class="bar"><div class="fill" id="fillHealth"></div></div></div>
-      <div class="meter"><header><h4>Morale</h4><span id="moraleLbl">60%</span></header><div class="bar"><div class="fill" id="fillMorale"></div></div></div>
-      <div class="meter"><header><h4>Equity</h4><span id="equityLbl">80%</span></header><div class="bar"><div class="fill" id="fillEquity"></div></div></div>
-
-      <h2>Weather</h2>
-      <div class="wbox"><div class="wsym" id="wNow"></div><div>Today: <span id="wNowTxt">Sunny</span></div></div>
-      <div class="wbox"><div class="wsym" id="wNext"></div><div>Tomorrow: <span id="wNextTxt">Rain</span></div></div>
-
-      <h2>Barter & Caravans</h2>
-      <div class="kpi" style="grid-template-columns:1fr 1fr 1fr">
-        <div class="chip">Food→¢: <span id="pFood">0.08</span></div>
-        <div class="chip">Mat→¢: <span id="pMat">0.80</span></div>
-        <div class="chip" id="caravanStatus">No caravan</div>
-      </div>
-      <div class="row" style="justify-content:space-between">
-        <button class="btn" id="caravanFood">Sell 30 Food</button>
-        <button class="btn" id="caravanMat">Sell 10 Materials</button>
+      <div class="theory-section">
+        <h4>Enclosure Movement</h4>
+        <p>Historical shift from common land to private ownership. Increased agricultural efficiency but displaced peasants, creating inequality.</p>
+        <p><strong>In-game:</strong> Enclosure gives +15% food but drops morale. Commons are egalitarian but less efficient.</p>
       </div>
 
-      <div class="ach">
-        <h3>Achievements</h3>
-        <div class="badges" id="badges"></div>
+      <div class="theory-section">
+        <h4>Industrious Revolution</h4>
+        <p>Jan de Vries: pre-industrial families worked harder (not smarter) to afford new market goods. Labor intensity increased before productivity.</p>
+        <p><strong>In-game:</strong> Work Intensity slider. Higher = more output but morale penalty. Represents working longer hours.</p>
       </div>
 
-      <div class="kpi" style="margin-top:10px">
-        <div class="chip">Events: <span id="events">None</span></div>
-        <div class="chip">Queue: <span id="qCount">0</span></div>
+      <div class="theory-section">
+        <h4>Capital Accumulation</h4>
+        <p>Tools, mills, infrastructure = capital goods that boost productivity. But they depreciate and require maintenance.</p>
+        <p><strong>In-game:</strong> Windmills add +12% TFP but can break down. Represents capital deepening in pre-industrial economy.</p>
       </div>
-    </aside>
+    </div>
+  </div>
+</div>
+
+<!-- Progress Modal -->
+<div class="modal" id="progressModal">
+  <div class="modal-content">
+    <button class="modal-close" id="progressClose">×</button>
+    <h3>Phase 2 Unlock Progress</h3>
+    <div class="progress-content">
+      <div class="progress-bar-container">
+        <div class="progress-bar-fill" id="progressFill"></div>
+        <span class="progress-percent" id="progressPercent">0%</span>
+      </div>
+      
+      <h4>Requirements:</h4>
+      <ul class="requirements-list">
+        <li id="req1"><span class="req-icon">○</span> Population > 150</li>
+        <li id="req2"><span class="req-icon">○</span> Real Wage > 1.3 for 1 year</li>
+        <li id="req3"><span class="req-icon">○</span> Market infrastructure built</li>
+        <li id="req4"><span class="req-icon">○</span> 3+ capital goods (mills)</li>
+      </ul>
+
+      <div class="stats-summary">
+        <h4>Current Stats:</h4>
+        <p>Population: <span id="statPop">80</span> / 150</p>
+        <p>Real Wage: <span id="statWage">1.0</span> (sustained: <span id="statWageYears">0</span> years)</p>
+        <p>Market: <span id="statMarket">Not built</span></p>
+        <p>Capital Goods: <span id="statCapital">0</span> / 3</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Victory Modal -->
+<div class="modal" id="victoryModal">
+  <div class="modal-content">
+    <h3>🎉 Agrarian Phase Complete!</h3>
+    <div class="victory-content">
+      <p>Your village has successfully transitioned from subsistence farming to a thriving agrarian economy!</p>
+      
+      <div class="victory-stats">
+        <h4>Final Statistics:</h4>
+        <p>Time: <span id="vicYears">0</span> years, <span id="vicDays">0</span> days</p>
+        <p>Final Population: <span id="vicPop">0</span></p>
+        <p>Total Deaths: <span id="vicDeaths">0</span></p>
+        <p>Efficiency Grade: <span id="vicGrade">B+</span></p>
+      </div>
+
+      <div class="phase2-teaser">
+        <h4>Phase 2: Early Industry</h4>
+        <p>Coming soon: Introduce coin economy, specialized craftsmen, proto-factories, and urban-rural dynamics.</p>
+      </div>
+
+      <div class="button-row">
+        <button class="btn primary" id="btnPlayAgain">Play Again</button>
+        <button class="btn" id="btnExportVictory">Export Data</button>
+      </div>
+    </div>
   </div>
 </div>
 
 <div class="toast" id="toast"></div>
 
-<script>
-/* ==== helpers & audio ==== */
-const el=id=>document.getElementById(id);
-const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
-const rand=(a,b)=>Math.floor(a+Math.random()*(b-a+1));
-const toast=msg=>{const t=el('toast');t.innerHTML=msg;t.style.display='block';setTimeout(()=>t.style.display='none',2400)};
-const AC=(window.AudioContext||window.webkitAudioContext)?new (window.AudioContext||window.webkitAudioContext)():null;
-function beep(f=440,len=0.06,g=0.02){ if(!AC) return; const o=AC.createOscillator(), a=AC.createGain(); o.type='sine'; o.frequency.value=f; a.gain.value=g; o.connect(a); a.connect(AC.destination); o.start(); o.stop(AC.currentTime+len); }
-
-/* ==== core state ==== */
-let TICK=null, TICK_MS=3000, DRAG_TYPE=null, PAUSED=false, NEXT_EVENT_DAY=rand(10,20);
-const S = {
-  day:1, year:1, season:0, seasons:["Spring","Summer","Autumn","Winter"],
-  pop:80, cap:100,
-  farmers:0.60, builders:0.20, herders:0.10, intensity:1.0,
-  materials:30, foodStock:20, livestock:0,
-  health:0.6, morale:0.6, equity:0.8,
-  tfp:1.0, priceFood:0.08, priceMat:0.8,
-  tech:{seedSel:false, tools:false, threeField:false, manure:false, soilSurvey:false, well:false, irrig:false, granary:false, livestockBasic:false, heavyPlough:false, breeding:false, path:false, marketDay:false},
-  builds:[], nodes:[],
-  weatherNow:null, weatherNext:null,
-  caravan:null, events:[],
-  policy:{enclosure:'open'},
-  hist:{realWageBase:0.25, lastWage:0.25, wageHighDays:0},
-  ach:{},
-  debt:{amt:0, dueDay:null, interest:0.2},
-  defeatStrikes:0
-};
-
-/* ==== achievements ==== */
-const ACH = [
-  {key:'firstFarm', name:'First Furrow', desc:'Place your first farm'},
-  {key:'firstWell', name:'Clean Water', desc:'Build a well'},
-  {key:'firstSurplus', name:'Surplus Day', desc:'Positive daily food net'},
-  {key:'marketLink', name:'Market Link', desc:'Path or first Caravan'},
-  {key:'wageLift', name:'Wage Lift', desc:'Real wage > 1.5× baseline'},
-  {key:'soilSteward', name:'Soil Steward', desc:'Fertility ≥95% on a farm'},
-  {key:'barnKeeper', name:'Stored Safe', desc:'Build a granary'},
-  {key:'herd', name:'Herd Beginnings', desc:'Build livestock pen'},
-  {key:'encloser', name:'The Encloser', desc:'Enact enclosure'},
-  {key:'phaseGoal', name:'Ready for Phase 2', desc:'Sustain 1.5× wage for a year'}
-];
-function drawBadges(){ const wrap=el('badges'); wrap.innerHTML=''; ACH.forEach(a=>{ const d=document.createElement('div'); d.className='badgeA'+(S.ach[a.key]?' unlocked':''); d.textContent=S.ach[a.key]?`✓ ${a.name}`:a.name; d.title=a.desc; wrap.appendChild(d); });}
-function unlockAch(k,msg=null){ if(S.ach[k]) return; S.ach[k]=true; drawBadges(); toast(msg || `Achievement: ${ACH.find(x=>x.key===k)?.name||k}`); beep(700,0.12,0.03);}
-
-/* ==== tech, builds, palette ==== */
-const TECH_TABS=[{id:'crops',name:'Crops'},{id:'soil',name:'Soil'},{id:'water',name:'Water'},{id:'livestock',name:'Livestock'},{id:'markets',name:'Markets'}];
-let activeTab='crops';
-const TECH_TREE={
-  crops:[
-    {key:'seedSel', name:'Seed Selection', cost:8,  req:[], desc:'+10% TFP', effect:s=>s.tfp*=1.10},
-    {key:'tools',   name:'Hand Tools',     cost:8,  req:['seedSel'], desc:'+5% TFP', effect:s=>s.tfp*=1.05},
-    {key:'threeField', name:'Three-Field Rotation', cost:14, req:['seedSel'], desc:'Soil degrades slower; +10% TFP', effect:s=>s.tfp*=1.10},
-  ],
-  soil:[
-    {key:'manure', name:'Manure Fertilization', cost:10, req:['livestockBasic'], desc:'Faster fertility recovery', effect:s=>{}},
-    {key:'soilSurvey', name:'Soil Survey', cost:8, req:['threeField'], desc:'Show fertility % on farms', effect:s=>{}},
-  ],
-  water:[
-    {key:'well',    name:'Well & Sanitation', cost:14, req:[], desc:'+20% health; disease risk ↓', effect:s=>{s.health=Math.min(1,s.health+0.20)}},
-    {key:'irrig',   name:'Irrigation Ditches', cost:18, req:['well'], desc:'Drought −30%→−10%; +5% TFP', effect:s=>{s.tfp*=1.05}},
-    {key:'granary', name:'Granary', cost:16, req:['seedSel'], desc:'Spoilage 25%→10%', effect:s=>{}},
-  ],
-  livestock:[
-    {key:'livestockBasic', name:'Livestock Domestication', cost:12, req:[], desc:'Unlock livestock pens; milk/eggs', effect:s=>{}},
-    {key:'heavyPlough', name:'Heavy Plough', cost:18, req:['livestockBasic'], desc:'+15% TFP but farmers need +10% share (labor hungry)', effect:s=>{s.tfp*=1.15; s._ploughCost=true;}},
-    {key:'breeding', name:'Selective Breeding', cost:14, req:['livestockBasic'], desc:'+1 livestock growth/wk if herders>0', effect:s=>{}},
-  ],
-  markets:[
-    {key:'path', name:'Path to Market', cost:8, req:['seedSel'], desc:'Food price +10%, caravan +10%', effect:s=>{}},
-    {key:'marketDay', name:'Market Day', cost:12, req:['path'], desc:'Food price +0.04 absolute', effect:s=>{s.priceFood+=0.04}},
-  ],
-};
-const BUILDS={
-  farm:{name:"Farm",mat:7,dur:3,icon:'farm',tip:"Produces food; click after completion to set crop"},
-  house:{name:"House",mat:10,dur:3,icon:'house',tip:"+5 population cap"},
-  well:{name:"Well",mat:12,dur:4,icon:'well',tip:"Improves health (needs Well tech)", reqTech:'well'},
-  granary:{name:"Granary",mat:16,dur:5,icon:'granary',tip:"Reduces spoilage (needs Granary tech)", reqTech:'granary'},
-  livestock:{name:"Livestock Pen",mat:10,dur:4,icon:'livestock',tip:"Herders tend animals (needs Livestock tech)", reqTech:'livestockBasic'},
-  path:{name:"Path to Market",mat:5,dur:2,icon:'path',tip:"Improves barter/price (needs Path tech)", reqTech:'path'},
-  market:{name:"Market Stall",mat:12,dur:4,icon:'market',tip:"Local prices up (needs Market Day)", reqTech:'marketDay'},
-};
-function drawTechTabs(){ const wrap=el('techTabs'); wrap.innerHTML=''; TECH_TABS.forEach(t=>{ const b=document.createElement('button'); b.className='tab'+(t.id===activeTab?' active':''); b.textContent=t.name; b.onclick=()=>{activeTab=t.id; drawTechTabs(); renderTechTree();}; wrap.appendChild(b); });}
-function renderTechTree(){
-  const list=el('techTree'); list.innerHTML='';
-  TECH_TREE[activeTab].forEach(it=>{
-    const unlocked=!!S.tech[it.key], canUnlock=!unlocked && it.req.every(r=>S.tech[r]) && S.materials>=it.cost;
-    const div=document.createElement('div'); div.className='tech-node'+(unlocked?' complete':'')+(!canUnlock&&!unlocked?' locked':'');
-    const missing=it.req.filter(r=>!S.tech[r]).join(', ');
-    div.innerHTML=`<div class="tech-head"><div>${it.name}</div><div>${unlocked?'✓':it.cost+' mat'}</div></div>
-                   <div class="small">${it.desc}</div>${missing?`<div class="small" style="color:#f59e0b">Requires: ${missing}</div>`:''}`;
-    if(canUnlock){
-      const btn=document.createElement('button'); btn.className='btn primary'; btn.textContent='Unlock';
-      btn.onclick=()=>{ S.materials-=it.cost; S.tech[it.key]=true; it.effect&&it.effect(S); beep(560,0.08,0.03); renderTechTree(); drawPalette(); updateUI(); if(it.key==='well')unlockAch('firstWell'); if(it.key==='granary')unlockAch('barnKeeper'); };
-      div.appendChild(btn);
-    }
-    list.appendChild(div);
-  });
-}
-function drawPalette(){
-  const pal=el('palette'); pal.innerHTML='';
-  Object.entries(BUILDS).forEach(([key,b])=>{
-    if(b.reqTech && !S.tech[b.reqTech]) return;
-    const tile=document.createElement('div'); tile.className='tile'; tile.draggable=true; tile.dataset.type=key;
-    tile.innerHTML=`<div class="i ${b.icon}"></div><div>${b.name}</div><div class="meta">Mat ${b.mat} • ⏳${b.dur}d</div>`;
-    tile.title=b.tip;
-    tile.addEventListener('dragstart', ev=>{ DRAG_TYPE=key; ev.dataTransfer.setData('text/plain', key); el('dropHint').style.display='block'; });
-    tile.addEventListener('dragend', ()=>{ DRAG_TYPE=null; el('dropHint').style.display='none'; });
-    pal.appendChild(tile);
-  });
-}
-
-/* ==== grid & placement ==== */
-function buildGrid(){
-  const g=el('grid');
-  g.addEventListener('dragover', e=>{ e.preventDefault(); });
-  g.addEventListener('drop', e=>{
-    e.preventDefault(); el('dropHint').style.display='none';
-    const key = DRAG_TYPE || e.dataTransfer.getData('text/plain');
-    if(!key || !BUILDS[key]) return;
-    placeBuildAt(key, e.offsetX, e.offsetY);
-  });
-  renderGrid();
-}
-function placeBuildAt(key,x,y){
-  const d=BUILDS[key];
-  if(d.reqTech && !S.tech[d.reqTech]) return toast('Required tech not unlocked.');
-  if(S.materials<d.mat) return toast('Not enough materials.');
-  S.materials-=d.mat;
-  S.builds.push({id:Date.now()+Math.random(),type:key,x:x-43,y:y-37,done:false,progress:0,dur:d.dur,fertility:key==='farm'?0.85:undefined,fallow:false,crop:key==='farm'?'wheat':undefined});
-  if(key==='farm') unlockAch('firstFarm');
-  renderGrid(); updateUI(); beep(520,0.06,0.03);
-}
-function renderGrid(){
-  const g=el('grid'); [...g.querySelectorAll('.icon')].forEach(n=>n.remove());
-  S.builds.forEach(b=>{
-    const div=document.createElement('div'); div.className='icon '+(BUILDS[b.type].icon)+' '+(b.done?'':'site'); div.style.left=b.x+'px'; div.style.top=b.y+'px';
-    const label=document.createElement('div'); label.className='lbl'; label.textContent=BUILDS[b.type].name; div.appendChild(label);
-    if(b.type==='farm'){ // tiny villagers for feedback
-      const peeps=document.createElement('div'); peeps.className='peeps';
-      const farmers = Math.min(3, Math.max(0, Math.floor(S.pop*S.farmers/S.builds.filter(x=>x.type==='farm'&&x.done).length||0)));
-      for(let i=0;i<farmers;i++){ const p=document.createElement('div'); p.className='peep'; peeps.appendChild(p); }
-      div.appendChild(peeps);
-    }
-    if(b.type==='house' && b.done && S.pop > 100) div.classList.add('occupied');
-    if(!b.done){ const r=document.createElement('div'); r.className='ring'; const pct=Math.min(100,(b.progress/b.dur)*100); r.style.setProperty('--pct', pct); div.appendChild(r); }
-    div.onclick=()=>{
-      if(b.type==='farm' && b.done){
-        const next = prompt("Set crop: wheat / rye / legume / fallow", b.fallow?'fallow':(b.crop||'wheat'));
-        if(!next) return; const v=next.toLowerCase().trim(); if(!['wheat','rye','legume','fallow'].includes(v)) return toast('Invalid crop');
-        b.fallow=(v==='fallow'); if(!b.fallow) b.crop=v; updateUI();
-      }
-    };
-    g.appendChild(div);
-  });
-}
-
-/* ==== resource nodes ==== */
-function spawnNodes(){
-  const g=el('grid').getBoundingClientRect();
-  S.nodes.length=0;
-  for(let i=0;i<4;i++) S.nodes.push({id:'tree'+i, type:'tree', x:50+Math.random()*(g.width-160), y:60+Math.random()*(g.height-160), hp:3});
-  for(let i=0;i<3;i++) S.nodes.push({id:'rock'+i, type:'rock', x:420+Math.random()*(g.width-200), y:60+Math.random()*(g.height-160), hp:2});
-  drawNodes();
-}
-function drawNodes(){
-  const g=el('grid'); [...g.querySelectorAll('.node')].forEach(n=>n.remove());
-  S.nodes.forEach(n=>{
-    const d=document.createElement('div'); d.className='node '+n.type; d.style.left=n.x+'px'; d.style.top=n.y+'px';
-    d.title=(n.type==='tree'?'Tree: +4 mat':'Rock: +5 mat')+' (click)';
-    d.onclick=()=>{ n.hp--; S.materials += (n.type==='tree'?4:5); if(n.hp<=0) S.nodes=S.nodes.filter(x=>x!==n); drawNodes(); updateUI(); };
-    g.appendChild(d);
-  });
-}
-
-/* ==== weather & econ ==== */
-function seasonWeighted(s){const r=Math.random();if(s===0){if(r<0.5)return"rain";if(r<0.85)return"sunny";return"storm"}if(s===1){if(r<0.15)return"rain";if(r<0.7)return"sunny";return"drought"}if(s===2){if(r<0.35)return"rain";if(r<0.85)return"sunny";return"storm"}if(s===3){if(r<0.2)return"rain";if(r<0.65)return"sunny";return"drought"}return"sunny"}
-function weatherEffect(w){let mult=1, spoil=0.25, disease=0.008;if(w==="rain")mult=1.2;if(w==="storm"){mult=1.3;spoil+=0.05}if(w==="drought"){mult = S.tech.irrig?0.90:0.70}if(S.tech.well)disease=0.004;if(S.tech.granary)spoil=0.10;return {mult,spoil,disease}}
-function cropFactor(crop,w){ if(crop==='wheat')return 1.00; if(crop==='rye')return (w==='drought'?1.05:0.90); if(crop==='legume')return 0.70; return 0; }
-function fertilityDrift(f){ if(f.fallow) return (0.004 + (S.tech.manure?0.0025:0)); if(f.crop==='legume') return (0.0022 + (S.tech.manure?0.001:0)); const base=S.tech.threeField?-0.0016:-0.0026; return base + (S.tech.manure?0.0004:0); }
-
-function snapshot(){
-  const farmersRaw=S.pop*S.farmers; // pre intensity for pressure
-  const farmers=Math.floor(farmersRaw*S.intensity*(S._ploughCost?0.9:1)); // heavy plough pulls more time to farming
-  const herders=Math.floor(S.pop*S.herders*S.intensity*0.9);
-  const farms=S.builds.filter(x=>x.type==='farm'&&x.done);
-  const w=weatherEffect(S.weatherNow);
-  const landPressure=farms.length ? (Math.max(0, Math.floor(farmersRaw)) / farms.length) : 0;
-  const drExponent=0.65; const dr = farms.length ? Math.pow((farmers / Math.max(1, farms.length*2)), drExponent) : 0;
-
-  let enclTFP=0, enclSpoil=0;
-  if(S.policy.enclosure==='partial'){ enclTFP=0.10; enclSpoil=-0.03; }
-  if(S.policy.enclosure==='enclosed'){ enclTFP=0.20; enclSpoil=-0.06; }
-
-  const base=0.9; let farmFood=0;
-  farms.forEach(f=>{
-    f.fertility = clamp(f.fertility + fertilityDrift(f), 0.3, 1.3);
-    const active=!f.fallow, crop=f.crop||'wheat';
-    const tfp = S.tfp*(1+enclTFP)*(1+(S.morale-0.5)*0.10);
-    const out = active ? base * tfp * w.mult * cropFactor(crop,S.weatherNow) * f.fertility * dr : 0;
-    farmFood += out;
-  });
-
-  let livestockFood=0;
-  if(herders>0){
-    livestockFood = S.livestock * 0.1 * (herders/Math.max(1,S.pop));
-    if(S.tech.breeding && Math.random()<0.06) S.livestock+=1;
-  }
-
-  let spoil = clamp(weatherEffect(S.weatherNow).spoil + enclSpoil, 0.05, 0.4);
-  const gross=farmFood+livestockFood, net=gross*(1-spoil);
-  const workers=Math.max(1, Math.floor(S.pop*(S.farmers+S.herders)));
-  const wage = gross/workers;
-
-  return {farmers, farms:farms.length, landPressure, foodGross:gross, foodNet:net, spoil, wage};
-}
-
-/* ==== tick, events, advisor ==== */
-function nextDay(){
-  if(PAUSED) return;
-  // build progress
-  const builders=Math.floor(S.pop*S.builders*S.intensity);
-  S.builds.forEach(b=>{ if(!b.done){ b.progress += builders*0.03; if(b.progress>=b.dur){ b.done=true; onComplete(b); } }});
-
-  // production
-  S.events.length=0;
-  const snap=snapshot();
-
-  // stock & need
-  S.foodStock += snap.foodNet;
-  const need=S.pop*0.2; S.foodStock -= need;
-
-  // simple dynamic difficulty: success raises hazard chance slightly
-  const success = (S.foodStock>need*10);
-  const famineChance = (S.foodStock < need*1.5) && (S.weatherNow==='drought' || S.weatherNow==='storm') ? (success?0.18:0.16) : 0;
-
-  if(Math.random()<famineChance){
-    const loss=Math.max(2, Math.floor(S.pop * (S.tech.well?0.04:0.07)));
-    S.pop=Math.max(15,S.pop-loss); S.events.push(`Famine (−${loss})`); S.defeatStrikes++;
-  } else if(S.foodStock<0){ S.defeatStrikes++; } else { S.defeatStrikes=Math.max(0,S.defeatStrikes-1); }
-
-  // births & cap
-  const houses=S.builds.filter(b=>b.type==='house'&&b.done).length; S.cap=100+houses*5;
-  if(S.foodStock>need*10 && S.pop<S.cap && Math.random()<0.08) S.pop++;
-
-  // morale/health
-  S.morale=clamp(S.morale + (S.foodStock>need*7?+0.004:-0.006) - (S.intensity>1? (S.intensity-1)*0.01:0), 0,1);
-  S.health=clamp(S.health + (S.tech.well?+0.001:0) - (S.intensity>1? (S.intensity-1)*0.008:0), 0,1);
-
-  // wage milestone
-  const wageIdx = (snap.wage/(S.hist.realWageBase||0.25));
-  if(wageIdx>1.5) { S.hist.wageHighDays++; if(S.hist.wageHighDays===1) unlockAch('wageLift'); }
-  else S.hist.wageHighDays=Math.max(0,S.hist.wageHighDays-1);
-
-  // day/season/weather
-  S.day++; if(S.day>90){ S.day=1; S.year++; S.season=(S.season+1)%4; seasonPrompt(); }
-  if(S.day%7===0){ S.weatherNow=S.weatherNext; S.weatherNext=seasonWeighted(S.season); }
-
-  // debt due?
-  if(S.debt.dueDay && S.year*1000+S.day >= S.debt.dueDay){
-    const due = Math.round(S.debt.amt*(1+S.debt.interest));
-    if(S.materials>=due){ S.materials -= due; toast(`Debt repaid: −${due} materials`); }
-    else { S.morale=Math.max(0,S.morale-0.1); S.equity=Math.max(0,S.equity-0.05); toast('Default on debt: morale & equity hit'); }
-    S.debt.amt=0; S.debt.dueDay=null;
-  }
-
-  // caravan
-  if(S.caravan){ S.caravan.daysLeft--; if(S.caravan.daysLeft<=0) completeCaravan(); }
-
-  // price drift
-  priceTick();
-
-  // achievements
-  if(snap.foodNet>0) unlockAch('firstSurplus');
-  const fertHigh = S.builds.some(b=>b.type==='farm'&&b.done&&b.fertility>=0.95);
-  if(fertHigh) unlockAch('soilSteward');
-
-  // victory / defeat checks
-  if(S.hist.wageHighDays>=365){ unlockAch('phaseGoal'); showOutcome(true); }
-  if(S.defeatStrikes>=12){ showOutcome(false); } // ~ two weeks of persistent shortage
-
-  // schedule event cards
-  if(S.day>=NEXT_EVENT_DAY){ triggerEventCard(); NEXT_EVENT_DAY = S.day + rand(10,20); }
-
-  advisorHints();
-  updateUI(snap);
-}
-function onComplete(b){
-  if(b.type==='well') S.health=Math.min(1,S.health+0.2);
-  if(b.type==='granary') S.tech.granary=true;
-  if(b.type==='livestock'){ S.livestock+=2; S.tech.livestockBasic=true; unlockAch('herd'); }
-  if(b.type==='path') unlockAch('marketLink');
-  renderGrid(); toast(`${BUILDS[b.type].name} complete!`);
-}
-function advisorHints(){
-  if(S.foodStock< S.pop*0.6) toast('Advisor: Food running low — consider fallow/legumes, or send a caravan.');
-  if(S.morale<0.4) toast('Advisor: Morale low. A festival could help (watch food).');
-  if(S.health<0.45 && !S.tech.well) toast('Advisor: Build a Well to curb disease.');
-}
-
-/* ==== event cards ==== */
-function pause(){ PAUSED=true; if(TICK){clearInterval(TICK);TICK=null;} el('btnPause').textContent='▶ Play'; }
-function play(){ PAUSED=false; startTick(); el('btnPause').textContent='⏸ Pause'; }
-function triggerEventCard(){
-  pause();
-  const pool = [
-    {t:'Traveling Merchant', msg:'Buy iron tools for 25 materials? (+15% TFP)', choices:[
-      {label:'Buy (−25 mat, +15% TFP)', run:()=>{ if(S.materials<25) return toast('Not enough materials!'); S.materials-=25; S.tfp*=1.15; },
-       ok:'You outfitted farmers with iron tools.'},
-      {label:'Decline', run:()=>{}, ok:'You pass this time.'}
-    ]},
-    {t:'Harsh Weather Forecast', msg:'Store extra food now (−30) to hedge OR risk the harvest?', choices:[
-      {label:'Store (−30 food now)', run:()=>{ S.foodStock-=30; S._stored=30; }, ok:'Food set aside. Spoilage reduced if Granary.'},
-      {label:'Risk it', run:()=>{ S._stored=0; }, ok:'You take your chances.'}
-    ]},
-    {t:'Villagers Demand Festival', msg:'Spend 10 food for +20% morale OR refuse?', choices:[
-      {label:'Celebrate (−10 food, +20% morale)', run:()=>{ S.foodStock-=10; S.morale=Math.min(1,S.morale+0.2); }, ok:'The festival lifts spirits!'},
-      {label:'Refuse (morale −10%)', run:()=>{ S.morale=Math.max(0,S.morale-0.1) }, ok:'Grumbling spreads through the village.'},
-    ]},
-    {t:'Livestock Dilemma', msg:'Slaughter 2 livestock for food now OR keep for breeding?', choices:[
-      {label:'Slaughter (+20 food, −2 livestock)', run:()=>{ if(S.livestock>=2){ S.livestock-=2; S.foodStock+=20; } }, ok:'Immediate relief, long-run cost.'},
-      {label:'Keep breeding', run:()=>{}, ok:'Patience might pay off.'}
-    ]},
-    {t:'Merchant Credit', msg:'Borrow 20 materials now; repay 24 in 30 days?', choices:[
-      {label:'Borrow (+20 mat, repay 24 later)', run:()=>{ S.materials+=20; S.debt.amt=20; S.debt.dueDay = S.year*1000 + (S.day+30); }, ok:'Credit taken. Remember to repay.'},
-      {label:'No thanks', run:()=>{}, ok:'You avoid debt.'}
-    ]},
-    {t:'Bandit Threat', msg:'Pay 8 materials tribute OR risk a raid (25% loss of 20 food)?', choices:[
-      {label:'Pay (−8 mat)', run:()=>{ if(S.materials>=8) S.materials-=8; }, ok:'They leave for now.'},
-      {label:'Refuse (risk)', run:()=>{ if(Math.random()<0.25){ S.foodStock=Math.max(0,S.foodStock-20); S.events.push('Bandits raided (−20 food)'); }}, ok:'You stand firm.'}
-    ]}
-  ];
-  const ev = pool[rand(0,pool.length-1)];
-  openEvent(ev.t, ev.msg, ev.choices);
-}
-function openEvent(title,text,choices){
-  el('eventTitle').textContent=title; el('eventText').textContent=text;
-  const box=el('eventChoices'); box.innerHTML='';
-  choices.forEach(c=>{
-    const d=document.createElement('div'); d.className='op'; d.textContent=c.label;
-    d.onclick=()=>{ c.run(); toast(c.ok||''); closeEvent(); play(); updateUI(); };
-    box.appendChild(d);
-  });
-  el('eventDismiss').style.display='none';
-  el('eventOverlay').style.display='flex';
-}
-function closeEvent(){ el('eventOverlay').style.display='none'; }
-
-/* ==== seasonal crop picker ==== */
-function seasonPrompt(){
-  pause();
-  const list=el('seasonList'); list.innerHTML='';
-  S.builds.filter(b=>b.type==='farm'&&b.done).forEach((f,i)=>{
-    const wrap=document.createElement('div'); wrap.className='op';
-    wrap.innerHTML=`Farm #${i+1} — current: <b>${f.fallow?'fallow':(f.crop||'wheat')}</b><br/>
-    <select data-id="${f.id}">
-      <option value="">(keep)</option>
-      <option value="wheat">wheat</option>
-      <option value="rye">rye</option>
-      <option value="legume">legume</option>
-      <option value="fallow">fallow</option>
-    </select>`;
-    list.appendChild(wrap);
-  });
-  el('seasonOverlay').style.display='flex';
-}
-el('seasonApply').addEventListener('click', ()=>{
-  document.querySelectorAll('#seasonList select').forEach(sel=>{
-    const id=sel.getAttribute('data-id'), v=sel.value;
-    const f=S.builds.find(b=>b.id==id); if(!f||!v) return;
-    if(v==='fallow'){ f.fallow=true; } else { f.fallow=false; f.crop=v; }
-  });
-  el('seasonOverlay').style.display='none'; play(); updateUI();
-});
-
-/* ==== prices & barter ==== */
-function priceTick(){
-  const driftFood=(S.tech.path?0.002:0)+(S.tech.marketDay?0.002:0);
-  S.priceFood = clamp( +(S.priceFood + (Math.random()-0.5)*0.01 + driftFood).toFixed(2), 0.05, 0.22);
-  S.priceMat  = clamp( +(S.priceMat  + (Math.random()-0.5)*0.06 + (S.tech.path?0.01:0)).toFixed(2), 0.5, 1.2);
-}
-el('caravanFood').addEventListener('click', ()=>{
-  if(S.caravan) return toast('Caravan already en route.');
-  const qty=30; if(S.foodStock<qty) return toast('Not enough food.');
-  S.foodStock -= qty;
-  const dist = S.tech.marketDay? 'far' : (S.tech.path?'mid':'near');
-  const days = dist==='far'?10: dist==='mid'?6:4;
-  const base = qty * S.priceFood; const bonus = dist==='far'?0.40: dist==='mid'?0.20:0.10;
-  const payout = Math.round(base*(1+bonus));
-  S.caravan={daysLeft:days, kind:'food', qty, payout, risk: dist==='far'?0.18: dist==='mid'?0.10:0.05};
-  unlockAch('marketLink'); updateUI();
-});
-el('caravanMat').addEventListener('click', ()=>{
-  if(S.caravan) return toast('Caravan already en route.');
-  const qty=10; if(S.materials<qty) return toast('Not enough materials.');
-  S.materials -= qty;
-  const dist = S.tech.path? 'mid' : 'near';
-  const days = dist==='mid'?6:4;
-  const base = qty * S.priceMat; const bonus = dist==='mid'?0.25:0.12;
-  const payout = Math.round(base*(1+bonus));
-  S.caravan={daysLeft:days, kind:'materials', qty, payout, risk: dist==='mid'?0.10:0.05};
-  unlockAch('marketLink'); updateUI();
-});
-function completeCaravan(){
-  const c=S.caravan; S.caravan=null;
-  if(Math.random()<c.risk){ toast('Caravan robbed on the road. No returns.'); }
-  else { toast(`Caravan returned: +${c.payout} coins.`); S.coins=(S.coins||0)+c.payout; }
-  updateUI();
-}
-
-/* ==== UI, speed, start ==== */
-function paintWeather(id,w,txtId){ const sym=el(id); sym.className='wsym '+(w||'sunny'); el(txtId).textContent=w||'Sunny'; }
-function moodFace(){ if(S.morale>0.75) return '😄'; if(S.morale>0.55) return '🙂'; if(S.morale>0.35) return '😕'; if(S.morale>0.2) return '😟'; return '😣'; }
-function updateUI(snap){
-  const need = S.pop*0.2;
-  el('day').textContent=S.day; el('year').textContent=S.year; el('season').textContent=S.seasons[S.season];
-  el('pop').textContent=S.pop; el('cap').textContent=S.cap; el('mat').textContent=Math.floor(S.materials);
-  el('foodStock').textContent=Math.floor(S.foodStock); el('livestock').textContent=S.livestock; el('popTotal').textContent=S.pop;
-  el('debt').textContent=S.debt.amt;
-
-  const pctFood=clamp(S.foodStock/(need*14),0,1); el('fillFood').style.width=(pctFood*100)+'%'; el('foodLbl').textContent=Math.round(pctFood*100)+'%';
-  el('foodNeed').textContent=Math.floor(need); el('foodStockVal').textContent=Math.floor(S.foodStock);
-  const wage=(snap?snap.wage:S.hist.lastWage); const idx=clamp(wage/(S.hist.realWageBase||0.25),0,2); el('fillWage').style.width=(clamp(idx/2,0,1)*100)+'%'; el('wageLbl').textContent=idx.toFixed(2)+'×'; S.hist.lastWage=wage;
-  const pres=snap?snap.landPressure:0; const pn=clamp(pres/4,0,1); el('fillPressure').style.width=(pn*100)+'%'; el('pressureLbl').textContent=pres.toFixed(1);
-  el('fillHealth').style.width=(S.health*100)+'%'; el('healthLbl').textContent=Math.round(S.health*100)+'%';
-  el('fillMorale').style.width=(S.morale*100)+'%'; el('moraleLbl').textContent=Math.round(S.morale*100)+'%';
-  el('fillEquity').style.width=(S.equity*100)+'%'; el('equityLbl').textContent=Math.round(S.equity*100)+'%';
-  el('mood').textContent=moodFace();
-
-  paintWeather('wNow',S.weatherNow,'wNowTxt'); paintWeather('wNext',S.weatherNext,'wNextTxt');
-
-  const q=S.builds.filter(b=>!b.done).length; el('qCount').textContent=q; el('events').textContent=S.events.join(', ')||'None';
-  el('pFood').textContent=S.priceFood.toFixed(2); el('pMat').textContent=S.priceMat.toFixed(2); el('caravanStatus').textContent=S.caravan?`Caravan ${S.caravan.daysLeft}d`:'No caravan';
-}
-function normalizeLabor(){
-  let f=S.farmers,b=S.builders,h=S.herders; const tot=f+b+h; if(tot>1){ f/=tot;b/=tot;h/=tot; }
-  if(S._ploughCost && f<0.55){ // heavy plough needs more farm time
-    const delta=0.55-f; f+=delta; b=Math.max(0,b-delta*0.7); h=Math.max(0,h-delta*0.3);
-  }
-  S.farmers=f; S.builders=b; S.herders=h;
-  el('farmerSlider').value=f*100; el('builderSlider').value=b*100; el('herderSlider').value=h*100;
-  el('farmerPct').textContent=Math.round(f*100)+'%'; el('builderPct').textContent=Math.round(b*100)+'%'; el('herderPct').textContent=Math.round(h*100)+'%';
-}
-['farmerSlider','builderSlider','herderSlider'].forEach(id=> el(id).addEventListener('input', e=>{
-  if(id==='farmerSlider') S.farmers=e.target.value/100;
-  if(id==='builderSlider') S.builders=e.target.value/100;
-  if(id==='herderSlider') S.herders=e.target.value/100;
-  normalizeLabor(); updateUI();
-}));
-el('intensitySlider').addEventListener('input', e=>{ S.intensity=+(e.target.value/100).toFixed(2); el('intensityLbl').textContent=S.intensity.toFixed(2)+'×'; updateUI(); });
-
-document.querySelectorAll('input[name="encl"]').forEach(r=> r.addEventListener('change', e=>{
-  S.policy.enclosure=e.target.value;
-  if(S.policy.enclosure==='partial'){ S.equity=Math.max(0,S.equity-0.05); S.morale=Math.max(0,S.morale-0.02); }
-  if(S.policy.enclosure==='enclosed'){ S.equity=Math.max(0,S.equity-0.12); S.morale=Math.max(0,S.morale-0.05); if(Math.random()<0.6){ const dis=Math.floor(2+Math.random()*4); S.pop=Math.max(20,S.pop-dis); S.events.push(`Enclosure displacement (−${dis})`);} unlockAch('encloser'); }
-  updateUI();
-}));
-
-/* speed & pause */
-function startTick(){ if(PAUSED) return; TICK && clearInterval(TICK); TICK=setInterval(nextDay, TICK_MS); }
-el('speedSel').addEventListener('change', e=>{ const v=parseFloat(e.target.value||'0'); if(v<=0){ pause(); return; } TICK_MS=v*1000; if(!PAUSED) startTick(); });
-el('stepOne').addEventListener('click', ()=>{ nextDay(); beep(340,0.04,0.02); });
-el('btnPause').addEventListener('click', ()=>{ PAUSED?play():pause(); });
-
-/* save/load/reset */
-el('btnSave').addEventListener('click',()=>{ localStorage.setItem('econoville_p1_events', JSON.stringify(S)); toast('Saved.'); });
-el('btnLoad').addEventListener('click',()=>{
-  const raw=localStorage.getItem('econoville_p1_events'); if(!raw) return toast('No save found.');
-  const parsed=JSON.parse(raw); Object.assign(S, parsed);
-  S.tech=Object.assign({seedSel:false,tools:false,threeField:false,manure:false,soilSurvey:false,well:false,irrig:false,granary:false,livestockBasic:false,heavyPlough:false,breeding:false,path:false,marketDay:false},S.tech||{});
-  S.policy=Object.assign({enclosure:'open'},S.policy||{}); S.hist=Object.assign({realWageBase:0.25,lastWage:0.25,wageHighDays:0},S.hist||{});
-  S.ach=Object.assign({},S.ach||{}); S.debt=Object.assign({amt:0,dueDay:null,interest:0.2},S.debt||{});
-  drawBadges(); drawTechTabs(); renderTechTree(); drawPalette(); renderGrid(); spawnNodes(); updateUI();
-  toast('Loaded.');
-});
-el('btnReset').addEventListener('click',()=>{
-  if(!confirm('Reset game?')) return;
-  Object.assign(S,{day:1,year:1,season:0,pop:80,cap:100,farmers:0.60,builders:0.20,herders:0.10,intensity:1.0,materials:30,foodStock:20,livestock:0,health:0.6,morale:0.6,equity:0.8,tfp:1.0,priceFood:0.08,priceMat:0.8,tech:{seedSel:false,tools:false,threeField:false,manure:false,soilSurvey:false,well:false,irrig:false,granary:false,livestockBasic:false,heavyPlough:false,breeding:false,path:false,marketDay:false},builds:[],nodes:[],weatherNow:null,weatherNext:null,caravan:null,events:[],policy:{enclosure:'open'},hist:{realWageBase:0.25,lastWage:0.25,wageHighDays:0},ach:{},debt:{amt:0,dueDay:null,interest:0.2}, defeatStrikes:0});
-  drawBadges(); rollWeather(); drawTechTabs(); renderTechTree(); drawPalette(); buildGrid(); spawnNodes(); updateUI(); NEXT_EVENT_DAY=rand(10,20); pause(); play();
-  toast('Reset.');
-});
-
-/* intro + immediate agency (starting crisis) */
-el('btnStart').addEventListener('click', ()=>{
-  el('intro').style.display='none';
-  pause();
-  openEvent('Starting Crisis', 'Food will run out in ~10 days. Choose your first action:', [
-    {label:'Build a Farm (auto place, −7 mat)', run:()=>{ const g=el('grid').getBoundingClientRect(); placeBuildAt('farm', g.width*0.35, g.height*0.55); }},
-    {label:'Gather Wood (+12 mat)', run:()=>{ S.materials+=12; spawnNodes(); }},
-    {label:'Research Seed Selection (−8 mat, +10% TFP)', run:()=>{ if(S.materials>=8){ S.materials-=8; S.tech.seedSel=true; S.tfp*=1.10; } else toast('Not enough materials'); }}
-  ]);
-});
-el('btnHow').addEventListener('click', ()=>{ const tips=el('tips'); tips.style.display = tips.style.display==='none'?'block':'none'; });
-
-/* outcome panel */
-function showOutcome(victory){
-  pause();
-  el('outcomeTitle').textContent = victory ? 'Phase 1 Complete!' : 'Village Falters';
-  el('outcomeMsg').innerHTML = victory
-    ? 'You sustained Real Wage > 1.5× baseline for a full in-game year. <b>Phase 2</b> unlocks proto-industry, coins, and exchange rate choices.'
-    : 'Repeated shortages and hardship overwhelmed your village. Try earlier surplus, storage, or safer event choices.';
-  el('outcome').style.display='flex';
-}
-el('btnCloseOutcome').addEventListener('click', ()=>{ el('outcome').style.display='none'; play(); });
-el('btnReplay').addEventListener('click', ()=>{ el('outcome').style.display='none'; el('btnReset').click(); });
-el('btnTeaser').addEventListener('click', ()=>{ toast('Phase 2 teaser: craft workshops, coins, mint tax, FX choice, EPZ.'); });
-
-/* weather/time init */
-function rollWeather(){ S.weatherNow=seasonWeighted(S.season); S.weatherNext=seasonWeighted(S.season); paintWeather('wNow',S.weatherNow,'wNowTxt'); paintWeather('wNext',S.weatherNext,'wNextTxt'); }
-function start(){ drawBadges(); drawTechTabs(); renderTechTree(); drawPalette(); rollWeather(); buildGrid(); spawnNodes(); updateUI(); startTick(); }
-function startTick(){ if(PAUSED) return; TICK && clearInterval(TICK); TICK=setInterval(nextDay, TICK_MS); }
-
-/* go */
-start();
-</script>
+<script src="game.js"></script>
 </body>
 </html>
