@@ -230,7 +230,7 @@ const EVENTS = [
         toast('Aid sent! +20% morale from goodwill');
         return true;
       }
-      toast("Not enough food to share!");
+      toast('Not enough food to share!');
       return false;
     }
   },
@@ -243,7 +243,7 @@ const EVENTS = [
     action: () => {
       if (S.materials >= 15) {
         S.materials -= 15;
-        S.tfp *= 1.10;
+        S.tfp *= 1.1;
         toast('Knowledge acquired! +10% TFP');
         return true;
       }
@@ -278,10 +278,10 @@ const EVENTS = [
     action: () => {
       if (S.materials >= 5) {
         S.materials -= 5;
-        S.tfp *= 1.30;
+        S.tfp *= 1.3;
         setTimeout(() => {
-          S.tfp /= 1.30;
-        }, 14000); // ~1 week in sim-time if 0.2s/day; adjust as needed
+          S.tfp /= 1.3;
+        }, 14000); // about one sim-week depending on tick speed
         toast('Extra planting! +30% output for one week');
         return true;
       }
@@ -320,7 +320,7 @@ const EVENTS = [
       return false;
     },
     decline: () => {
-      S.tfp *= 0.90;
+      S.tfp *= 0.9;
       toast('Tools degrade! -10% TFP');
     }
   }
@@ -606,9 +606,7 @@ function seasonWeighted(s) {
 }
 
 function weatherEffect(w) {
-  let mult = 1,
-    spoil = 0.25,
-    disease = 0.01;
+  let mult = 1, spoil = 0.25, disease = 0.01;
   const crop = CROP_DATA[S.cropType];
 
   if (w === 'rain') mult = 1.2;
@@ -661,7 +659,6 @@ function showEventCard(event) {
   const decline = el('eventDecline');
 
   if (!card || !accept || !decline) {
-    // Fallback: just apply/decline via confirm prompt if the UI isn't present
     const ok = confirm(`${event.title}\n\n${event.desc}\n\n${event.effect}\n\nAccept?`);
     if (ok) event.action();
     else if (event.decline) event.decline();
@@ -790,11 +787,9 @@ function updateMeter(fillId, lblId, statusId, pct, statusText = '', fillClass = 
 function updateTheoryStatus() {
   let theory = '';
   if (S.realWage < 0.95) {
-    theory =
-      "<span style='color:var(--bad)'>Malthusian Crisis</span> - Wages below subsistence, population will collapse";
+    theory = "<span style='color:var(--bad)'>Malthusian Crisis</span> - Wages below subsistence, population will collapse";
   } else if (S.realWage > 1.3) {
-    theory =
-      "<span style='color:var(--good)'>Post-Crisis Boom</span> - Labor scarcity, high wages (temporary golden age)";
+    theory = "<span style='color:var(--good)'>Post-Crisis Boom</span> - Labor scarcity, high wages (temporary golden age)";
   } else if (S.landPolicy === 'enclosed' && S.realWage < 1.1) {
     theory = "<span style='color:var(--warn)'>Enclosure Effects</span> - Efficiency vs equity trade-off";
   } else if (S.tech.threeField && S.tech.heavyPlough) {
@@ -823,7 +818,6 @@ function renderPalette() {
     tile.className = 'build-tile';
     tile.draggable = true;
 
-    // Keep simple tile content; visuals handled by CSS/HTML
     tile.innerHTML = `
       <div class="tile-icon icon ${b.icon}" style="position:static"></div>
       <div class="tile-name">${b.name}</div>
@@ -1097,4 +1091,276 @@ function updateProgress() {
   const statWage = el('statWage');
   const statWageYears = el('statWageYears');
   const statMarket = el('statMarket');
-  const statCapital = el('statCapi
+  const statCapital = el('statCapital');
+  if (statPop) statPop.textContent = S.pop;
+  if (statWage) statWage.textContent = S.realWage.toFixed(2);
+  if (statWageYears) statWageYears.textContent = S.wageAbove13Years;
+  if (statMarket) statMarket.textContent = hasMarket ? 'Built' : 'Not built';
+  if (statCapital) statCapital.textContent = mills;
+}
+
+function updateReq(id, complete, text) {
+  const req = el(id);
+  if (!req) return;
+  req.innerHTML = `<span class="req-icon">${complete ? '✓' : '○'}</span> ${text}`;
+  if (complete) req.classList.add('complete');
+  else req.classList.remove('complete');
+}
+
+function showVictory() {
+  isPaused = true;
+
+  const years = el('vicYears');
+  const days = el('vicDays');
+  const pop = el('vicPop');
+  const deaths = el('vicDeaths');
+
+  if (years) years.textContent = S.year;
+  if (days) days.textContent = S.day;
+  if (pop) pop.textContent = S.pop;
+  if (deaths) deaths.textContent = S.totalDeaths;
+
+  // Calculate grade
+  const efficiency = S.pop / (S.year * 90 + S.day);
+  const gradeTxt = el('vicGrade');
+  const grade = efficiency > 1.5 ? 'A+' : efficiency > 1.2 ? 'A' : efficiency > 1.0 ? 'B+' : efficiency > 0.8 ? 'B' : 'C';
+  if (gradeTxt) gradeTxt.textContent = grade;
+
+  showModal('victoryModal');
+}
+
+// ============================================
+// EVENT LISTENERS
+// ============================================
+
+function setupEventListeners() {
+  // Pause/Resume
+  const btnPause = el('btnPause');
+  if (btnPause)
+    btnPause.addEventListener('click', () => {
+      isPaused = !isPaused;
+      btnPause.textContent = isPaused ? '▶' : '⏸';
+      toast(isPaused ? 'Paused' : 'Resumed');
+    });
+
+  // Speed control
+  const speedSelect = el('speedSelect');
+  if (speedSelect) speedSelect.addEventListener('change', startTick);
+
+  // Labor sliders
+  const farmerSlider = el('farmerSlider');
+  const builderSlider = el('builderSlider');
+  const herderSlider = el('herderSlider');
+  const intensitySlider = el('intensitySlider');
+
+  if (farmerSlider)
+    farmerSlider.addEventListener('input', e => {
+      S.farmers = e.target.value / 100;
+      normalizeLabor();
+      updateUI();
+    });
+
+  if (builderSlider)
+    builderSlider.addEventListener('input', e => {
+      S.builders = e.target.value / 100;
+      normalizeLabor();
+      updateUI();
+    });
+
+  if (herderSlider)
+    herderSlider.addEventListener('input', e => {
+      S.herders = e.target.value / 100;
+      normalizeLabor();
+      updateUI();
+    });
+
+  if (intensitySlider)
+    intensitySlider.addEventListener('input', e => {
+      S.workIntensity = e.target.value / 100;
+      updateUI();
+    });
+
+  // Crop selection
+  document.querySelectorAll('.crop-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.crop-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      S.cropType = btn.dataset.crop;
+      toast(`Now planting ${S.cropType}`);
+    });
+  });
+
+  // Enclosure toggle
+  const btnEnclosure = el('btnEnclosure');
+  if (btnEnclosure)
+    btnEnclosure.addEventListener('click', () => {
+      if (S.landPolicy === 'commons') {
+        if (!confirm('Enclose land? +15% efficiency but -15% morale and inequality rises.')) return;
+        S.landPolicy = 'enclosed';
+        S.morale = Math.max(0, S.morale - 0.15);
+        toast('Land enclosed! Efficiency up, morale down.');
+      } else {
+        if (!confirm('Return to commons? -15% efficiency but equality restored.')) return;
+        S.landPolicy = 'commons';
+        S.morale = Math.min(1, S.morale + 0.1);
+        toast('Commons restored! Equality improved.');
+      }
+      updateUI();
+    });
+
+  // Modals
+  const btnTech = el('btnTech');
+  const techClose = el('techClose');
+  if (btnTech)
+    btnTech.addEventListener('click', () => {
+      renderTechTree();
+      showModal('techModal');
+    });
+  if (techClose) techClose.addEventListener('click', () => hideModal('techModal'));
+
+  const btnTheory = el('btnTheory');
+  const theoryClose = el('theoryClose');
+  if (btnTheory) btnTheory.addEventListener('click', () => showModal('theoryModal'));
+  if (theoryClose) theoryClose.addEventListener('click', () => hideModal('theoryModal'));
+
+  const btnProgress = el('btnProgress');
+  const progressClose = el('progressClose');
+  if (btnProgress)
+    btnProgress.addEventListener('click', () => {
+      updateProgress();
+      showModal('progressModal');
+    });
+  if (progressClose) progressClose.addEventListener('click', () => hideModal('progressModal'));
+
+  // Export data
+  const btnExport = el('btnExport');
+  const btnExportVictory = el('btnExportVictory');
+  if (btnExport) btnExport.addEventListener('click', exportData);
+  if (btnExportVictory) btnExportVictory.addEventListener('click', exportData);
+
+  // Save/Reset
+  const btnSave = el('btnSave');
+  const btnReset = el('btnReset');
+  if (btnSave) btnSave.addEventListener('click', saveGame);
+  if (btnReset) btnReset.addEventListener('click', resetGame);
+
+  // Victory
+  const btnPlayAgain = el('btnPlayAgain');
+  if (btnPlayAgain)
+    btnPlayAgain.addEventListener('click', () => {
+      hideModal('victoryModal');
+      resetGame();
+    });
+
+  // Grid DnD (after DOM exists)
+  attachGridDnD();
+}
+
+function normalizeLabor() {
+  const total = S.farmers + S.builders + S.herders;
+  if (total > 1) {
+    const scale = 1 / total;
+    S.farmers *= scale;
+    S.builders *= scale;
+    S.herders *= scale;
+  }
+  const fs = el('farmerSlider');
+  const bs = el('builderSlider');
+  const hs = el('herderSlider');
+  if (fs) fs.value = S.farmers * 100;
+  if (bs) bs.value = S.builders * 100;
+  if (hs) hs.value = S.herders * 100;
+}
+
+// ============================================
+// UTILITY FUNCTIONS
+// ============================================
+
+function showModal(id) {
+  const m = el(id);
+  if (m) m.classList.add('show');
+}
+
+function hideModal(id) {
+  const m = el(id);
+  if (m) m.classList.remove('show');
+}
+
+function saveGame() {
+  try {
+    localStorage.setItem('econoville_save', JSON.stringify(S));
+    toast('Game saved!');
+  } catch (e) {
+    toast('Save failed: ' + e.message);
+  }
+}
+
+function resetGame() {
+  if (!confirm('Reset game? All progress will be lost.')) return;
+
+  Object.assign(S, {
+    day: 1,
+    year: 1,
+    season: 0,
+    pop: 80,
+    cap: 100,
+    totalDeaths: 0,
+    farmers: 0.5,
+    builders: 0.3,
+    herders: 0.1,
+    workIntensity: 1.0,
+    materials: 30,
+    foodStock: 20,
+    livestock: 0,
+    health: 0.6,
+    morale: 0.6,
+    tfp: 1.0,
+    landQuality: 1.0,
+    realWage: 1.0,
+    landPolicy: 'commons',
+    cropType: 'wheat',
+    weatherNow: 'sunny',
+    weatherNext: 'rain',
+    tech: { basicFarming: true },
+    builds: [],
+    nodes: [],
+    wageAbove13Years: 0,
+    history: []
+  });
+
+  rollWeather();
+  spawnNodes();
+  renderPalette();
+  updateUI();
+
+  toast('Game reset!');
+}
+
+function exportData() {
+  const csv = ['Year,Day,Population,RealWage,FoodStock,Livestock,TFP,SoilQuality'];
+  S.history.forEach(h => {
+    csv.push(
+      `${h.year},${h.day},${h.pop},${h.realWage.toFixed(3)},${h.foodStock.toFixed(1)},${h.livestock},${h.tfp.toFixed(3)},${h.soilQuality.toFixed(3)}`
+    );
+  });
+
+  const blob = new Blob([csv.join('\n')], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `econoville_data_year${S.year}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+
+  toast('Data exported!');
+}
+
+// ============================================
+// STARTUP HOOK
+// ============================================
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', init, { once: true });
+} else {
+  init();
+}
