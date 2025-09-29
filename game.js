@@ -1,5 +1,5 @@
 /* ============================================
-   ECONOVILLE PHASE 1 - GAME LOGIC
+   ECONOVILLE PHASE 1 - GAME LOGIC.
    A+ Production-Ready Version (JS-only)
    ============================================ */
 
