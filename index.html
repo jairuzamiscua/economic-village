@@ -3,526 +3,531 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>EconoVille — Phase 1 (Fun-first Build)</title>
+<title>EconoVille — Phase 1 (Agrarian, Smithian + Malthusian)</title>
 <style>
-:root{
-  --bg:#0f172a;--panel:#111827ee;--panel2:#0b1224cc;--text:#e5e7eb;
-  --muted:#9ca3af;--accent:#22d3ee;--accent2:#a78bfa;--good:#22c55e;--warn:#f59e0b;--bad:#ef4444;--border:#1f2937;
-}
-*{box-sizing:border-box} html,body{height:100%} body{margin:0;background:radial-gradient(1300px 900px at 70% -10%,#1e293b 0%,#0b1224 40%,#050816 100%);color:var(--text);font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial}
+:root{--bg:#0f172a;--panel:#111827ee;--panel2:#0b1224cc;--text:#e5e7eb;--muted:#9ca3af;--accent:#22d3ee;--accent2:#a78bfa;--good:#22c55e;--warn:#f59e0b;--bad:#ef4444;--border:#1f2937}
+*{box-sizing:border-box}html,body{height:100%}body{margin:0;background:radial-gradient(1400px 900px at 70% -10%,#1e293b 0%,#0b1224 40%,#050816 100%);color:var(--text);font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial}
 .shell{display:grid;grid-template-rows:auto 1fr auto;min-height:100%}
 header{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border)}
-header h1{font-size:18px;margin:0;font-weight:800;letter-spacing:.3px}
+header h1{font-size:18px;margin:0;font-weight:800}
 header .tag{font-size:12px;color:var(--muted)}
-.main{display:grid;grid-template-columns:340px 1fr 360px;gap:14px;padding:14px}
+.main{display:grid;grid-template-columns:360px 1fr 380px;gap:14px;padding:14px}
 .panel{background:linear-gradient(180deg,var(--panel),var(--panel2));border:1px solid var(--border);border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.35)}
 .panel h2{font-size:12px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);margin:0 0 10px}
-
-/* LEFT: Build Palette + Commands + Queue */
 .left{padding:14px;overflow:auto}
-.palette{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.center{position:relative;padding:12px}
+.right{padding:14px}
+
+/* palette / tech */
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
 .tile{border:1px solid var(--border);background:#0b1224aa;border-radius:12px;padding:10px;display:flex;gap:8px;align-items:center;cursor:grab}
-.tile[draggable="true"]{user-select:none}
-.i{width:28px;height:28px;border-radius:6px;border:1px solid #0003;background:#121a33;position:relative;overflow:hidden}
+.i{width:28px;height:28px;border-radius:6px;border:1px solid #0003;position:relative;overflow:hidden;background:#121a33}
 .i:after{content:'';position:absolute;inset:0;opacity:.9}
-.i.house:after{background:conic-gradient(#b45309 0 90deg, #b45309 0) ,linear-gradient(#d1d5db,#6b7280)}
 .i.farm:after{background:repeating-linear-gradient(45deg,#166534 0 7px,#0e9f6e 7px 14px)}
-.i.well:after{background:radial-gradient(circle,#60a5fa 0 40%,#1d4ed8 41% 100%)}
+.i.well:after{background:radial-gradient(circle,#93c5fd,#1d4ed8)}
 .i.granary:after{background:linear-gradient(#9ca3af,#6b7280)}
 .i.irrig:after{background:linear-gradient(#22d3ee,#0891b2)}
+.i.house:after{background:linear-gradient(#d1d5db,#6b7280)}
+.i.path:after{background:repeating-linear-gradient(90deg,#9ca3af 0 6px,#374151 6px 12px)}
 .i.market:after{background:linear-gradient(90deg,#ef4444,#f59e0b,#facc15)}
-.qty{margin-left:auto;font-size:11px;color:var(--muted)}
-.cost{font-size:11px;color:var(--muted)}
+.meta{margin-left:auto;font-size:11px;color:var(--muted);display:flex;gap:8px}
+.lock{opacity:.45}
 
-.commands{margin-top:12px;border-top:1px dashed var(--border);padding-top:10px}
-.cmd{display:grid;gap:8px}
-button.cmdBtn{border:1px solid var(--border);background:transparent;color:var(--text);border-radius:10px;padding:8px 10px;cursor:pointer}
+/* queue */
 .queue{margin-top:12px;border-top:1px dashed var(--border);padding-top:10px}
 .qitem{display:flex;justify-content:space-between;align-items:center;border:1px solid var(--border);border-radius:10px;padding:6px 8px;margin-bottom:6px;background:#0b1224aa}
 .qitem .muted{color:var(--muted);font-size:12px}
-.cancel{border:1px solid var(--border);background:transparent;color:var(--text);border-radius:10px;padding:4px 8px;cursor:pointer;font-size:12px}
+.btn{border:1px solid var(--border);background:transparent;color:var(--text);border-radius:10px;padding:6px 10px;cursor:pointer}
+.btn.primary{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#041018;border:none}
 
-/* CENTER: Map + drag target */
-.center{position:relative;padding:12px}
-.view{height:100%;min-height:560px;border-radius:14px;border:1px solid var(--border);
-  background:
-    radial-gradient(1200px 800px at 30% -20%, rgba(34,211,238,.07), transparent 50%),
-    linear-gradient(180deg, rgba(2,6,23,.25), rgba(2,6,23,.65)),
-    url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="900" height="600"><defs><linearGradient id="sky" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="%231a2b57"/><stop offset="1" stop-color="%23091121"/></linearGradient><linearGradient id="ground" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="%230b3a1e"/><stop offset="1" stop-color="%23061812"/></linearGradient></defs><rect width="100%" height="50%" fill="url(%23sky)"/><rect y="50%" width="100%" height="50%" fill="url(%23ground)"/></svg>');
-  background-size:cover;position:relative;overflow:hidden}
-.grid{position:absolute;left:20px;right:20px;bottom:20px;top:120px;border:1px dashed #33415555;border-radius:10px}
-.cell{position:absolute;width:80px;height:70px;outline:1px dashed #ffffff18;border-radius:8px}
-.drop{box-shadow:0 0 0 2px var(--accent) inset}
+/* map */
+.view{height:100%;min-height:600px;border-radius:14px;border:1px solid var(--border);
+background:
+radial-gradient(1200px 800px at 30% -20%, rgba(34,211,238,.07), transparent 50%),
+linear-gradient(180deg, rgba(2,6,23,.25), rgba(2,6,23,.65)),
+url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="920" height="620"><defs><linearGradient id="sky" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="%231a2b57"/><stop offset="1" stop-color="%23091121"/></linearGradient><linearGradient id="ground" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="%230b3a1e"/><stop offset="1" stop-color="%23061812"/></linearGradient></defs><rect width="100%" height="45%" fill="url(%23sky)"/><rect y="45%" width="100%" height="55%" fill="url(%23ground)"/></svg>');
+background-size:cover;position:relative;overflow:hidden}
 .hud{position:absolute;top:10px;left:10px;display:flex;gap:8px;flex-wrap:wrap}
 .badge{background:#0b1224cc;border:1px solid var(--border);padding:6px 10px;border-radius:999px;font-size:12px}
-.stageBanner{position:absolute;top:12px;right:12px;background:#0b1224cc;border:1px solid var(--border);
-  border-radius:12px;padding:8px 12px;font-size:12px}
-
-/* placed icons */
-.icon{position:absolute;width:80px;height:70px;border-radius:8px;border:1px solid rgba(0,0,0,.35);box-shadow:0 8px 18px rgba(0,0,0,.35);background-size:cover}
-.icon.house{background-image:linear-gradient(#d1d5db,#6b7280)}
+.stageBanner{position:absolute;top:12px;right:12px;background:#0b1224cc;border:1px solid var(--border);border-radius:12px;padding:8px 12px;font-size:12px}
+.grid{position:absolute;left:20px;right:20px;bottom:20px;top:120px;border:1px dashed #33415555;border-radius:10px}
+.cell{position:absolute;border:1px dashed #ffffff18;border-radius:8px}
+.drop{box-shadow:0 0 0 2px var(--accent) inset}
+.icon{position:absolute;width:82px;height:72px;border-radius:8px;border:1px solid rgba(0,0,0,.35);box-shadow:0 10px 22px rgba(0,0,0,.35);background-size:cover}
 .icon.farm{background-image:repeating-linear-gradient(45deg,#166534 0 7px,#0e9f6e 7px 14px)}
+.icon.house{background-image:linear-gradient(#d1d5db,#6b7280)}
 .icon.well{background-image:radial-gradient(circle,#93c5fd,#1d4ed8)}
 .icon.granary{background-image:linear-gradient(#9ca3af,#6b7280)}
 .icon.irrig{background-image:linear-gradient(#22d3ee,#0ea5e9)}
 .icon.market{background-image:linear-gradient(90deg,#ef4444,#f59e0b,#facc15)}
-.site{filter:grayscale(.8) brightness(.7);position:absolute}
-.ring{
-  position:absolute; width:44px; height:44px; border-radius:50%;
-  background:
-    radial-gradient(circle at 50% 50%, rgba(0,0,0,.6) 30%, transparent 31%),
-    conic-gradient(var(--accent) calc(var(--pct,0)*1%), rgba(255,255,255,.12) 0);
-  border:1px solid rgba(255,255,255,.1);
-  left:18px; top:12px;
-}
+.icon.path{background-image:repeating-linear-gradient(90deg,#9ca3af 0 6px,#374151 6px 12px)}
+.site{filter:grayscale(.8) brightness(.7)}
+.ring{position:absolute;width:44px;height:44px;border-radius:50%;
+background:radial-gradient(circle at 50% 50%, rgba(0,0,0,.6) 30%, transparent 31%), conic-gradient(var(--accent) calc(var(--pct,0)*1%), rgba(255,255,255,.12) 0);
+border:1px solid rgba(255,255,255,.1);left:18px;top:12px}
 
-/* RIGHT: meters + weather + workforce */
-.right{padding:14px}
-.meters{display:grid;gap:12px}
-.meter{background:#0b1224aa;border:1px solid var(--border);border-radius:10px;padding:10px}
-.meter header{display:flex;align-items:center;justify-content:space-between;padding:0;border:none}
-.meter header h4{margin:0;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.12em}
+/* resources */
+.node{position:absolute;width:52px;height:52px;border-radius:10px;border:1px solid #0004;box-shadow:0 6px 16px rgba(0,0,0,.35);cursor:pointer}
+.node.tree{background:radial-gradient(circle,#14532d,#052e16)}
+.node.rock{background:radial-gradient(circle,#6b7280,#111827)}
+
+/* right */
+.meter{background:#0b1224aa;border:1px solid var(--border);border-radius:10px;padding:10px;margin-bottom:12px}
+.meter header{display:flex;align-items:center;justify-content:space-between}
 .bar{height:12px;background:#0b1224;border:1px solid var(--border);border-radius:999px;overflow:hidden}
 .fill{height:100%;width:0%;background:linear-gradient(90deg,var(--good),var(--accent));transition:width .4s ease}
 .stat{font-size:12px;color:var(--muted);margin-top:6px}
 .kpi{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
 .chip{border:1px solid var(--border);border-radius:8px;padding:6px 8px;font-size:12px;color:var(--muted)}
-
-.weather{margin-top:12px;border-top:1px dashed var(--border);padding-top:10px}
-.wrow{display:flex;gap:10px;align-items:center}
-.wbox{flex:1;border:1px solid var(--border);border-radius:10px;background:#0b1224aa;padding:8px;display:flex;align-items:center;gap:8px}
+.weather{border-top:1px dashed var(--border);padding-top:10px;margin-top:10px}
+.wbox{display:flex;gap:8px;align-items:center;border:1px solid var(--border);border-radius:10px;background:#0b1224aa;padding:8px;margin-bottom:8px}
 .wsym{width:28px;height:28px;border-radius:8px}
 .wsym.sunny{background:radial-gradient(circle,#fde68a,#f59e0b)}
 .wsym.rain{background:radial-gradient(circle,#60a5fa,#2563eb)}
 .wsym.storm{background:conic-gradient(#60a5fa, #1e40af, #111827)}
 .wsym.drought{background:repeating-linear-gradient(45deg,#b45309 0 6px,#78350f 6px 12px)}
-.wtxt{font-size:12px;color:var(--muted)}
+.tt{position:fixed;pointer-events:none;background:#0b1224ee;border:1px solid var(--border);border-radius:8px;padding:6px 8px;font-size:12px;display:none}
 
-.workforce{margin-top:12px;border-top:1px dashed var(--border);padding-top:10px}
-.wbtn{border:1px solid var(--border);background:transparent;color:var(--text);border-radius:10px;padding:6px 10px;cursor:pointer;margin-right:6px}
-.wbtn.active{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#041018}
-
+/* bottom */
 .bottom{margin:0 14px 14px;padding:12px}
 .reason{border:1px solid var(--border);border-radius:12px;background:#0b1224aa;padding:12px}
 .btnRow{display:flex;gap:10px;margin-top:10px;flex-wrap:wrap}
-.primary{background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;color:#041018;border-radius:10px;padding:10px 12px;font-weight:800;cursor:pointer}
-.ghost{background:transparent;border:1px solid var(--border);color:var(--text);border-radius:10px;padding:10px 12px;cursor:pointer}
 .toast{position:fixed;bottom:18px;right:18px;background:#0b1224ee;border:1px solid var(--border);padding:10px 12px;border-radius:10px;font-size:13px;display:none}
+
+/* tutorial checklist */
+.check{position:fixed;left:14px;top:76px;width:280px;z-index:40;background:#0b1224ee;border:1px solid var(--border);border-radius:12px;padding:12px}
+.check h3{margin:0 0 6px;font-size:14px}
+.step{display:flex;align-items:center;gap:8px;margin:6px 0}
+.step input{accent-color:#22d3ee}
 </style>
 </head>
 <body>
-  <div class="shell">
-    <header>
-      <div>
-        <h1>EconoVille — Phase 1</h1>
-        <div class="tag">Chief of the Village • Materials-first • Weather & Forecast • Drag & Drop Builds</div>
-      </div>
-      <div class="tag">
-        Date: <span id="date">Year 1, Month 1</span> •
-        Season: <span id="season">Spring</span>
-      </div>
-    </header>
-
-    <div class="main">
-      <!-- LEFT -->
-      <aside class="panel left">
-        <h2>Build Palette (drag onto map)</h2>
-        <div class="palette" id="palette">
-          <!-- tiles generated by JS -->
-        </div>
-
-        <div class="commands">
-          <h2>Chief Commands</h2>
-          <div class="cmd">
-            <button class="cmdBtn" id="gatherWood">Gather Wood (+6–10 Materials)</button>
-            <button class="cmdBtn" id="rally">Rally Workers (+10% builders this season)</button>
-            <button class="cmdBtn" id="smallFest">Small Festival (+Morale, -3 Materials)</button>
-            <button class="cmdBtn" id="barter">Barter Trip (convert 10 Materials → 8 Coins)</button>
-          </div>
-        </div>
-
-        <div class="queue">
-          <h2>Construction Queue</h2>
-          <div id="queueList"></div>
-        </div>
-      </aside>
-
-      <!-- CENTER -->
-      <section class="panel center">
-        <div class="view" id="view">
-          <div class="hud">
-            <div class="badge">Pop: <span id="pop">80</span>/<span id="cap">100</span></div>
-            <div class="badge">Builders: <span id="labor">20%</span></div>
-            <div class="badge">Materials: <span id="mat">25</span></div>
-            <div class="badge">Coins: <span id="money">5</span></div>
-            <div class="badge">Food: <span id="food">0</span></div>
-          </div>
-          <div class="stageBanner">Phase 1 — Subsistence to Surplus</div>
-
-          <!-- drop grid -->
-          <div class="grid" id="grid"></div>
-        </div>
-      </section>
-
-      <!-- RIGHT -->
-      <aside class="panel right">
-        <h2>Village Indicators</h2>
-        <div class="meters">
-          <div class="meter">
-            <header><h4>Food</h4><span id="foodLbl">0%</span></header>
-            <div class="bar"><div class="fill" id="fillFood"></div></div>
-            <div class="stat">Output: <b id="foodOut">0</b> • Needs: <b id="foodNeed">0</b> • Net: <b id="foodNet">0</b></div>
-          </div>
-          <div class="meter">
-            <header><h4>Health</h4><span id="healthLbl">0%</span></header>
-            <div class="bar"><div class="fill" id="fillHealth"></div></div>
-            <div class="stat">Well/Sanitation reduces disease.</div>
-          </div>
-          <div class="meter">
-            <header><h4>Morale</h4><span id="moraleLbl">0%</span></header>
-            <div class="bar"><div class="fill" id="fillMorale"></div></div>
-            <div class="stat">High morale improves outcomes slightly.</div>
-          </div>
-        </div>
-
-        <div class="weather">
-          <h2>Weather Forecast</h2>
-          <div class="wrow">
-            <div class="wbox"><div class="wsym" id="wNow"></div><div class="wtxt" id="wNowTxt">Now</div></div>
-            <div class="wbox"><div class="wsym" id="wNext"></div><div class="wtxt" id="wNextTxt">Next</div></div>
-          </div>
-          <p class="stat" id="wExplain">Weather modifies yields: Rain +20%, Drought −30% (Irrigation mitigates).</p>
-        </div>
-
-        <div class="workforce">
-          <h2>Workforce</h2>
-          <button class="wbtn" data-share="0.1">Builders 10%</button>
-          <button class="wbtn active" data-share="0.2">Builders 20%</button>
-          <button class="wbtn" data-share="0.3">Builders 30%</button>
-          <p class="stat">More builders speed construction but reduce farm labor.</p>
-        </div>
-
-        <div class="kpi">
-          <div class="chip">Events: <span id="events">None</span></div>
-          <div class="chip">Queue: <span id="qCount">0</span></div>
-        </div>
-      </aside>
-    </div>
-
-    <!-- BOTTOM -->
-    <div class="bottom">
-      <div class="reason" id="reason">Drag a building from the left and drop it on the map. Start with a <b>Farm</b> and a <b>Well</b> to stabilize yields.</div>
-      <div class="btnRow">
-        <button class="ghost" id="btnReset">Reset</button>
-        <button class="primary" id="btnPlay">▶ Play</button>
-        <button class="ghost" id="btnAdvance">Step Season</button>
-        <select class="ghost" id="speed">
-          <option value="1">1x</option><option value="1.5">1.5x</option><option value="2">2x</option><option value="3">3x</option>
-        </select>
-        <button class="ghost" id="btnSave">Save</button>
-        <button class="ghost" id="btnLoad">Load</button>
-      </div>
-    </div>
+<div class="shell">
+<header>
+  <div>
+    <h1>EconoVille — Phase 1 (Agrarian)</h1>
+    <div class="tag">Smithian: division of labour & market day • Malthusian: land & population pressure</div>
   </div>
+  <div class="tag">Date: <span id="date">Year 1, Week 1</span> • Season: <span id="season">Spring</span></div>
+</header>
 
-  <div class="toast" id="toast"></div>
+<div class="main">
+  <!-- LEFT -->
+  <aside class="panel left">
+    <h2>Build Palette (drag onto map)</h2>
+    <div class="grid2" id="palette"></div>
+
+    <div class="queue">
+      <h2>Construction Queue</h2>
+      <div id="queueList"></div>
+    </div>
+
+    <div class="queue">
+      <h2>Chief Commands</h2>
+      <div class="qitem"><span>Gather Wood (+6–10 Materials)</span><button class="btn" id="gatherWood">Do</button></div>
+      <div class="qitem"><span>Rally Workers (+10% builders this week)</span><button class="btn" id="rally">Do</button></div>
+      <div class="qitem"><span>Barter Trip (10 Materials → 8 Coins)</span><button class="btn" id="barter">Do</button></div>
+    </div>
+  </aside>
+
+  <!-- CENTER -->
+  <section class="panel center">
+    <div class="view" id="view">
+      <div class="hud">
+        <div class="badge">Pop: <span id="pop">80</span>/<span id="cap">100</span></div>
+        <div class="badge">Builders: <span id="labor">20%</span></div>
+        <div class="badge">Materials: <span id="mat">25</span></div>
+        <div class="badge">Coins: <span id="money">5</span></div>
+        <div class="badge">Food: <span id="food">0</span></div>
+      </div>
+      <div class="stageBanner">Phase 1 — Fully Agrarian Tech Tree</div>
+      <div class="grid" id="grid"></div>
+      <!-- tooltip -->
+      <div class="tt" id="tt"></div>
+    </div>
+  </section>
+
+  <!-- RIGHT -->
+  <aside class="panel right">
+    <h2>Village Indicators</h2>
+    <div class="meter">
+      <header><h4>Food</h4><span id="foodLbl">0%</span></header>
+      <div class="bar"><div class="fill" id="fillFood"></div></div>
+      <div class="stat">Output: <b id="foodOut">0</b> • Needs: <b id="foodNeed">0</b> • Net: <b id="foodNet">0</b></div>
+    </div>
+    <div class="meter">
+      <header><h4>Health</h4><span id="healthLbl">0%</span></header>
+      <div class="bar"><div class="fill" id="fillHealth"></div></div>
+      <div class="stat">Well/Sanitation → lower mortality, disease risk.</div>
+    </div>
+    <div class="meter">
+      <header><h4>Morale</h4><span id="moraleLbl">0%</span></header>
+      <div class="bar"><div class="fill" id="fillMorale"></div></div>
+      <div class="stat">Higher morale = small output bonus.</div>
+    </div>
+
+    <div class="weather">
+      <h2>Weather Forecast</h2>
+      <div class="wbox"><div class="wsym" id="wNow"></div><div>Now: <span id="wNowTxt">Sunny</span></div></div>
+      <div class="wbox"><div class="wsym" id="wNext"></div><div>Next week: <span id="wNextTxt">Rain</span></div></div>
+      <div class="stat" id="wExplain">Rain +20%, Storm +30% (risk of site delay), Drought −30% (Irrigation mitigates to −10%).</div>
+    </div>
+
+    <div class="kpi">
+      <div class="chip">Events: <span id="events">None</span></div>
+      <div class="chip">Queue: <span id="qCount">0</span></div>
+    </div>
+
+    <div class="queue">
+      <h2>Time & Speed</h2>
+      <div class="qitem"><span>Advance one week</span><button class="btn" id="btnStep">Step</button></div>
+      <div class="qitem"><span>Auto (week every N sec)</span>
+        <select class="btn" id="speed">
+          <option value="0">Off</option>
+          <option value="6">6s / wk</option>
+          <option value="4">4s / wk</option>
+          <option value="2">2s / wk</option>
+        </select>
+      </div>
+    </div>
+  </aside>
+</div>
+
+<!-- BOTTOM -->
+<div class="bottom">
+  <div class="reason" id="reason">Goal: reach a stable <b>food surplus</b>. Start with a <b>Farm</b> and a <b>Well</b>. Build <b>Granary</b> to cut losses. <b>Path</b> then <b>Market Day</b> grows “Smithian” gains (price & specialization).</div>
+  <div class="btnRow">
+    <button class="btn" id="btnReset">Reset</button>
+    <button class="btn" id="btnSave">Save</button>
+    <button class="btn" id="btnLoad">Load</button>
+  </div>
+</div>
+
+<!-- Tutorial Checklist -->
+<div class="check" id="check">
+  <h3>Getting Started ✓</h3>
+  <label class="step"><input type="checkbox" id="cFarm"/> Place 1 Farm</label>
+  <label class="step"><input type="checkbox" id="cWell"/> Build a Well</label>
+  <label class="step"><input type="checkbox" id="cSurp"/> Reach +10 Net Food</label>
+  <label class="step"><input type="checkbox" id="cMarket"/> Hold Market Day</label>
+  <div style="display:flex;gap:8px;margin-top:8px">
+    <button class="btn primary" id="hideChecklist">Hide</button>
+    <button class="btn" id="showTips">Tips</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+</div>
 
 <script>
-/* =========================
-   FUN-FIRST PHASE 1
-   - Materials-first economy; coins emerge from surplus/barter
-   - Weather + forecast (Stardew vibes)
-   - Drag & Drop building placement
-   - Chief commands (snappy, satisfying)
-   ========================= */
-
-let TIMER=null, SPEED=1, MONTH_TIMER=null;
-
-const S = {
-  // time
-  year:1, month:1, seasons:["Spring","Summer","Autumn","Winter"], sIdx:0,
-  // pop & labor
-  pop:80, cap:100, builderShare:0.2, needsPerCap:0.85,
-  // resources
-  materials:25, coins:5,
-  // state
-  health:0.45, morale:0.5,
-  // placed objects
-  builds:[], // [{id,type,x,y,done,dur,site}]
-  // queue is derived from builds where done==false
-  events:[],
-  // weather
-  weatherNow:null, weatherNext:null,
-  // tech flags
-  hasWell:false, hasGranary:false, hasIrrig:false, hasMarket:false,
-};
-
-const BUILD_DEFS = {
-  house:  {name:'House',     mat:8,  dur:2, upkeep:0.05, effect: s=>{s.cap+=4}},
-  farm:   {name:'Farm',      mat:6,  dur:2, upkeep:0.05, effect: s=>{}},
-  well:   {name:'Well',      mat:10, dur:2, upkeep:0.1,  effect: s=>{s.hasWell=true; s.health=Math.min(1,s.health+0.2)}},
-  granary:{name:'Granary',   mat:12, dur:3, upkeep:0.15, effect: s=>{s.hasGranary=true}},
-  irrig:  {name:'Irrigation',mat:12, dur:3, upkeep:0.10, effect: s=>{s.hasIrrig=true}},
-  market: {name:'Market',    mat:14, dur:2, upkeep:0.12, effect: s=>{s.hasMarket=true}},
-};
-
-const WEATHER = ["sunny","rain","storm","drought"];
-function seasonBase(weather){
-  switch(weather){
-    case "rain":   return {yield:1.2, disease: S.hasWell?0.0:0.02};
-    case "storm":  return {yield:1.3, damage: S.hasGranary?0.0:0.05};
-    case "drought":return {yield: S.hasIrrig?0.9:0.7, disease:0.01};
-    default:       return {yield:1.0};
-  }
-}
-
-// UI helpers
+/* ========= ECON & GAME STATE ========= */
+let TICK=null, TICK_SECS=0; // 0 = off
 const el=id=>document.getElementById(id);
 const toast=msg=>{const t=el('toast');t.innerHTML=msg;t.style.display='block';setTimeout(()=>t.style.display='none',2200)};
 
-// ---------- Setup ---------- //
-function init(){
-  wirePalette();
-  buildGrid();
-  rollInitialWeather();
-  recompute("Welcome, Chief. Build farms and secure water.");
-}
-function rollInitialWeather(){
-  S.weatherNow = rollWeather(S.seasons[S.sIdx]);
-  S.weatherNext = rollWeather(S.seasons[(S.sIdx+1)%4]);
-}
-function rollWeather(season){
-  // season-weighted RNG (gentler early)
-  const r = Math.random();
-  if(season==="Spring"){ if(r<0.55) return "rain"; if(r<0.85) return "sunny"; return "storm"; }
-  if(season==="Summer"){ if(r<0.15) return "rain"; if(r<0.70) return "sunny"; return "drought"; }
-  if(season==="Autumn"){ if(r<0.35) return "rain"; if(r<0.85) return "sunny"; return "storm"; }
-  if(season==="Winter"){ if(r<0.15) return "rain"; if(r<0.70) return "sunny"; return "drought"; }
+const S = {
+  year:1, week:1, seasons:["Spring","Summer","Autumn","Winter"], sIdx:0,
+  pop:80, cap:100, builderShare:0.2, needsPerCap:0.2, // weekly food need ~0.2 units/person
+  materials:25, coins:5,
+  health:0.5, morale:0.6,
+  A:1.0, land:1.0, // tech & land
+  flags:{well:false, granary:false, irrig:false, path:false, market:false, rotation:false, tools:false},
+  builds:[], // {id,type,x,y,done,left,dur}
+  nodes:[],  // resource nodes {id,type,x,y,hp}
+  weatherNow:null, weatherNext:null,
+  events:[],
+};
+
+/* ======= TECH TREE (AGRARIAN ONLY) =======
+   - Tools Upgrade (tools): +10% farm productivity (Smithian micro-productivity)
+   - Crop Rotation (rotation): +10% yields, unlock Irrigation synergy
+   - Well (well): -disease, +health
+   - Irrigation (irrig): drought mitigation (−30% → −10%), +10% A
+   - Granary (granary): losses 22% → 10%
+   - Path to Market (path): +5% farm price and +1 barter coins (Smithian market widening)
+   - Market Day (market): coins from surplus: price 0.06 → 0.14 (requires Path)
+*/
+const BUILDS={
+  farm:{name:"Farm",mat:6,dur:2,tip:"+12 base food/wk × weather × (farmers share)"},
+  well:{name:"Well",mat:10,dur:2,tip:"Health↑; lowers disease risk"},
+  granary:{name:"Granary",mat:12,dur:3,tip:"Losses ↓ from 22%→10%"},
+  irrig:{name:"Irrigation",mat:12,dur:3,tip:"Drought −30%→−10%; A +10%"},
+  house:{name:"House",mat:8,dur:2,tip:"+4 pop cap"},
+  path:{name:"Path to Market",mat:6,dur:1,tip:"Price +5%, barter +1 coin"},
+  market:{name:"Market Day",mat:10,dur:1,tip:"Surplus price 0.14 (was 0.06)"}
+};
+const TECH={
+  tools:{name:"Tools Upgrade",mat:6,dur:1,tip:"Farm TFP +10%"},
+  rotation:{name:"Crop Rotation",mat:6,dur:1,tip:"Yields +10%"}
+};
+
+/* ======= WEATHER (weekly) ======= */
+const WMAP = {sunny:"Sunny",rain:"Rain",storm:"Storm",drought:"Drought"};
+function seasonWeighted(season){
+  const r=Math.random();
+  if(season==="Spring"){ if(r<0.50)return"rain"; if(r<0.85)return"sunny"; return"storm";}
+  if(season==="Summer"){ if(r<0.15)return"rain"; if(r<0.70)return"sunny"; return"drought";}
+  if(season==="Autumn"){ if(r<0.35)return"rain"; if(r<0.85)return"sunny"; return"storm";}
+  if(season==="Winter"){ if(r<0.20)return"rain"; if(r<0.65)return"sunny"; return"drought";}
   return "sunny";
 }
+function weatherEffect(kind){
+  let y=1, dmg=0, dis=0;
+  if(kind==="rain") y=1.2;
+  if(kind==="storm"){ y=1.3; dmg = S.flags.granary?0.00:0.04; }
+  if(kind==="drought"){ y = S.flags.irrig?0.90:0.70; }
+  dis = S.flags.well?0.002:0.008;
+  return {y,dmg,dis};
+}
 
-// ---------- Palette & Drag ---------- //
-function wirePalette(){
-  const pal = el('palette'); pal.innerHTML='';
-  const items = [
-    {type:'farm',   icon:'farm',   text:'Farm',   cost:BUILD_DEFS.farm.mat},
-    {type:'well',   icon:'well',   text:'Well',   cost:BUILD_DEFS.well.mat},
-    {type:'granary',icon:'granary',text:'Granary',cost:BUILD_DEFS.granary.mat},
-    {type:'irrig',  icon:'irrig',  text:'Irrigation',cost:BUILD_DEFS.irrig.mat},
-    {type:'house',  icon:'house',  text:'House',  cost:BUILD_DEFS.house.mat},
-    {type:'market', icon:'market', text:'Market', cost:BUILD_DEFS.market.mat},
+/* ======= AUDIO (tiny bleeps) ======= */
+const AC = (window.AudioContext||window.webkitAudioContext)? new (window.AudioContext||window.webkitAudioContext)():null;
+function beep(freq=440,len=0.08,gain=0.03){ if(!AC) return; const o=AC.createOscillator(), g=AC.createGain(); o.type='sine'; o.frequency.value=freq; g.gain.value=gain; o.connect(g); g.connect(AC.destination); o.start(); o.stop(AC.currentTime+len); }
+function rainSnd(){ beep(660,0.06,0.02); beep(520,0.08,0.02); }
+function placeSnd(){ beep(520,0.06,0.03); }
+function tickSnd(){ beep(320,0.04,0.02); }
+function harvestSnd(){ beep(440,0.05,0.03); }
+
+/* ======= TOOLTIP ======= */
+const TT=el('tt');
+function showTT(html,x,y){ TT.style.left=(x+12)+'px'; TT.style.top=(y+12)+'px'; TT.innerHTML=html; TT.style.display='block'; }
+function hideTT(){ TT.style.display='none'; }
+
+/* ======= PALETTE ======= */
+function drawPalette(){
+  const pal=el('palette'); pal.innerHTML='';
+  const items=[
+    {key:'farm',obj:BUILDS.farm,lock:false},
+    {key:'well',obj:BUILDS.well,lock:false},
+    {key:'granary',obj:BUILDS.granary,lock:false},
+    {key:'irrig',obj:BUILDS.irrig,lock:false},
+    {key:'house',obj:BUILDS.house,lock:false},
+    {key:'path',obj:BUILDS.path,lock:false},
+    {key:'market',obj:BUILDS.market,lock:!S.flags.path}, // need path first
+    {key:'tools',obj:TECH.tools,lock:false},
+    {key:'rotation',obj:TECH.rotation,lock:false},
   ];
   items.forEach(it=>{
     const d=document.createElement('div');
-    d.className='tile'; d.draggable=true; d.dataset.type=it.type;
-    d.innerHTML=`<div class="i ${it.icon}"></div><div>${it.text}</div><div class="qty"></div><div class="cost">Mat ${it.cost}</div>`;
-    d.addEventListener('dragstart', ev=>{
-      ev.dataTransfer.setData('text/plain', it.type);
-    });
+    d.className='tile'+(it.lock?' lock':''); d.draggable=!it.lock; d.dataset.key=it.key;
+    const icoClass = ['tools','rotation'].includes(it.key)? 'path' : it.key; // reuse icon styles
+    d.innerHTML=`<div class="i ${icoClass}"></div><div>${it.obj.name||it.key}</div><div class="meta"><span>Mat ${it.obj.mat}</span><span>⏳ ${it.obj.dur}w</span></div>`;
+    d.title = (it.obj.tip||'');
+    d.addEventListener('dragstart', ev=>{ ev.dataTransfer.setData('text/plain', it.key); });
+    d.addEventListener('mouseenter', ev=> showTT(`<b>${it.obj.name||it.key}</b><br>${it.obj.tip||''}<br>Cost: ${it.obj.mat} mat, ${it.obj.dur} weeks`, ev.clientX, ev.clientY));
+    d.addEventListener('mouseleave', hideTT);
     pal.appendChild(d);
   });
 }
+
+/* ======= GRID / PLACEMENT ======= */
 function buildGrid(){
   const g=el('grid'); g.innerHTML='';
   const cols=6, rows=5;
+  const gw=g.clientWidth-40, gh=g.clientHeight-30;
   for(let r=0;r<rows;r++){
     for(let c=0;c<cols;c++){
       const cell=document.createElement('div');
       cell.className='cell';
-      cell.style.left=(20 + c* ( (g.clientWidth-40)/cols ))+'px';
-      cell.style.top =(10 + r* ( (g.clientHeight-20)/rows ))+'px';
-      cell.style.width=((g.clientWidth-40)/cols - 8)+'px';
-      cell.style.height=((g.clientHeight-20)/rows - 8)+'px';
-
-      cell.addEventListener('dragover', e=>{ e.preventDefault(); cell.classList.add('drop'); });
-      cell.addEventListener('dragleave', ()=> cell.classList.remove('drop'));
+      const w=gw/cols-6, h=gh/rows-6;
+      cell.style.left=(20+c*(gw/cols))+'px';
+      cell.style.top=(10+r*(gh/rows))+'px';
+      cell.style.width=w+'px'; cell.style.height=h+'px';
+      cell.addEventListener('dragover', e=>{e.preventDefault(); cell.classList.add('drop');});
+      cell.addEventListener('dragleave', ()=>cell.classList.remove('drop'));
       cell.addEventListener('drop', e=>{
         e.preventDefault(); cell.classList.remove('drop');
-        const type = e.dataTransfer.getData('text/plain');
-        tryPlace(type, cell);
+        const key = e.dataTransfer.getData('text/plain');
+        placeAt(key, cell);
       });
-
       g.appendChild(cell);
     }
   }
 }
 window.addEventListener('resize', buildGrid);
 
-// ---------- Placement / Construction ---------- //
-function tryPlace(type, cell){
-  const def = BUILD_DEFS[type];
-  if(!def){ toast('Unknown build'); return; }
-  if(S.materials < def.mat){ toast('Not enough materials'); return; }
+function placeAt(key, cell){
+  // TECH card (no placement)
+  if(key==='tools' || key==='rotation'){
+    const o = TECH[key];
+    if(S.materials<o.mat) return toast('Not enough materials');
+    S.materials -= o.mat;
+    S.flags[key]=true;
+    if(key==='tools') S.A *= 1.10;
+    if(key==='rotation') S.A *= 1.10;
+    placeSnd(); recompute(`Researched <b>${o.name}</b>.`);
+    drawPalette(); return;
+  }
+
+  const def = BUILDS[key]; if(!def) return;
+  if(key==='market' && !S.flags.path) return toast('Need Path to Market first');
+  if(S.materials<def.mat) return toast('Not enough materials');
 
   S.materials -= def.mat;
-  const {x,y} = cell.getBoundingClientRect();
-  const {left,top} = el('grid').getBoundingClientRect();
-  const px = x-left, py = y-top;
-
-  S.builds.push({ id:Date.now()+Math.random(), type, x:px, y:py, done:false, dur:def.dur, left:def.dur, site:true });
-  recompute(`Placed <b>${def.name}</b>. Construction will take ${def.dur} seasons.`);
+  const {left,top}=el('grid').getBoundingClientRect();
+  const {x,y}=cell.getBoundingClientRect();
+  S.builds.push({id:Date.now()+Math.random(), type:key, x:x-left+6, y:y-top+6, done:false, left:def.dur, dur:def.dur});
+  placeSnd(); recompute(`Placed <b>${def.name}</b> • ⏳ ${def.dur} weeks.`);
 }
 
-// ---------- Chief Commands ---------- //
-el('gatherWood').addEventListener('click', ()=>{
-  const add = 6 + Math.floor(Math.random()*5);
-  S.materials += add;
-  S.morale = Math.min(1, S.morale + 0.02);
-  recompute(`Villagers gathered wood: +${add} materials.`);
-});
-el('rally').addEventListener('click', ()=>{
-  S.builderShare = Math.min(0.4, S.builderShare + 0.1);
-  recompute(`You rallied workers. Builders temporarily ↑.`);
-});
-el('smallFest').addEventListener('click', ()=>{
-  if(S.materials < 3){ toast('Not enough materials'); return; }
-  S.materials -= 3; S.morale = Math.min(1, S.morale + 0.08);
-  recompute(`Small festival held. Morale ↑, materials −3.`);
-});
-el('barter').addEventListener('click', ()=>{
-  if(S.materials < 10){ toast('Need 10 materials to barter'); return; }
-  S.materials -= 10; S.coins += 8;
-  recompute(`Barter trip returned with +8 coins.`);
-});
+/* ======= RESOURCE NODES ======= */
+function spawnNodes(){
+  // 3 trees + 2 rocks random
+  const g=el('grid').getBoundingClientRect();
+  for(let i=0;i<3;i++) S.nodes.push(newNode('tree', g));
+  for(let i=0;i<2;i++) S.nodes.push(newNode('rock', g));
+}
+function newNode(type, g){
+  return { id:cryptoRandom(), type, x:rand(40,g.width-100), y:rand(20,g.height-100), hp:(type==='tree'?3:2) };
+}
+function cryptoRandom(){ return (Date.now()+Math.random()).toString(36); }
+function rand(a,b){ return a+Math.random()*(b-a); }
 
-// ---------- Season Tick ---------- //
+function drawNodes(){
+  const grid=el('grid');
+  [...grid.querySelectorAll('.node')].forEach(n=>n.remove());
+  S.nodes.forEach(n=>{
+    const d=document.createElement('div'); d.className='node '+n.type;
+    d.style.left=(n.x)+'px'; d.style.top=(n.y)+'px';
+    d.title = n.type==='tree'?'Tree: click to gather wood (+3 mat)':'Rock: click for stone (+4 mat)';
+    d.addEventListener('click', ()=>{
+      n.hp--; S.materials += (n.type==='tree'?3:4);
+      harvestSnd();
+      if(n.hp<=0){ S.nodes = S.nodes.filter(x=>x!==n); }
+      recompute(`${n.type==='tree'?'Gathered wood +3':'Quarried stone +4'}.`);
+    });
+    grid.appendChild(d);
+  });
+}
+
+/* ======= SNAPSHOT & ECON ======= */
 function snapshot(){
-  // labor split
-  const builders = Math.floor(S.pop * S.builderShare);
-  const farmers  = Math.max(0, S.pop - builders);
+  const builders=Math.floor(S.pop*S.builderShare);
+  const farmers=Math.max(0,S.pop-builders);
+  const farms=S.builds.filter(b=>b.type==='farm' && b.done).length;
 
-  // base food from farms (each farm contributes), scaled by weather
-  const farms = S.builds.filter(b=>b.type==='farm' && b.done).length;
-  const basePerFarm = 12; // tuned for fun
-  let food = farms * basePerFarm * (farmers/(S.pop||1) * 1.0);
+  const basePerFarm = 3.0; // per week
+  let food = farms * basePerFarm * S.A * (farmers/(S.pop||1)); // Smithian TFP via tools/rotation
+  // weather
+  const w = weatherEffect(S.weatherNow); food *= w.y;
 
-  const wb = seasonBase(S.weatherNow);
-  food *= wb.yield;
+  // losses (granary cuts losses)
+  const loss = S.flags.granary?0.10:0.22; food *= (1-loss);
+  // morale small bonus
+  food *= (1 + (S.morale-0.5)*0.06);
 
-  // granary reduces losses
-  const loss = S.hasGranary ? 0.1 : 0.22;
-  food *= (1 - loss);
+  // Malthusian pressure (diminishing returns to land)
+  const landEff = S.land + farms*0.15;
+  food *= Math.pow(landEff, 0.15);
 
   const needs = S.pop * S.needsPerCap;
   const net = Math.round(food - needs);
-
-  return { food:Math.round(food), needs:Math.round(needs), net, builders, farms };
+  return {food:Math.round(food), needs:Math.round(needs), net, farms, builders};
 }
 
-function advanceSeason(){
-  // progress builds by builder capacity
-  const builders = Math.floor(S.pop * S.builderShare);
-  const needLab = S.builds.filter(b=>!b.done).length * 2; // simple labor demand proxy
-  const speed = needLab<=builders ? 1 : Math.max(0.4, builders / Math.max(1, needLab));
-  S.builds.forEach(b=>{ if(!b.done){ b.left = Math.max(0, b.left - speed); if(b.left<=0){ b.done=true; b.site=false; const def=BUILD_DEFS[b.type]; def.effect && def.effect(S); } } });
+/* ======= TICK (WEEK) ======= */
+function advanceWeek(){
+  // progress construction
+  const {builders}=snapshot();
+  const needLab = S.builds.filter(b=>!b.done).length * 1.2;
+  const speed = needLab<=builders ? 1 : Math.max(0.4, builders/Math.max(1,needLab));
+  S.builds.forEach(b=>{ if(!b.done){ b.left=Math.max(0,b.left-speed); if(b.left<=0){ b.done=true; onComplete(b.type);} } });
 
-  // production & crises
-  S.events = [];
-  const {food, needs, net, farms} = snapshot();
-
-  // health and weather risks
-  const wb = seasonBase(S.weatherNow);
-  if(wb.disease && Math.random()<wb.disease){
-    const dead = Math.max(1, Math.round(S.pop * 0.02));
-    S.pop = Math.max(20, S.pop - dead);
-    S.events.push('Disease Outbreak');
-  }
-  if(wb.damage && Math.random()<wb.damage){
-    // storm can damage one unfinished site (if any)
-    const site = S.builds.find(b=>!b.done);
-    if(site){ site.left += 1; S.events.push('Storm Damage (construction slowed)'); }
-  }
-
+  // production & demography
+  S.events=[];
+  const snap=snapshot();
+  // disease chance
+  const risk=weatherEffect(S.weatherNow).dis;
+  if(Math.random()<risk){ const dead=Math.max(1,Math.round(S.pop*0.005)); S.pop=Math.max(20,S.pop-dead); S.events.push("Disease"); }
   // births capped by housing
-  const births = Math.max(0, Math.min(S.cap - S.pop, Math.round((net>0? net:0)*0.04)));
-  const naturalDeaths = Math.round(S.pop * (S.hasWell?0.005:0.01));
+  const houses=S.builds.filter(b=>b.type==='house' && b.done).length;
+  S.cap = 100 + houses*4;
+  const births = Math.max(0, Math.min(S.cap - S.pop, Math.round((snap.net>0?snap.net:0)*0.08)));
+  const naturalDeaths = Math.round(S.pop*(S.flags.well?0.002:0.004));
   S.pop = Math.max(20, S.pop + births - naturalDeaths);
 
-  // coins from surplus & market
-  const price = S.hasMarket ? 0.18 : 0.06;
-  S.coins += Math.max(0, net) * price;
+  // coins from surplus
+  const basePrice = S.flags.market?0.14:0.06;
+  const pathBonus = S.flags.path?1.05:1.0;
+  const price = basePrice * pathBonus;
+  S.coins += Math.max(0, snap.net)*price;
 
   // morale drift
-  if(net>0) S.morale = Math.min(1, S.morale + 0.02); else S.morale = Math.max(0, S.morale - 0.02);
+  if(snap.net>0) S.morale=Math.min(1,S.morale+0.01); else S.morale=Math.max(0,S.morale-0.01);
 
-  // season -> next
-  S.sIdx = (S.sIdx+1)%4;
-  S.month += 3; if(S.month>12){ S.month = (S.month%12) || 12; S.year += 1; }
-  S.weatherNow = S.weatherNext;
-  S.weatherNext = rollWeather(S.seasons[(S.sIdx+1)%4]);
+  // weather update each week; show rain sound occasionally
+  S.week++; if(S.week>13){ S.week=1; S.year++; S.sIdx=(S.sIdx+1)%4; }
+  S.weatherNow = S.weatherNext || seasonWeighted(S.seasons[S.sIdx]);
+  S.weatherNext = seasonWeighted(S.seasons[S.sIdx]);
+  if(S.weatherNow==='rain') rainSnd();
+  tickSnd();
 
-  recompute(`Season ended. Net food: <b>${net>=0? '+'+net: net}</b>. ${S.events.join(', ')||''}`);
+  recompute(`Week ended. Net food: <b>${snap.net>=0? '+'+snap.net: snap.net}</b>. ${S.events.join(', ')||''}`);
+}
+function onComplete(type){
+  if(type==='well') S.flags.well=true;
+  if(type==='granary') S.flags.granary=true;
+  if(type==='irrig') { S.flags.irrig=true; S.A*=1.10; }
+  if(type==='path') S.flags.path=true;
+  if(type==='market') S.flags.market=true;
 }
 
-function start(){ if(TIMER) return; const base=4000; TIMER=setInterval(advanceSeason, base/SPEED); el('btnPlay').textContent='⏸ Pause'; startMonthTicker();}
-function stop(){ if(!TIMER) return; clearInterval(TIMER); TIMER=null; el('btnPlay').textContent='▶ Play'; stopMonthTicker();}
-function startMonthTicker(){ if(MONTH_TIMER) return; const base=1000; MONTH_TIMER=setInterval(()=>{ S.month++; if(S.month>12){ S.month=1; S.year++; } el('date').textContent=`Year ${S.year}, Month ${S.month}`; }, base/SPEED);}
-function stopMonthTicker(){ if(!MONTH_TIMER) return; clearInterval(MONTH_TIMER); MONTH_TIMER=null; }
-
-// ---------- UI refresh ---------- //
-function recompute(reason){
-  const {food, needs, net} = snapshot();
-
+/* ======= RENDER ======= */
+function recompute(msg=''){
+  const {food,needs,net}=snapshot();
   // meters
-  setBar('Food', food, needs, net);
-  setPct('Health', S.health);
-  setPct('Morale', S.morale);
+  const pct=Math.max(0,Math.min(1, food/(needs*1.2)));
+  el('fillFood').style.width=Math.round(pct*100)+'%'; el('foodLbl').textContent=Math.round(pct*100)+'%';
+  el('foodOut').textContent=food; el('foodNeed').textContent=needs; el('foodNet').textContent=net;
+  el('fillHealth').style.width=Math.round(S.health*100)+'%'; el('healthLbl').textContent=Math.round(S.health*100)+'%';
+  el('fillMorale').style.width=Math.round(S.morale*100)+'%'; el('moraleLbl').textContent=Math.round(S.morale*100)+'%';
 
   // HUD
   el('pop').textContent=S.pop; el('cap').textContent=S.cap;
   el('labor').textContent=Math.round(S.builderShare*100)+'%';
   el('mat').textContent=Math.floor(S.materials);
   el('money').textContent=Math.floor(S.coins);
-  el('food').textContent=Math.round(food);
-  el('date').textContent=`Year ${S.year}, Month ${S.month}`;
+  el('food').textContent=food;
+  el('date').textContent=`Year ${S.year}, Week ${S.week}`;
   el('season').textContent=S.seasons[S.sIdx];
-  el('events').textContent=S.events.join(', ') || 'None';
+  el('events').textContent=S.events.join(', ')||'None';
 
   // weather
-  paintWeather('wNow', S.weatherNow, 'wNowTxt', 'Now');
-  paintWeather('wNext', S.weatherNext, 'wNextTxt', 'Next');
+  paintWeather('wNow',S.weatherNow,'wNowTxt','Now');
+  paintWeather('wNext',S.weatherNext,'wNextTxt','Next');
 
-  // builds & queue
-  renderBuilds();
-  renderQueue();
+  // draw builds and queue
+  renderBuilds(); renderQueue();
+  drawNodes();
 
-  if(reason) el('reason').innerHTML = reason;
-}
-function setBar(kind, food, needs, net){
-  const fill = document.getElementById('fill'+kind);
-  const pct = Math.max(0, Math.min(1, food / (needs*1.2)));
-  fill.style.width = Math.round(pct*100)+'%';
-  el('foodOut').textContent = Math.round(food);
-  el('foodNeed').textContent = Math.round(needs);
-  el('foodNet').textContent = net;
-  el('foodLbl').textContent = Math.round(pct*100)+'%';
-}
-function setPct(kind, val){
-  const fill = document.getElementById('fill'+kind);
-  const lbl  = document.getElementById((kind.toLowerCase())+'Lbl');
-  fill.style.width = Math.round(val*100)+'%';
-  lbl.textContent   = Math.round(val*100)+'%';
-}
-function paintWeather(symId, kind, txtId, label){
-  const box = el(symId); box.className='wsym '+kind;
-  const txt = el(txtId);
-  const map = {sunny:'Sunny', rain:'Rain', storm:'Storm', drought:'Drought'};
-  txt.textContent = `${label}: ${map[kind]}`;
+  if(msg) el('reason').innerHTML=msg;
+  // checklist updates
+  if(S.builds.some(b=>b.type==='farm'&&b.done)) el('cFarm').checked = true;
+  if(S.flags.well) el('cWell').checked = true;
+  if(net>=10) el('cSurp').checked = true;
+  if(S.flags.market) el('cMarket').checked = true;
+
+  drawPalette(); // refresh locks (market needs path)
 }
 
 function renderBuilds(){
-  const grid = el('grid');
-  [...grid.querySelectorAll('.icon, .site')].forEach(n=>n.remove());
+  const grid=el('grid');
+  [...grid.querySelectorAll('.icon')].forEach(n=>n.remove());
   S.builds.forEach(b=>{
     const d=document.createElement('div');
-    d.className = 'icon '+b.type+(b.site&&!b.done?' site':'');
-    d.style.left = (b.x+8)+'px'; d.style.top = (b.y+8)+'px';
+    d.className='icon '+b.type + (b.done?'':' site');
+    d.style.left=b.x+'px'; d.style.top=b.y+'px';
+    d.title = (BUILDS[b.type]?.tip)||'';
+    d.addEventListener('mouseenter', ev=>{
+      const name=(BUILDS[b.type]?.name)||b.type;
+      const left=Math.ceil(b.left);
+      showTT(`<b>${name}</b><br>${d.title}${!b.done?`<br>Progress: ${left}/${b.dur}w`:''}`, ev.clientX, ev.clientY);
+    });
+    d.addEventListener('mouseleave', hideTT);
     if(!b.done){
-      const ring=document.createElement('div');
-      ring.className='ring';
-      const pct = Math.max(0, (BUILD_DEFS[b.type].dur - b.left) / BUILD_DEFS[b.type].dur * 100);
-      ring.style.setProperty('--pct', pct);
-      d.appendChild(ring);
+      const r=document.createElement('div'); r.className='ring';
+      const pct = Math.max(0,(b.dur - b.left)/b.dur*100); r.style.setProperty('--pct', pct);
+      d.appendChild(r);
     }
     grid.appendChild(d);
   });
@@ -532,33 +537,49 @@ function renderQueue(){
   const q=S.builds.filter(b=>!b.done);
   el('qCount').textContent=q.length;
   if(!q.length){ list.innerHTML='<div class="muted">No projects.</div>'; return; }
-  q.forEach((b,i)=>{
+  q.forEach(b=>{
     const row=document.createElement('div'); row.className='qitem';
-    row.innerHTML=`<span>${BUILD_DEFS[b.type].name}</span><span class="muted">${Math.ceil(b.left)}/${BUILD_DEFS[b.type].dur}</span>`;
-    const btn=document.createElement('button'); btn.className='cancel'; btn.textContent='Cancel';
-    btn.onclick=()=>{ /* refund half materials */ S.materials+=Math.floor(BUILD_DEFS[b.type].mat*0.5); S.builds = S.builds.filter(x=>x!==b); recompute('Cancelled build; refunded half materials.'); };
+    row.innerHTML=`<span>${BUILDS[b.type].name}</span><span class="muted">${Math.ceil(b.left)}/${b.dur}w</span>`;
+    const btn=document.createElement('button'); btn.className='btn'; btn.textContent='Cancel';
+    btn.onclick=()=>{ S.materials+=Math.floor((BUILDS[b.type].mat||0)*0.5); S.builds=S.builds.filter(x=>x!==b); recompute('Cancelled build; refunded half materials.'); };
     row.appendChild(btn); list.appendChild(row);
   });
 }
+function paintWeather(symId,kind,txtId,label){
+  const box=el(symId); box.className='wsym '+(kind||'sunny');
+  el(txtId).textContent = `${WMAP[kind||'sunny']}`;
+}
 
-// ---------- Save / Load / Controls ---------- //
-el('btnAdvance').addEventListener('click', advanceSeason);
-el('btnPlay').addEventListener('click', ()=> (TIMER? stop(): start()));
-el('btnReset').addEventListener('click', ()=>{ Object.assign(S,{year:1,month:1,sIdx:0,pop:80,cap:100,builderShare:0.2,materials:25,coins:5,health:0.45,morale:0.5,builds:[],events:[],hasWell:false,hasGranary:false,hasIrrig:false,hasMarket:false}); rollInitialWeather(); recompute('Reset.');});
-el('speed').addEventListener('change', e=>{SPEED=parseFloat(e.target.value||'1'); if(TIMER){stop();start();} if(MONTH_TIMER){stopMonthTicker();startMonthTicker();}});
-el('btnSave').addEventListener('click', ()=>{ localStorage.setItem('econoville_fun1', JSON.stringify(S)); toast('Saved'); });
-el('btnLoad').addEventListener('click', ()=>{ const raw=localStorage.getItem('econoville_fun1'); if(!raw){toast('No save');return;} Object.assign(S, JSON.parse(raw)); recompute('Loaded.'); });
+/* ======= COMMANDS ======= */
+el('gatherWood').addEventListener('click',()=>{const add=6+Math.floor(Math.random()*5); S.materials+=add; S.morale=Math.min(1,S.morale+0.01); recompute(`Gathered wood: +${add} materials.`);});
+el('rally').addEventListener('click',()=>{ S.builderShare=Math.min(0.5, S.builderShare+0.1); recompute(`Rallied workers. Builders now ${Math.round(S.builderShare*100)}%.`);});
+el('barter').addEventListener('click',()=>{ if(S.materials<10) return toast('Need 10 materials'); const bonus = S.flags.path?9:8; S.materials-=10; S.coins+=bonus; recompute(`Barter trip returned +${bonus} coins.`);});
 
-// Workforce buttons
-document.addEventListener('click', (e)=>{
-  const b=e.target.closest('.wbtn'); if(!b) return;
-  document.querySelectorAll('.wbtn').forEach(x=>x.classList.remove('active'));
-  b.classList.add('active');
-  S.builderShare = parseFloat(b.dataset.share);
-  recompute('Builder share set to '+Math.round(S.builderShare*100)+'%.');
+/* ======= TIME CONTROL ======= */
+el('btnStep').addEventListener('click', ()=>{ advanceWeek(); });
+el('speed').addEventListener('change', e=>{
+  const v=parseFloat(e.target.value||'0'); if(TICK){clearInterval(TICK);TICK=null;}
+  TICK_SECS=v; if(v>0){ TICK=setInterval(advanceWeek, v*1000); }
 });
 
-// ---------- Kickoff ---------- //
+/* ======= SAVE/LOAD/RESET ======= */
+el('btnSave').addEventListener('click',()=>{ localStorage.setItem('econoville_p1', JSON.stringify(S)); toast('Saved');});
+el('btnLoad').addEventListener('click',()=>{ const raw=localStorage.getItem('econoville_p1'); if(!raw) return toast('No save'); Object.assign(S, JSON.parse(raw)); recompute('Loaded.');});
+el('btnReset').addEventListener('click',()=>{ Object.assign(S,{
+  year:1,week:1,sIdx:0,pop:80,cap:100,builderShare:0.2,needsPerCap:0.2,materials:25,coins:5,health:0.5,morale:0.6,A:1.0,land:1.0,
+  flags:{well:false,granary:false,irrig:false,path:false,market:false,rotation:false,tools:false},
+  builds:[],nodes:[],weatherNow:null,weatherNext:null,events:[]
+}); rollWeather(); spawnNodes(); recompute('Reset.');});
+
+/* ======= CHECKLIST / TIPS ======= */
+el('hideChecklist').addEventListener('click',()=> el('check').style.display='none');
+el('showTips').addEventListener('click',()=> toast('Tip: Path → Market Day increases surplus monetization. Tools/Rotation lift farm TFP (Smithian). Granary reduces losses (risk mgmt).'));
+
+/* ======= INIT ======= */
+function rollWeather(){ S.weatherNow=seasonWeighted(S.seasons[S.sIdx]); S.weatherNext=seasonWeighted(S.seasons[S.sIdx]); }
+function init(){
+  drawPalette(); buildGrid(); rollWeather(); spawnNodes(); recompute('Welcome, Chief. Build farms and secure water.');
+}
 init();
 </script>
 </body>
