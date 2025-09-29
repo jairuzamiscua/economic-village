@@ -1,6 +1,6 @@
 /* ============================================
    ECONOVILLE PHASE 1 - GAME LOGIC
-   A+ Production-Ready Version
+   A+ Production-Ready Version (JS-only)
    ============================================ */
 
 // ============================================
@@ -11,9 +11,10 @@ const el = id => document.getElementById(id);
 
 const toast = (msg, duration = 3000) => {
   const t = el('toast');
+  if (!t) return;
   t.innerHTML = msg;
   t.style.display = 'block';
-  setTimeout(() => t.style.display = 'none', duration);
+  setTimeout(() => (t.style.display = 'none'), duration);
 };
 
 let autoStarted = false;
@@ -27,24 +28,24 @@ const S = {
   day: 1,
   year: 1,
   season: 0,
-  seasons: ["Spring", "Summer", "Autumn", "Winter"],
-  
+  seasons: ['Spring', 'Summer', 'Autumn', 'Winter'],
+
   // Population
   pop: 80,
   cap: 100,
   totalDeaths: 0,
-  
+
   // Labor allocation
   farmers: 0.5,
   builders: 0.3,
   herders: 0.1,
   workIntensity: 1.0,
-  
+
   // Resources
   materials: 30,
   foodStock: 20,
   livestock: 0,
-  
+
   // Economic indicators
   health: 0.6,
   morale: 0.6,
@@ -52,226 +53,181 @@ const S = {
   landQuality: 1.0,
   totalLand: 100,
   realWage: 1.0,
-  
+
   // Policies
-  landPolicy: "commons",
-  cropType: "wheat",
-  
+  landPolicy: 'commons',
+  cropType: 'wheat',
+
   // Weather
-  weatherNow: "sunny",
-  weatherNext: "rain",
-  
+  weatherNow: 'sunny',
+  weatherNext: 'rain',
+
   // Progress tracking
   tech: {},
   builds: [],
   nodes: [],
-  
+
   // Win condition tracking
   wageAbove13Years: 0,
-  
+
   // Data export
   history: []
 };
 
 const TECH_TREE = {
   basicFarming: {
-    name: "Basic Farming",
+    name: 'Basic Farming',
     cost: 0,
     req: [],
-    effect: "Enables farms",
-    desc: "Cultivate crops for food production"
+    effect: 'Enables farms',
+    desc: 'Cultivate crops for food production'
   },
   livestock: {
-    name: "Livestock Domestication",
+    name: 'Livestock Domestication',
     cost: 15,
-    req: ["basicFarming"],
-    effect: "Animals for food & draft power",
-    desc: "Domesticate animals for steady food supply"
+    req: ['basicFarming'],
+    effect: 'Animals for food & draft power',
+    desc: 'Domesticate animals for steady food supply'
   },
   threeField: {
-    name: "Three-Field Rotation",
+    name: 'Three-Field Rotation',
     cost: 20,
-    req: ["basicFarming"],
-    effect: "+15% yield, prevent soil loss",
-    desc: "Rotate crops to maintain soil fertility"
+    req: ['basicFarming'],
+    effect: '+15% yield, prevent soil loss',
+    desc: 'Rotate crops to maintain soil fertility'
   },
   heavyPlough: {
-    name: "Heavy Plough",
+    name: 'Heavy Plough',
     cost: 25,
-    req: ["livestock"],
-    effect: "+20% farm TFP",
-    desc: "Animal-powered deep tilling"
+    req: ['livestock'],
+    effect: '+20% farm TFP',
+    desc: 'Animal-powered deep tilling'
   },
   manure: {
-    name: "Manure Fertilization",
+    name: 'Manure Fertilization',
     cost: 15,
-    req: ["livestock"],
-    effect: "+10% yield per livestock unit",
-    desc: "Enrich soil with animal waste"
+    req: ['livestock'],
+    effect: '+10% yield per livestock unit',
+    desc: 'Enrich soil with animal waste'
   },
   irrigation: {
-    name: "Irrigation Canals",
+    name: 'Irrigation Canals',
     cost: 30,
-    req: ["basicFarming"],
-    effect: "Drought penalty -30% → -10%",
-    desc: "Water distribution systems"
+    req: ['basicFarming'],
+    effect: 'Drought penalty -30% → -10%',
+    desc: 'Water distribution systems'
   },
   granary: {
-    name: "Granary Storage",
+    name: 'Granary Storage',
     cost: 25,
-    req: ["basicFarming"],
-    effect: "Spoilage 25% → 10%",
-    desc: "Preserve surplus grain safely"
+    req: ['basicFarming'],
+    effect: 'Spoilage 25% → 10%',
+    desc: 'Preserve surplus grain safely'
   },
   well: {
-    name: "Well & Sanitation",
+    name: 'Well & Sanitation',
     cost: 20,
     req: [],
-    effect: "+20% health, lower disease",
-    desc: "Clean water source"
+    effect: '+20% health, lower disease',
+    desc: 'Clean water source'
   },
   marketAccess: {
-    name: "Market Road",
+    name: 'Market Road',
     cost: 20,
-    req: ["basicFarming"],
-    effect: "Enable surplus trade",
-    desc: "Roads connecting to regional markets"
+    req: ['basicFarming'],
+    effect: 'Enable surplus trade',
+    desc: 'Roads connecting to regional markets'
   },
   seedSelection: {
-    name: "Seed Selection",
+    name: 'Seed Selection',
     cost: 18,
-    req: ["threeField"],
-    effect: "+8% crop yields",
-    desc: "Choose best seeds for planting"
+    req: ['threeField'],
+    effect: '+8% crop yields',
+    desc: 'Choose best seeds for planting'
   },
   animalBreeding: {
-    name: "Selective Breeding",
+    name: 'Selective Breeding',
     cost: 22,
-    req: ["livestock"],
-    effect: "Livestock growth +50%",
-    desc: "Breed stronger, more productive animals"
+    req: ['livestock'],
+    effect: 'Livestock growth +50%',
+    desc: 'Breed stronger, more productive animals'
   },
   mill: {
-    name: "Windmill Technology",
+    name: 'Windmill Technology',
     cost: 35,
-    req: ["basicFarming"],
-    effect: "+12% TFP (capital good)",
-    desc: "Mechanical grain milling"
+    req: ['basicFarming'],
+    effect: '+12% TFP (capital good)',
+    desc: 'Mechanical grain milling'
+  },
+  market: {
+    name: 'Market Charter',
+    cost: 25,
+    req: ['marketAccess'],
+    effect: 'Allows Market build',
+    desc: 'Institutional framework for trade'
   }
 };
 
 const BUILDS = {
-  farm: {
-    name: "Farm",
-    mat: 8,
-    dur: 5,
-    icon: "farm"
-  },
-  house: {
-    name: "House",
-    mat: 12,
-    dur: 4,
-    icon: "house"
-  },
-  well: {
-    name: "Well",
-    mat: 15,
-    dur: 6,
-    icon: "well",
-    reqTech: "well"
-  },
-  granary: {
-    name: "Granary",
-    mat: 20,
-    dur: 7,
-    icon: "granary",
-    reqTech: "granary"
-  },
-  livestock: {
-    name: "Livestock Pen",
-    mat: 12,
-    dur: 5,
-    icon: "livestock",
-    reqTech: "livestock"
-  },
-  market: {
-    name: "Market",
-    mat: 25,
-    dur: 6,
-    icon: "market",
-    reqTech: "marketAccess"
-  },
-  mill: {
-    name: "Windmill",
-    mat: 35,
-    dur: 8,
-    icon: "mill",
-    reqTech: "mill"
-  }
+  farm: { name: 'Farm', mat: 8, dur: 5, icon: 'farm' },
+  house: { name: 'House', mat: 12, dur: 4, icon: 'house' },
+  well: { name: 'Well', mat: 15, dur: 6, icon: 'well', reqTech: 'well' },
+  granary: { name: 'Granary', mat: 20, dur: 7, icon: 'granary', reqTech: 'granary' },
+  livestock: { name: 'Livestock Pen', mat: 12, dur: 5, icon: 'livestock', reqTech: 'livestock' },
+  market: { name: 'Market', mat: 25, dur: 6, icon: 'market', reqTech: 'market' },
+  mill: { name: 'Windmill', mat: 35, dur: 8, icon: 'mill', reqTech: 'mill' }
 };
 
 const CROP_DATA = {
-  wheat: {
-    yield: 1.0,
-    droughtMult: 0.6,
-    soilDrain: 0.02
-  },
-  rye: {
-    yield: 0.85,
-    droughtMult: 0.9,
-    soilDrain: 0.015
-  },
-  legumes: {
-    yield: 0.7,
-    droughtMult: 0.85,
-    soilDrain: -0.01
-  }
+  wheat: { yield: 1.0, droughtMult: 0.6, soilDrain: 0.02 },
+  rye: { yield: 0.85, droughtMult: 0.9, soilDrain: 0.015 },
+  legumes: { yield: 0.7, droughtMult: 0.85, soilDrain: -0.01 }
 };
 
 const EVENTS = [
   {
-    id: "merchant_tools",
-    title: "Traveling Merchant",
-    desc: "A merchant offers iron tools that could improve farm productivity.",
-    effect: "Cost: 20 materials | Gain: +15% farm TFP",
+    id: 'merchant_tools',
+    title: 'Traveling Merchant',
+    desc: 'A merchant offers iron tools that could improve farm productivity.',
+    effect: 'Cost: 20 materials | Gain: +15% farm TFP',
     cost: 20,
     action: () => {
       if (S.materials >= 20) {
         S.materials -= 20;
         S.tfp *= 1.15;
-        toast("Purchased iron tools! +15% farm productivity");
+        toast('Purchased iron tools! +15% farm productivity');
         return true;
       }
-      toast("Not enough materials!");
+      toast('Not enough materials!');
       return false;
     }
   },
   {
-    id: "harsh_winter",
-    title: "Harsh Winter Forecast",
-    desc: "Scouts report a brutal winter approaching. Slaughter livestock now for guaranteed food, or risk keeping them?",
-    effect: "Accept: +15 food now, -3 livestock | Decline: Keep livestock, risk losses",
+    id: 'harsh_winter',
+    title: 'Harsh Winter Forecast',
+    desc: 'Scouts report a brutal winter approaching. Slaughter livestock now for guaranteed food, or risk keeping them?',
+    effect: 'Accept: +15 food now, -3 livestock | Decline: Keep livestock, risk losses',
     action: () => {
       if (S.livestock >= 3) {
         S.foodStock += 15;
         S.livestock -= 3;
-        toast("Livestock slaughtered. +15 food, -3 animals");
+        toast('Livestock slaughtered. +15 food, -3 animals');
         return true;
       }
-      toast("Not enough livestock!");
+      toast('Not enough livestock!');
       return false;
     }
   },
   {
-    id: "neighbor_aid",
-    title: "Neighboring Village Requests Aid",
-    desc: "A nearby village suffered crop failure. They request food aid and promise future alliance.",
-    effect: "Accept: -15 food, +20% morale | Decline: Keep food",
+    id: 'neighbor_aid',
+    title: 'Neighboring Village Requests Aid',
+    desc: 'A nearby village suffered crop failure. They request food aid and promise future alliance.',
+    effect: 'Accept: -15 food, +20% morale | Decline: Keep food',
     action: () => {
       if (S.foodStock >= 15) {
         S.foodStock -= 15;
         S.morale = Math.min(1, S.morale + 0.2);
-        toast("Aid sent! +20% morale from goodwill");
+        toast('Aid sent! +20% morale from goodwill');
         return true;
       }
       toast("Not enough food to share!");
@@ -279,16 +235,16 @@ const EVENTS = [
     }
   },
   {
-    id: "scholar",
-    title: "Wandering Scholar",
-    desc: "A scholar offers to teach advanced farming techniques for a modest payment.",
-    effect: "Cost: 15 materials | Gain: +10% TFP",
+    id: 'scholar',
+    title: 'Wandering Scholar',
+    desc: 'A scholar offers to teach advanced farming techniques for a modest payment.',
+    effect: 'Cost: 15 materials | Gain: +10% TFP',
     cost: 15,
     action: () => {
       if (S.materials >= 15) {
         S.materials -= 15;
         S.tfp *= 1.10;
-        toast("Knowledge acquired! +10% TFP");
+        toast('Knowledge acquired! +10% TFP');
         return true;
       }
       toast("Cannot afford the scholar's fee!");
@@ -296,76 +252,76 @@ const EVENTS = [
     }
   },
   {
-    id: "bandits",
-    title: "Bandit Threat",
-    desc: "Bandits demand tribute. Pay them off or risk a raid that damages morale.",
-    effect: "Accept: -10 materials | Decline: -20% morale",
+    id: 'bandits',
+    title: 'Bandit Threat',
+    desc: 'Bandits demand tribute. Pay them off or risk a raid that damages morale.',
+    effect: 'Accept: -10 materials | Decline: -20% morale',
     action: () => {
       if (S.materials >= 10) {
         S.materials -= 10;
-        toast("Tribute paid. Bandits leave peacefully.");
+        toast('Tribute paid. Bandits leave peacefully.');
         return true;
       }
-      toast("Cannot pay! Bandits raid nearby.");
+      toast('Cannot pay! Bandits raid nearby.');
       return false;
     },
     decline: () => {
       S.morale = Math.max(0, S.morale - 0.2);
-      toast("Bandits raid outskirts! -20% morale");
+      toast('Bandits raid outskirts! -20% morale');
     }
   },
   {
-    id: "rain_blessing",
-    title: "Rain Blessing Predicted",
-    desc: "Elders predict abundant rain. Plant extra fields now to maximize harvest?",
-    effect: "Accept: -5 materials (seeds) | Next week: +30% farm output",
+    id: 'rain_blessing',
+    title: 'Rain Blessing Predicted',
+    desc: 'Elders predict abundant rain. Plant extra fields now to maximize harvest?',
+    effect: 'Accept: -5 materials (seeds) | Next week: +30% farm output',
     action: () => {
       if (S.materials >= 5) {
         S.materials -= 5;
         S.tfp *= 1.30;
         setTimeout(() => {
           S.tfp /= 1.30;
-        }, 14000); // Lasts one week
-        toast("Extra planting! +30% output for one week");
+        }, 14000); // ~1 week in sim-time if 0.2s/day; adjust as needed
+        toast('Extra planting! +30% output for one week');
         return true;
       }
-      toast("Not enough materials for extra seeds!");
+      toast('Not enough materials for extra seeds!');
       return false;
     }
   },
   {
-    id: "festival",
-    title: "Harvest Festival Request",
-    desc: "Villagers want a harvest festival. Costs food but greatly boosts morale.",
-    effect: "Cost: 10 food | Gain: +25% morale",
+    id: 'festival',
+    title: 'Harvest Festival Request',
+    desc: 'Villagers want a harvest festival. Costs food but greatly boosts morale.',
+    effect: 'Cost: 10 food | Gain: +25% morale',
     action: () => {
       if (S.foodStock >= 10) {
         S.foodStock -= 10;
         S.morale = Math.min(1, S.morale + 0.25);
-        toast("Festival celebrated! +25% morale");
+        toast('Festival celebrated! +25% morale');
         return true;
       }
-      toast("Not enough food for a festival!");
+      toast('Not enough food for a festival!');
       return false;
     }
   },
   {
-    id: "tool_repair",
-    title: "Tool Maintenance",
-    desc: "Farm tools need repair. Invest now or risk productivity decline?",
-    effect: "Accept: -8 materials | Prevent -10% TFP loss",
+    id: 'tool_repair',
+    title: 'Tool Maintenance',
+    desc: 'Farm tools need repair. Invest now or risk productivity decline?',
+    effect: 'Accept: -8 materials | Prevent -10% TFP loss',
     action: () => {
       if (S.materials >= 8) {
         S.materials -= 8;
-        toast("Tools repaired and maintained.");
+        toast('Tools repaired and maintained.');
         return true;
       }
-      toast("Cannot afford repairs!");
+      toast('Cannot afford repairs!');
       return false;
     },
     decline: () => {
       S.tfp *= 0.90;
-      toast("Tools degrade! -10% TFP");
+      toast('Tools degrade! -10% TFP');
     }
   }
 ];
@@ -375,35 +331,41 @@ const EVENTS = [
 // ============================================
 
 function init() {
-  // Landing screen handlers
-  el('btnStart').addEventListener('click', startGame);
-  el('btnHowTo').addEventListener('click', () => showModal('howToModal'));
-  el('howToClose').addEventListener('click', () => hideModal('howToModal'));
-  
+  // Buttons present on landing
+  const btnStart = el('btnStart');
+  const btnHowTo = el('btnHowTo');
+  const howToClose = el('howToClose');
+
+  if (btnStart) btnStart.addEventListener('click', startGame);
+  if (btnHowTo) btnHowTo.addEventListener('click', () => showModal('howToModal'));
+  if (howToClose) howToClose.addEventListener('click', () => hideModal('howToModal'));
+
   // Start with basic farming unlocked
   S.tech.basicFarming = true;
-  
+
   // Initialize weather
   rollWeather();
 }
 
 function startGame() {
-  el('landing').style.display = 'none';
-  el('gameContainer').style.display = 'grid';
-  
+  const landing = el('landing');
+  const gameContainer = el('gameContainer');
+  if (landing) landing.style.display = 'none';
+  if (gameContainer) gameContainer.style.display = 'grid';
+
   // Spawn resources
   spawnNodes();
-  
+
   // Set up game
   setupEventListeners();
   renderPalette();
   updateUI();
-  
+
   // Auto-start on first interaction
   document.addEventListener('click', autoStart, { once: true });
   document.addEventListener('input', autoStart, { once: true });
-  
-  toast("Welcome, Chief! Time will begin when you interact.");
+
+  toast('Welcome, Chief! Time will begin when you interact.');
 }
 
 function autoStart() {
@@ -411,7 +373,7 @@ function autoStart() {
     autoStarted = true;
     startTick();
     scheduleEvent();
-    toast("Time flows! Make decisions to grow your village.");
+    toast('Time flows! Make decisions to grow your village.');
   }
 }
 
@@ -420,14 +382,15 @@ function autoStart() {
 // ============================================
 
 function startTick() {
-  const speed = parseInt(el('speedSelect').value);
+  const speedSel = el('speedSelect');
+  const speed = speedSel ? parseInt(speedSel.value) : 500;
   if (tickInterval) clearInterval(tickInterval);
   tickInterval = setInterval(tick, speed);
 }
 
 function tick() {
   if (isPaused) return;
-  
+
   // Construction progress
   const builderPop = Math.floor(S.pop * S.builders);
   S.builds.forEach(b => {
@@ -439,66 +402,72 @@ function tick() {
       }
     }
   });
-  
+
   // Food production
   const farms = S.builds.filter(b => b.type === 'farm' && b.done).length;
   const mills = S.builds.filter(b => b.type === 'mill' && b.done).length;
   const farmerPop = Math.floor(S.pop * S.farmers);
   const herderPop = Math.floor(S.pop * S.herders);
-  
+
   // Diminishing returns to land (Ricardian)
   const landPerFarm = S.totalLand / Math.max(1, farms);
   const diminishingReturns = Math.pow(landPerFarm / 10, 0.6);
-  
+
   // Crop-specific multipliers
   const crop = CROP_DATA[S.cropType];
   const baseFoodPerFarm = 2.0 * crop.yield;
-  
+
   // Farm production
-  let farmFood = farms * baseFoodPerFarm * S.tfp * S.landQuality * 
-    diminishingReturns * (farmerPop / Math.max(1, S.pop)) * S.workIntensity;
-  
+  let farmFood =
+    farms *
+    baseFoodPerFarm *
+    S.tfp *
+    S.landQuality *
+    diminishingReturns *
+    (farmerPop / Math.max(1, S.pop)) *
+    S.workIntensity;
+
   // Weather effects
   const w = weatherEffect(S.weatherNow);
   farmFood *= w.mult;
-  
+
   // Morale bonus
   const moraleBonus = 1 + (S.morale - 0.5) * 0.2;
   farmFood *= moraleBonus;
-  
+
   // Enclosure bonus
-  if (S.landPolicy === "enclosed") {
+  if (S.landPolicy === 'enclosed') {
     farmFood *= 1.15;
   }
-  
+
   // Livestock production
   let livestockFood = S.livestock * 0.5 * (herderPop / Math.max(1, S.pop));
-  
+
   // Tech bonuses
   if (S.tech.manure) {
-    farmFood *= (1 + Math.min(S.livestock * 0.10, 0.5));
+    farmFood *= 1 + Math.min(S.livestock * 0.1, 0.5);
   }
   if (S.tech.seedSelection) {
     farmFood *= 1.08;
   }
   if (mills > 0) {
-    farmFood *= (1 + mills * 0.12);
+    farmFood *= 1 + mills * 0.12;
   }
-  
+
   // Total food
   const totalFood = farmFood + livestockFood;
   const spoilage = totalFood * w.spoil;
   const netFood = totalFood - spoilage;
-  
+
   S.foodStock += netFood;
-  
+
   // Consumption
   const needPerDay = S.pop * 0.2;
   S.foodStock -= needPerDay;
-  
+
   // Real wage calculation (Malthusian indicator)
   S.realWage = (S.foodStock / Math.max(1, S.pop)) / 0.2;
-  
+
   // Morale dynamics
   const intensityPenalty = (S.workIntensity - 1.0) * 0.3;
   if (S.foodStock > needPerDay * 7) {
@@ -508,55 +477,57 @@ function tick() {
   } else {
     S.morale = Math.max(0, S.morale - intensityPenalty * 0.5);
   }
-  
+
   // Disease events
   if (Math.random() < w.disease && S.foodStock < 0) {
     const deaths = Math.max(1, Math.floor(S.pop * 0.02));
     S.pop = Math.max(10, S.pop - deaths);
     S.totalDeaths += deaths;
-    el('gameLog').innerHTML = `<span style="color:var(--bad)">Disease outbreak! Lost ${deaths} villagers.</span>`;
+    const gameLog = el('gameLog');
+    if (gameLog) gameLog.innerHTML = `<span style="color:var(--bad)">Disease outbreak! Lost ${deaths} villagers.</span>`;
     toast(`Disease! -${deaths} population`, 4000);
   }
-  
+
   // Famine (Malthusian crisis)
   if (S.foodStock < -needPerDay * 3 && Math.random() < 0.1) {
     const famineDeaths = Math.floor(S.pop * 0.15);
     S.pop = Math.max(20, S.pop - famineDeaths);
     S.totalDeaths += famineDeaths;
     S.foodStock = needPerDay * 5;
-    el('gameLog').innerHTML = `<span style="color:var(--bad)">FAMINE! ${famineDeaths} perished. Malthusian reset.</span>`;
+    const gameLog = el('gameLog');
+    if (gameLog) gameLog.innerHTML = `<span style="color:var(--bad)">FAMINE! ${famineDeaths} perished. Malthusian reset.</span>`;
     toast(`<strong>FAMINE!</strong> Population crash. Wages will rise for survivors.`, 5000);
   }
-  
+
   // Population growth
   const houses = S.builds.filter(b => b.type === 'house' && b.done).length;
   S.cap = 100 + houses * 5;
-  
-  const fertilityRate = S.realWage > 1.2 ? 0.15 : (S.realWage > 0.9 ? 0.10 : 0.05);
+
+  const fertilityRate = S.realWage > 1.2 ? 0.15 : S.realWage > 0.9 ? 0.1 : 0.05;
   if (S.foodStock > needPerDay * 10 && S.pop < S.cap && Math.random() < fertilityRate) {
     S.pop++;
   }
-  
+
   // Livestock breeding
   const breedRate = S.tech.animalBreeding ? 0.075 : 0.05;
   if (herderPop > 0 && S.livestock < herderPop * 3 && Math.random() < breedRate) {
     S.livestock++;
   }
-  
+
   // Soil quality dynamics
   if (!S.tech.threeField && farms > 0) {
     S.landQuality = Math.max(0.5, S.landQuality - crop.soilDrain);
   } else if (S.tech.threeField) {
     S.landQuality = Math.min(1.0, S.landQuality + 0.005);
   }
-  
+
   // Time progression
   S.day++;
   if (S.day > 90) {
     S.day = 1;
     S.year++;
     S.season = (S.season + 1) % 4;
-    
+
     // Track sustained high wages
     if (S.realWage > 1.3) {
       S.wageAbove13Years++;
@@ -564,13 +535,19 @@ function tick() {
       S.wageAbove13Years = 0;
     }
   }
-  
+
   // Weather update
   if (S.day % 7 === 0) {
     S.weatherNow = S.weatherNext;
     S.weatherNext = seasonWeighted(S.season);
   }
-  
+
+  // Weather labels (if present)
+  const nowLbl = el('weatherNowLbl');
+  const nextLbl = el('weatherNextLbl');
+  if (nowLbl) nowLbl.textContent = S.weatherNow;
+  if (nextLbl) nextLbl.textContent = S.weatherNext;
+
   // Data logging
   if (S.day % 10 === 0) {
     S.history.push({
@@ -584,10 +561,10 @@ function tick() {
       soilQuality: S.landQuality
     });
   }
-  
+
   // Check win condition
   checkVictory();
-  
+
   // Update UI
   updateUI();
   updateTheoryStatus();
@@ -605,45 +582,47 @@ function onBuildComplete(b) {
 
 function seasonWeighted(s) {
   const r = Math.random();
-  if (s === 0) { // Spring
-    if (r < 0.50) return "rain";
-    if (r < 0.85) return "sunny";
-    return "storm";
+  if (s === 0) {
+    if (r < 0.5) return 'rain';
+    if (r < 0.85) return 'sunny';
+    return 'storm';
   }
-  if (s === 1) { // Summer
-    if (r < 0.15) return "rain";
-    if (r < 0.70) return "sunny";
-    return "drought";
+  if (s === 1) {
+    if (r < 0.15) return 'rain';
+    if (r < 0.7) return 'sunny';
+    return 'drought';
   }
-  if (s === 2) { // Autumn
-    if (r < 0.35) return "rain";
-    if (r < 0.85) return "sunny";
-    return "storm";
+  if (s === 2) {
+    if (r < 0.35) return 'rain';
+    if (r < 0.85) return 'sunny';
+    return 'storm';
   }
-  if (s === 3) { // Winter
-    if (r < 0.20) return "rain";
-    if (r < 0.65) return "sunny";
-    return "drought";
+  if (s === 3) {
+    if (r < 0.2) return 'rain';
+    if (r < 0.65) return 'sunny';
+    return 'drought';
   }
-  return "sunny";
+  return 'sunny';
 }
 
 function weatherEffect(w) {
-  let mult = 1, spoil = 0.25, disease = 0.01;
+  let mult = 1,
+    spoil = 0.25,
+    disease = 0.01;
   const crop = CROP_DATA[S.cropType];
-  
-  if (w === "rain") mult = 1.2;
-  if (w === "storm") {
+
+  if (w === 'rain') mult = 1.2;
+  if (w === 'storm') {
     mult = 1.3;
     spoil += 0.05;
   }
-  if (w === "drought") {
-    mult = S.tech.irrigation ? 0.90 : crop.droughtMult;
+  if (w === 'drought') {
+    mult = S.tech.irrigation ? 0.9 : crop.droughtMult;
   }
-  
+
   if (S.tech.well) disease = 0.005;
-  if (S.tech.granary) spoil = 0.10;
-  
+  if (S.tech.granary) spoil = 0.1;
+
   return { mult, spoil, disease };
 }
 
@@ -673,26 +652,40 @@ function triggerRandomEvent() {
 
 function showEventCard(event) {
   isPaused = true;
-  
-  el('eventTitle').textContent = event.title;
-  el('eventDesc').textContent = event.desc;
-  el('eventEffect').textContent = event.effect;
-  
+
+  const title = el('eventTitle');
+  const desc = el('eventDesc');
+  const eff = el('eventEffect');
   const card = el('eventCard');
+  const accept = el('eventAccept');
+  const decline = el('eventDecline');
+
+  if (!card || !accept || !decline) {
+    // Fallback: just apply/decline via confirm prompt if the UI isn't present
+    const ok = confirm(`${event.title}\n\n${event.desc}\n\n${event.effect}\n\nAccept?`);
+    if (ok) event.action();
+    else if (event.decline) event.decline();
+    isPaused = false;
+    return;
+  }
+
+  title.textContent = event.title;
+  desc.textContent = event.desc;
+  eff.textContent = event.effect;
   card.classList.add('show');
-  
-  el('eventAccept').onclick = () => {
+
+  accept.onclick = () => {
     if (event.action()) {
       card.classList.remove('show');
       isPaused = false;
     }
   };
-  
-  el('eventDecline').onclick = () => {
+
+  decline.onclick = () => {
     if (event.decline) event.decline();
     card.classList.remove('show');
     isPaused = false;
-    toast("Event declined.");
+    toast('Event declined.');
   };
 }
 
@@ -702,79 +695,115 @@ function showEventCard(event) {
 
 function updateUI() {
   // Time
-  el('day').textContent = S.day;
-  el('year').textContent = S.year;
-  el('season').textContent = S.seasons[S.season];
-  
+  const day = el('day');
+  const year = el('year');
+  const season = el('season');
+  if (day) day.textContent = S.day;
+  if (year) year.textContent = S.year;
+  if (season) season.textContent = S.seasons[S.season];
+
   // HUD
-  el('pop').textContent = S.pop;
-  el('cap').textContent = S.cap;
-  el('mat').textContent = Math.floor(S.materials);
-  el('foodStock').textContent = Math.floor(S.foodStock);
-  el('livestock').textContent = S.livestock;
-  el('realWage').textContent = S.realWage.toFixed(2);
-  
-  // Labor
-  el('popTotal').textContent = S.pop;
-  el('landQual').textContent = Math.round(S.landQuality * 100) + '%';
-  el('landPolicy').textContent = S.landPolicy === "commons" ? "Commons" : "Enclosed";
-  el('intensityPct').textContent = Math.round(S.workIntensity * 100) + '%';
-  
-  // Real wage badge color
+  const pop = el('pop');
+  const cap = el('cap');
+  const mat = el('mat');
+  const foodStock = el('foodStock');
+  const livestock = el('livestock');
+  const realWage = el('realWage');
+  if (pop) pop.textContent = S.pop;
+  if (cap) cap.textContent = S.cap;
+  if (mat) mat.textContent = Math.floor(S.materials);
+  if (foodStock) foodStock.textContent = Math.floor(S.foodStock);
+  if (livestock) livestock.textContent = S.livestock;
+  if (realWage) realWage.textContent = S.realWage.toFixed(2);
+
+  // Labor & land UI
+  const popTotal = el('popTotal');
+  const landQual = el('landQual');
+  const landPolicy = el('landPolicy');
+  const intensityPct = el('intensityPct');
+  if (popTotal) popTotal.textContent = S.pop;
+  if (landQual) landQual.textContent = Math.round(S.landQuality * 100) + '%';
+  if (landPolicy) landPolicy.textContent = S.landPolicy === 'commons' ? 'Commons' : 'Enclosed';
+  if (intensityPct) intensityPct.textContent = Math.round(S.workIntensity * 100) + '%';
+
+  // Real wage badge
   const wb = el('wagebadge');
-  if (S.realWage < 0.95) wb.className = 'badge bad';
-  else if (S.realWage < 1.1) wb.className = 'badge warn';
-  else wb.className = 'badge';
-  
+  if (wb) {
+    if (S.realWage < 0.95) wb.className = 'badge bad';
+    else if (S.realWage < 1.1) wb.className = 'badge warn';
+    else wb.className = 'badge';
+  }
+
   // Meters
-  updateMeter('fillWage', 'wageLbl', 'wageStatus', S.realWage / 2, 
-    S.realWage < 0.95 ? 'Crisis!' : (S.realWage < 1.1 ? 'Below normal' : 'Healthy'),
-    S.realWage < 0.95 ? 'bad' : (S.realWage < 1.1 ? 'warn' : ''));
-  
-  const foodPct = Math.max(0, Math.min(1, S.foodStock / (S.pop * 0.2 * 14)));
+  updateMeter(
+    'fillWage',
+    'wageLbl',
+    'wageStatus',
+    S.realWage / 2,
+    S.realWage < 0.95 ? 'Crisis!' : S.realWage < 1.1 ? 'Below normal' : 'Healthy',
+    S.realWage < 0.95 ? 'bad' : S.realWage < 1.1 ? 'warn' : ''
+  );
+
+  const needPerDay = S.pop * 0.2;
+  const foodPct = Math.max(0, Math.min(1, S.foodStock / (needPerDay * 14)));
   updateMeter('fillFood', 'foodLbl', null, foodPct);
-  el('foodNeed').textContent = Math.floor(S.pop * 0.2);
-  
+  const foodNeed = el('foodNeed');
+  if (foodNeed) foodNeed.textContent = Math.floor(needPerDay);
+
   updateMeter('fillHealth', 'healthLbl', null, S.health);
   const w = weatherEffect(S.weatherNow);
-  el('diseaseRisk').textContent = (w.disease * 100).toFixed(1) + '%';
-  
+  const diseaseRisk = el('diseaseRisk');
+  if (diseaseRisk) diseaseRisk.textContent = (w.disease * 100).toFixed(1) + '%';
+
   updateMeter('fillMorale', 'moraleLbl', null, S.morale);
-  
+
   // Labor percentages
-  const idle = 1 - S.farmers - S.builders - S.herders;
-  el('farmerPct').textContent = Math.round(S.farmers * 100) + '%';
-  el('builderPct').textContent = Math.round(S.builders * 100) + '%';
-  el('herderPct').textContent = Math.round(S.herders * 100) + '%';
-  el('idlePct').textContent = Math.round(idle * 100) + '%';
-  
-  // Render buildings and nodes
+  const idle = Math.max(0, 1 - S.farmers - S.builders - S.herders);
+  const farmerPct = el('farmerPct');
+  const builderPct = el('builderPct');
+  const herderPct = el('herderPct');
+  const idlePct = el('idlePct');
+  if (farmerPct) farmerPct.textContent = Math.round(S.farmers * 100) + '%';
+  if (builderPct) builderPct.textContent = Math.round(S.builders * 100) + '%';
+  if (herderPct) herderPct.textContent = Math.round(S.herders * 100) + '%';
+  if (idlePct) idlePct.textContent = Math.round(idle * 100) + '%';
+
+  // Render
   renderPalette();
   renderGrid();
 }
 
 function updateMeter(fillId, lblId, statusId, pct, statusText = '', fillClass = '') {
   const fill = el(fillId);
-  fill.style.width = Math.round(pct * 100) + '%';
-  fill.className = 'fill ' + fillClass;
-  el(lblId).textContent = Math.round(pct * 100) + '%';
-  if (statusId) el(statusId).innerHTML = statusText;
+  if (fill) {
+    fill.style.width = Math.round(pct * 100) + '%';
+    fill.className = 'fill ' + fillClass;
+  }
+  const lbl = el(lblId);
+  if (lbl) lbl.textContent = Math.round(pct * 100) + '%';
+  if (statusId) {
+    const s = el(statusId);
+    if (s) s.innerHTML = statusText;
+  }
 }
 
 function updateTheoryStatus() {
-  let theory = "";
+  let theory = '';
   if (S.realWage < 0.95) {
-    theory = "<span style='color:var(--bad)'>Malthusian Crisis</span> - Wages below subsistence, population will collapse";
+    theory =
+      "<span style='color:var(--bad)'>Malthusian Crisis</span> - Wages below subsistence, population will collapse";
   } else if (S.realWage > 1.3) {
-    theory = "<span style='color:var(--good)'>Post-Crisis Boom</span> - Labor scarcity, high wages (temporary golden age)";
-  } else if (S.landPolicy === "enclosed" && S.realWage < 1.1) {
+    theory =
+      "<span style='color:var(--good)'>Post-Crisis Boom</span> - Labor scarcity, high wages (temporary golden age)";
+  } else if (S.landPolicy === 'enclosed' && S.realWage < 1.1) {
     theory = "<span style='color:var(--warn)'>Enclosure Effects</span> - Efficiency vs equity trade-off";
   } else if (S.tech.threeField && S.tech.heavyPlough) {
     theory = "<span style='color:var(--accent)'>Smithian Growth</span> - TFP rising from specialization";
   } else {
     theory = "<span style='color:var(--muted)'>Malthusian Trap</span> - Steady state equilibrium";
   }
-  el('theoryStatus').innerHTML = theory;
+  const theoryStatus = el('theoryStatus');
+  if (theoryStatus) theoryStatus.innerHTML = theory;
 }
 
 // ============================================
@@ -783,39 +812,42 @@ function updateTheoryStatus() {
 
 function renderPalette() {
   const pal = el('buildPalette');
+  if (!pal) return;
   pal.innerHTML = '';
-  
+
   Object.keys(BUILDS).forEach(key => {
     const b = BUILDS[key];
     if (b.reqTech && !S.tech[b.reqTech]) return;
-    
+
     const tile = document.createElement('div');
     tile.className = 'build-tile';
     tile.draggable = true;
-    
+
+    // Keep simple tile content; visuals handled by CSS/HTML
     tile.innerHTML = `
-      <div class="tile-icon icon ${b.icon}"></div>
+      <div class="tile-icon icon ${b.icon}" style="position:static"></div>
       <div class="tile-name">${b.name}</div>
       <div class="tile-cost">${b.mat}m • ${b.dur}d</div>
     `;
-    
+
     tile.addEventListener('dragstart', e => {
       draggedType = key;
       e.dataTransfer.effectAllowed = 'copy';
     });
-    
-    tile.addEventListener('dragend', () => draggedType = null);
-    
+
+    tile.addEventListener('dragend', () => (draggedType = null));
+
     pal.appendChild(tile);
   });
 }
 
 function renderGrid() {
   const grid = el('grid');
+  if (!grid) return;
   const existing = [...grid.querySelectorAll('.icon')];
-  
+
   S.builds.forEach(b => {
-    let icon = existing.find(e => e.dataset.id === b.id);
+    let icon = existing.find(e => e.dataset.id == b.id);
     if (!icon) {
       icon = document.createElement('div');
       icon.className = 'icon ' + BUILDS[b.type].icon + (b.done ? '' : ' site');
@@ -824,7 +856,7 @@ function renderGrid() {
       icon.style.top = b.y + 'px';
       grid.appendChild(icon);
     }
-    
+
     if (!b.done) {
       icon.className = 'icon ' + BUILDS[b.type].icon + ' site';
       let ring = icon.querySelector('.ring');
@@ -841,32 +873,31 @@ function renderGrid() {
       if (ring) ring.remove();
     }
   });
-  
+
   existing.forEach(e => {
-    if (!S.builds.find(b => b.id === e.dataset.id)) {
-      e.remove();
-    }
+    if (!S.builds.find(b => b.id == e.dataset.id)) e.remove();
   });
-  
+
   drawNodes();
 }
 
 function spawnNodes() {
   const ground = el('ground');
+  if (!ground) return;
   const rect = ground.getBoundingClientRect();
-  
+
+  // Trees
   for (let i = 0; i < 5; i++) {
     S.nodes.push({
       id: 'tree' + i,
-      type:
-        id: 'tree' + i,
       type: 'tree',
       x: 30 + Math.random() * (rect.width - 100),
       y: 10 + Math.random() * (rect.height - 60),
       hp: 3
     });
   }
-  
+
+  // Rocks
   for (let i = 0; i < 3; i++) {
     S.nodes.push({
       id: 'rock' + i,
@@ -880,7 +911,8 @@ function spawnNodes() {
 
 function drawNodes() {
   const ground = el('ground');
-  
+  if (!ground) return;
+
   S.nodes.forEach(n => {
     let node = ground.querySelector(`[data-nodeid="${n.id}"]`);
     if (!node) {
@@ -889,11 +921,12 @@ function drawNodes() {
       node.dataset.nodeid = n.id;
       node.style.left = n.x + 'px';
       node.style.bottom = n.y + 'px';
+      node.textContent = n.type === 'tree' ? '🌳' : '🪨';
       node.onclick = () => harvestNode(n);
       ground.appendChild(node);
     }
   });
-  
+
   [...ground.querySelectorAll('.node')].forEach(node => {
     if (!S.nodes.find(n => n.id === node.dataset.nodeid)) {
       node.remove();
@@ -916,41 +949,44 @@ function harvestNode(n) {
 // DRAG & DROP
 // ============================================
 
-const grid = el('grid');
+function attachGridDnD() {
+  const grid = el('grid');
+  if (!grid) return;
 
-grid.addEventListener('dragover', e => {
-  e.preventDefault();
-  e.dataTransfer.dropEffect = 'copy';
-});
-
-grid.addEventListener('drop', e => {
-  e.preventDefault();
-  if (!draggedType) return;
-  
-  const b = BUILDS[draggedType];
-  if (S.materials < b.mat) {
-    toast('Not enough materials!');
-    return;
-  }
-  
-  const rect = grid.getBoundingClientRect();
-  const x = e.clientX - rect.left - 36;
-  const y = e.clientY - rect.top - 36;
-  
-  S.materials -= b.mat;
-  S.builds.push({
-    id: Date.now() + Math.random(),
-    type: draggedType,
-    x: Math.max(0, Math.min(rect.width - 72, x)),
-    y: Math.max(0, Math.min(rect.height - 72, y)),
-    done: false,
-    progress: 0,
-    dur: b.dur
+  grid.addEventListener('dragover', e => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
   });
-  
-  toast(`Started building ${b.name}`);
-  updateUI();
-});
+
+  grid.addEventListener('drop', e => {
+    e.preventDefault();
+    if (!draggedType) return;
+
+    const b = BUILDS[draggedType];
+    if (S.materials < b.mat) {
+      toast('Not enough materials!');
+      return;
+    }
+
+    const rect = grid.getBoundingClientRect();
+    const x = e.clientX - rect.left - 36;
+    const y = e.clientY - rect.top - 36;
+
+    S.materials -= b.mat;
+    S.builds.push({
+      id: Date.now() + Math.random(),
+      type: draggedType,
+      x: Math.max(0, Math.min(rect.width - 72, x)),
+      y: Math.max(0, Math.min(rect.height - 72, y)),
+      done: false,
+      progress: 0,
+      dur: b.dur
+    });
+
+    toast(`Started building ${b.name}`);
+    updateUI();
+  });
+}
 
 // ============================================
 // TECH TREE
@@ -958,18 +994,17 @@ grid.addEventListener('drop', e => {
 
 function renderTechTree() {
   const grid = el('techGrid');
+  if (!grid) return;
   grid.innerHTML = '';
-  
+
   Object.keys(TECH_TREE).forEach(key => {
     const t = TECH_TREE[key];
     const unlocked = S.tech[key];
     const canUnlock = !unlocked && t.req.every(r => S.tech[r]) && S.materials >= t.cost;
-    
+
     const card = document.createElement('div');
-    card.className = 'tech-card' + 
-      (unlocked ? ' unlocked' : '') + 
-      (!canUnlock && !unlocked ? ' locked' : '');
-    
+    card.className = 'tech-card' + (unlocked ? ' unlocked' : '') + (!canUnlock && !unlocked ? ' locked' : '');
+
     let reqText = '';
     if (t.req.length && !unlocked) {
       const missing = t.req.filter(r => !S.tech[r]);
@@ -977,7 +1012,7 @@ function renderTechTree() {
         reqText = `<div class="tech-req">Requires: ${missing.map(m => TECH_TREE[m].name).join(', ')}</div>`;
       }
     }
-    
+
     card.innerHTML = `
       <div class="tech-status"></div>
       <div class="tech-name">${t.name}</div>
@@ -986,7 +1021,7 @@ function renderTechTree() {
       <div class="tech-effect">${t.effect}</div>
       <div class="tech-cost">${unlocked ? '✓ Unlocked' : t.cost + ' materials'}</div>
     `;
-    
+
     if (canUnlock) {
       const btn = document.createElement('button');
       btn.className = 'btn primary';
@@ -994,7 +1029,7 @@ function renderTechTree() {
       btn.onclick = () => unlockTech(key);
       card.appendChild(btn);
     }
-    
+
     grid.appendChild(card);
   });
 }
@@ -1005,16 +1040,16 @@ function unlockTech(key) {
     toast('Not enough materials!');
     return;
   }
-  
+
   S.materials -= t.cost;
   S.tech[key] = true;
-  
+
   // Apply effects
   if (key === 'threeField') S.tfp *= 1.15;
-  if (key === 'heavyPlough') S.tfp *= 1.20;
+  if (key === 'heavyPlough') S.tfp *= 1.2;
   if (key === 'seedSelection') S.tfp *= 1.08;
-  if (key === 'well') S.health = Math.min(1, S.health + 0.20);
-  
+  if (key === 'well') S.health = Math.min(1, S.health + 0.2);
+
   toast(`Unlocked: ${t.name}!`);
   renderTechTree();
   updateUI();
@@ -1030,7 +1065,7 @@ function checkVictory() {
   const hasMarket = S.builds.some(b => b.type === 'market' && b.done);
   const mills = S.builds.filter(b => b.type === 'mill' && b.done).length;
   const capitalGoods = mills >= 3;
-  
+
   if (pop150 && wage13 && hasMarket && capitalGoods) {
     showVictory();
   }
@@ -1042,217 +1077,24 @@ function updateProgress() {
   const hasMarket = S.builds.some(b => b.type === 'market' && b.done);
   const mills = S.builds.filter(b => b.type === 'mill' && b.done).length;
   const capitalGoods = mills >= 3;
-  
+
   const completed = [pop150, wage13, hasMarket, capitalGoods].filter(Boolean).length;
   const progress = (completed / 4) * 100;
-  
-  el('progressFill').style.width = progress + '%';
-  el('progressPercent').textContent = Math.round(progress) + '%';
-  
-  // Update requirements
+
+  const fill = el('progressFill');
+  const pct = el('progressPercent');
+  if (fill) fill.style.width = progress + '%';
+  if (pct) pct.textContent = Math.round(progress) + '%';
+
+  // Requirements
   updateReq('req1', pop150, `Population > 150 (Current: ${S.pop})`);
   updateReq('req2', wage13, `Real Wage > 1.3 for 1 year (Current: ${S.wageAbove13Years} years)`);
   updateReq('req3', hasMarket, 'Market infrastructure built');
   updateReq('req4', capitalGoods, `3+ capital goods (Current: ${mills})`);
-  
+
   // Stats
-  el('statPop').textContent = S.pop;
-  el('statWage').textContent = S.realWage.toFixed(2);
-  el('statWageYears').textContent = S.wageAbove13Years;
-  el('statMarket').textContent = hasMarket ? 'Built' : 'Not built';
-  el('statCapital').textContent = mills;
-}
-
-function updateReq(id, complete, text) {
-  const req = el(id);
-  req.innerHTML = `<span class="req-icon">${complete ? '✓' : '○'}</span> ${text}`;
-  if (complete) req.classList.add('complete');
-  else req.classList.remove('complete');
-}
-
-function showVictory() {
-  isPaused = true;
-  
-  el('vicYears').textContent = S.year;
-  el('vicDays').textContent = S.day;
-  el('vicPop').textContent = S.pop;
-  el('vicDeaths').textContent = S.totalDeaths;
-  
-  // Calculate grade
-  const efficiency = S.pop / (S.year * 90 + S.day);
-  const grade = efficiency > 1.5 ? 'A+' : efficiency > 1.2 ? 'A' : efficiency > 1.0 ? 'B+' : efficiency > 0.8 ? 'B' : 'C';
-  el('vicGrade').textContent = grade;
-  
-  showModal('victoryModal');
-}
-
-// ============================================
-// EVENT LISTENERS
-// ============================================
-
-function setupEventListeners() {
-  // Pause/Resume
-  el('btnPause').addEventListener('click', () => {
-    isPaused = !isPaused;
-    el('btnPause').textContent = isPaused ? '▶' : '⏸';
-    toast(isPaused ? 'Paused' : 'Resumed');
-  });
-  
-  // Speed control
-  el('speedSelect').addEventListener('change', startTick);
-  
-  // Labor sliders
-  el('farmerSlider').addEventListener('input', e => {
-    S.farmers = e.target.value / 100;
-    normalizeLabor();
-    updateUI();
-  });
-  
-  el('builderSlider').addEventListener('input', e => {
-    S.builders = e.target.value / 100;
-    normalizeLabor();
-    updateUI();
-  });
-  
-  el('herderSlider').addEventListener('input', e => {
-    S.herders = e.target.value / 100;
-    normalizeLabor();
-    updateUI();
-  });
-  
-  el('intensitySlider').addEventListener('input', e => {
-    S.workIntensity = e.target.value / 100;
-    updateUI();
-  });
-  
-  // Crop selection
-  document.querySelectorAll('.crop-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('.crop-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      S.cropType = btn.dataset.crop;
-      toast(`Now planting ${S.cropType}`);
-    });
-  });
-  
-  // Enclosure
-  el('btnEnclosure').addEventListener('click', () => {
-    if (S.landPolicy === "commons") {
-      if (!confirm("Enclose land? +15% efficiency but -15% morale and inequality rises.")) return;
-      S.landPolicy = "enclosed";
-      S.morale = Math.max(0, S.morale - 0.15);
-      toast("Land enclosed! Efficiency up, morale down.");
-    } else {
-      if (!confirm("Return to commons? -15% efficiency but equality restored.")) return;
-      S.landPolicy = "commons";
-      S.morale = Math.min(1, S.morale + 0.10);
-      toast("Commons restored! Equality improved.");
-    }
-    updateUI();
-  });
-  
-  // Modals
-  el('btnTech').addEventListener('click', () => {
-    renderTechTree();
-    showModal('techModal');
-  });
-  el('techClose').addEventListener('click', () => hideModal('techModal'));
-  
-  el('btnTheory').addEventListener('click', () => showModal('theoryModal'));
-  el('theoryClose').addEventListener('click', () => hideModal('theoryModal'));
-  
-  el('btnProgress').addEventListener('click', () => {
-    updateProgress();
-    showModal('progressModal');
-  });
-  el('progressClose').addEventListener('click', () => hideModal('progressModal'));
-  
-  // Export data
-  el('btnExport').addEventListener('click', exportData);
-  el('btnExportVictory').addEventListener('click', exportData);
-  
-  // Save/Reset
-  el('btnSave').addEventListener('click', saveGame);
-  el('btnReset').addEventListener('click', resetGame);
-  
-  // Victory
-  el('btnPlayAgain').addEventListener('click', () => {
-    hideModal('victoryModal');
-    resetGame();
-  });
-}
-
-function normalizeLabor() {
-  const total = S.farmers + S.builders + S.herders;
-  if (total > 1) {
-    const scale = 1 / total;
-    S.farmers *= scale;
-    S.builders *= scale;
-    S.herders *= scale;
-  }
-  el('farmerSlider').value = S.farmers * 100;
-  el('builderSlider').value = S.builders * 100;
-  el('herderSlider').value = S.herders * 100;
-}
-
-// ============================================
-// UTILITY FUNCTIONS
-// ============================================
-
-function showModal(id) {
-  el(id).classList.add('show');
-}
-
-function hideModal(id) {
-  el(id).classList.remove('show');
-}
-
-function saveGame() {
-  localStorage.setItem('econoville_save', JSON.stringify(S));
-  toast('Game saved!');
-}
-
-function resetGame() {
-  if (!confirm('Reset game? All progress will be lost.')) return;
-  
-  Object.assign(S, {
-    day: 1, year: 1, season: 0,
-    pop: 80, cap: 100, totalDeaths: 0,
-    farmers: 0.5, builders: 0.3, herders: 0.1, workIntensity: 1.0,
-    materials: 30, foodStock: 20, livestock: 0,
-    health: 0.6, morale: 0.6, tfp: 1.0, landQuality: 1.0,
-    realWage: 1.0, landPolicy: "commons", cropType: "wheat",
-    weatherNow: "sunny", weatherNext: "rain",
-    tech: { basicFarming: true },
-    builds: [], nodes: [], wageAbove13Years: 0, history: []
-  });
-  
-  rollWeather();
-  spawnNodes();
-  renderPalette();
-  updateUI();
-  
-  toast('Game reset!');
-}
-
-function exportData() {
-  const csv = ['Year,Day,Population,RealWage,FoodStock,Livestock,TFP,SoilQuality'];
-  S.history.forEach(h => {
-    csv.push(`${h.year},${h.day},${h.pop},${h.realWage.toFixed(3)},${h.foodStock.toFixed(1)},${h.livestock},${h.tfp.toFixed(3)},${h.soilQuality.toFixed(3)}`);
-  });
-  
-  const blob = new Blob([csv.join('\n')], { type: 'text/csv' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `econoville_data_year${S.year}.csv`;
-  a.click();
-  
-  toast('Data exported!');
-}
-
-// ============================================
-// START
-// ============================================
-
-init();
+  const statPop = el('statPop');
+  const statWage = el('statWage');
+  const statWageYears = el('statWageYears');
+  const statMarket = el('statMarket');
+  const statCapital = el('statCapi
