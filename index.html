@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>EconoVille — Phase 1++ (Queue • Upkeep • Workforce • Tutorial)</title>
+<title>EconoVille — Phase 1 (Polished)</title>
 <style>
 :root{
   --bg:#0f172a;--panel:#111827ee;--panel2:#0b1224cc;--text:#e5e7eb;
@@ -11,16 +11,20 @@
   --good:#22c55e;--warn:#f59e0b;--bad:#ef4444;--border:#1f2937;
 }
 *{box-sizing:border-box} html,body{height:100%}
-body{margin:0;background:radial-gradient(1200px 800px at 70% -10%,#1e293b 0%,#0b1224 40%,#050816 100%);
+body{margin:0;background:radial-gradient(1400px 900px at 70% -10%,#1e293b 0%,#0b1224 40%,#050816 100%);
      color:var(--text);font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial}
+
+/* LAYOUT */
 .shell{display:grid;grid-template-rows:auto 1fr auto;min-height:100%}
 header{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border)}
 header h1{font-size:18px;margin:0;font-weight:800;letter-spacing:.3px}
 header .tag{font-size:12px;color:var(--muted)}
-.main{display:grid;grid-template-columns:360px 1fr 360px;gap:14px;padding:14px}
+.main{display:grid;grid-template-columns:380px 1fr 360px;gap:14px;padding:14px}
 .panel{background:linear-gradient(180deg,var(--panel),var(--panel2));border:1px solid var(--border);
        border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.35)}
 .panel h2{font-size:12px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);margin:0 0 10px}
+
+/* LEFT: CARDS + QUEUE */
 .left{padding:14px;overflow:auto}
 .cards{display:grid;gap:10px}
 .card{border:1px solid var(--border);background:#0b1224aa;border-radius:12px;padding:12px}
@@ -32,41 +36,135 @@ header .tag{font-size:12px;color:var(--muted)}
 button.action{width:100%;padding:10px 12px;border:none;border-radius:10px;font-weight:800;color:#061015;
               background:linear-gradient(135deg,var(--accent),var(--accent2));cursor:pointer}
 button.action:disabled{opacity:.35;cursor:not-allowed}
+
 .queue{margin-top:14px;border-top:1px dashed var(--border);padding-top:10px}
 .queue h3{font-size:12px;margin:0 0 8px;color:var(--muted);text-transform:uppercase;letter-spacing:.12em}
-.qitem{display:flex;align-items:center;justify-content:space-between;border:1px solid var(--border);
+.qitem{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;border:1px solid var(--border);
        border-radius:10px;padding:8px;margin-bottom:8px;background:#0b1224aa}
-.qitem .name{font-size:13px}
-.qitem .prog{font-size:12px;color:var(--muted)}
-.qitem .cancel{border:1px solid var(--border);background:transparent;color:var(--text);border-radius:8px;padding:6px 8px;cursor:pointer}
+.qname{font-size:13px}
+.qright{display:flex;align-items:center;gap:8px}
+.qprog{font-size:12px;color:var(--muted)}
+.qcancel{border:1px solid var(--border);background:transparent;color:var(--text);border-radius:8px;padding:6px 8px;cursor:pointer}
+
+/* CENTER: MAP */
 .center{position:relative;padding:12px}
-.view{height:100%;min-height:520px;border-radius:14px;border:1px solid var(--border);
-      background:linear-gradient(180deg,rgba(30,41,59,.55),rgba(2,6,23,.7)),
-                 radial-gradient(1200px 600px at 50% -10%,rgba(34,211,238,.15),transparent 50%),
-                 url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="600" height="400"><defs><pattern id="g" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M0 20 H40 M20 0 V40" stroke="%231f2937" stroke-width="1"/></pattern></defs><rect width="100%" height="100%" fill="%230a0f1f"/><rect width="100%" height="100%" fill="url(%23g)"/></svg>');
+.view{height:100%;min-height:560px;border-radius:14px;border:1px solid var(--border);
+      background:
+        radial-gradient(1200px 800px at 30% -20%, rgba(34,211,238,.07), transparent 50%),
+        linear-gradient(180deg, rgba(2,6,23,.25), rgba(2,6,23,.65)),
+        url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="900" height="600"><defs><linearGradient id="sky" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="%231a2b57"/><stop offset="1" stop-color="%23091121"/></linearGradient><linearGradient id="ground" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="%230b3a1e"/><stop offset="1" stop-color="%23061812"/></linearGradient></defs><rect width="100%" height="50%" fill="url(%23sky)"/><rect y="50%" width="100%" height="50%" fill="url(%23ground)"/></svg>');
       background-size:cover;position:relative;overflow:hidden}
 .hud{position:absolute;top:10px;left:10px;display:flex;gap:8px;flex-wrap:wrap}
 .badge{background:#0b1224cc;border:1px solid var(--border);padding:6px 10px;border-radius:999px;font-size:12px}
 .stageBanner{position:absolute;top:12px;right:12px;background:#0b1224cc;border:1px solid var(--border);
              border-radius:12px;padding:8px 12px;font-size:12px}
-.sprite{position:absolute;transition:transform .4s ease,opacity .4s ease}
-.sprite.hut{width:70px;height:50px;left:40px;bottom:40px;background:linear-gradient(180deg,#d4a373,#8d5524);
-            border:2px solid #2b1d11;border-bottom-left-radius:8px;border-bottom-right-radius:8px}
-.sprite.field{width:140px;height:80px;left:140px;bottom:36px;background:repeating-linear-gradient(45deg,#14532d 0 6px,#166534 6px 12px);
-              border:2px solid #0e2518;border-radius:6px}
-.sprite.granary{width:70px;height:52px;left:60px;bottom:110px;background:linear-gradient(180deg,#9ca3af,#6b7280);
-                border:2px solid #111827;border-radius:6px;display:none}
-.sprite.well{width:24px;height:24px;left:230px;bottom:128px;background:radial-gradient(circle,#93c5fd,#1d4ed8);
-             border:2px solid #0b3b9a;border-radius:50%;display:none}
-.sprite.canal{width:6px;height:120px;left:210px;bottom:50px;background:#22d3ee;border:1px solid #0c4a6e;border-radius:3px;display:none}
-.sprite.council{width:84px;height:54px;left:250px;bottom:36px;background:linear-gradient(180deg,#fde68a,#b45309);
-                border:2px solid #78350f;border-radius:8px;display:none}
-.sprite.market{width:120px;height:36px;left:120px;bottom:140px;background:repeating-linear-gradient(90deg,#fca5a5 0 10px,#fdba74 10px 20px,#fde68a 20px 30px);
-               border:2px solid #7c2d12;border-radius:8px;display:none}
-.sprite.workshop{width:90px;height:50px;left:300px;bottom:110px;background:linear-gradient(180deg,#94a3b8,#475569);
-                 border:2px solid #1f2937;border-radius:8px;display:none}
-.sprite.house{width:46px;height:36px;background:linear-gradient(180deg,#d1d5db,#6b7280);border:2px solid #111827;border-radius:6px;display:none}
-.sprite.farm{width:110px;height:64px;background:repeating-linear-gradient(45deg,#166534 0 7px,#0e9f6e 7px 14px);border:2px solid #064e3b;border-radius:6px;display:none}
+
+/* ICONS — improved with SVG backgrounds */
+.sprite{position:absolute;transition:transform .4s ease,opacity .4s ease;image-rendering:crisp-edges}
+.icon{
+  width:90px;height:72px;border-radius:10px;border:1px solid rgba(0,0,0,.35);
+  box-shadow:0 20px 30px rgba(0,0,0,.35); background-size:cover; background-position:center;
+}
+.hut.icon{
+  left:60px; bottom:60px;
+  background-image: url('data:image/svg+xml;utf8,\
+    <svg xmlns="http://www.w3.org/2000/svg" width="90" height="72">\
+      <defs><linearGradient id="r" x1="0" x2="0" y1="0" y2="1">\
+        <stop offset="0" stop-color="%23b45309"/><stop offset="1" stop-color="%237c2d12"/>\
+      </linearGradient><linearGradient id="w" x1="0" x2="0" y1="0" y2="1">\
+        <stop offset="0" stop-color="%23f5d0a3"/><stop offset="1" stop-color="%23c08457"/>\
+      </linearGradient></defs>\
+      <polygon points="10,32 45,8 80,32" fill="url(%23r)"/>\
+      <rect x="14" y="32" width="60" height="32" rx="6" fill="url(%23w)"/>\
+      <rect x="40" y="44" width="12" height="20" fill="%236b4f2a"/>\
+    </svg>');
+}
+.field.icon{
+  left:200px; bottom:50px; width:150px; height:90px;
+  background-image:url('data:image/svg+xml;utf8,\
+    <svg xmlns="http://www.w3.org/2000/svg" width="150" height="90">\
+      <defs><pattern id="rows" width="12" height="12" patternUnits="userSpaceOnUse">\
+        <path d="M0 10 L12 10" stroke="%230a7a3d" stroke-width="3"/>\
+      </pattern></defs>\
+      <rect width="100%" height="100%" rx="8" fill="%2315562b"/>\
+      <rect width="100%" height="100%" rx="8" fill="url(%23rows)" opacity="0.85"/>\
+    </svg>');
+}
+
+.granary.icon{ left:100px; bottom:160px;
+  background-image:url('data:image/svg+xml;utf8,\
+    <svg xmlns="http://www.w3.org/2000/svg" width="90" height="72">\
+      <rect x="10" y="24" width="70" height="38" rx="8" fill="%238f9bb3"/>\
+      <polygon points="10,26 45,10 80,26" fill="%23566a86"/>\
+      <circle cx="45" cy="50" r="12" fill="%237086a1"/>\
+    </svg>');
+  display:none;
+}
+.well.icon{ left:300px; bottom:170px; width:60px;height:60px;
+  background-image:url('data:image/svg+xml;utf8,\
+    <svg xmlns="http://www.w3.org/2000/svg" width="60" height="60">\
+      <circle cx="30" cy="30" r="26" fill="%230e1726"/>\
+      <circle cx="30" cy="30" r="18" fill="%231d4ed8"/>\
+    </svg>');
+  display:none;
+}
+.canal.icon{ left:270px; bottom:70px; width:20px;height:140px;
+  background-image:url('data:image/svg+xml;utf8,\
+    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="140">\
+      <rect x="3" y="0" width="14" height="140" rx="8" fill="%2322d3ee"/>\
+    </svg>');
+  display:none;
+}
+.council.icon{ left:360px; bottom:60px;
+  background-image:url('data:image/svg+xml;utf8,\
+    <svg xmlns="http://www.w3.org/2000/svg" width="90" height="72">\
+      <rect x="10" y="26" width="70" height="36" rx="8" fill="%23fde68a"/>\
+      <polygon points="10,28 45,8 80,28" fill="%23b45309"/>\
+      <rect x="24" y="40" width="42" height="12" fill="%2378350f"/>\
+    </svg>');
+  display:none;
+}
+.market.icon{ left:200px; bottom:200px; width:160px; height:60px;
+  background-image:url('data:image/svg+xml;utf8,\
+    <svg xmlns="http://www.w3.org/2000/svg" width="160" height="60">\
+      <rect x="8" y="26" width="144" height="24" rx="6" fill="%236b2f14"/>\
+      <rect x="8" y="10" width="144" height="18" rx="6" fill="%23d97706"/>\
+      <rect x="8" y="10" width="144" height="18" rx="6" fill="%23ef4444" opacity="0.3"/>\
+    </svg>');
+  display:none;
+}
+.workshop.icon{ left:440px; bottom:150px;
+  background-image:url('data:image/svg+xml;utf8,\
+    <svg xmlns="http://www.w3.org/2000/svg" width="90" height="72">\
+      <rect x="10" y="24" width="70" height="38" rx="6" fill="%2394a3b8"/>\
+      <polygon points="10,26 45,10 80,26" fill="%23475569"/>\
+      <rect x="24" y="44" width="42" height="12" fill="%2323344d"/>\
+    </svg>');
+  display:none;
+}
+
+/* dynamic */
+.house.icon{ width:60px; height:46px; background-image:url('data:image/svg+xml;utf8,\
+  <svg xmlns="http://www.w3.org/2000/svg" width="60" height="46">\
+   <polygon points="6,22 30,6 54,22" fill="%23b45309"/><rect x="10" y="22" width="40" height="20" rx="6" fill="%23d1d5db"/>\
+  </svg>'); display:none; }
+.farm.icon{ width:120px; height:72px; background-image:url('data:image/svg+xml;utf8,\
+  <svg xmlns="http://www.w3.org/2000/svg" width="120" height="72">\
+   <rect width="100%" height="100%" rx="8" fill="%231e7a44"/>\
+   <path d="M0 20 H120 M0 40 H120 M0 60 H120" stroke="%230a5a34" stroke-width="4"/>\
+  </svg>'); display:none; }
+
+/* Progress ring (for builds on map) */
+.ring{
+  position:absolute; width:50px; height:50px; border-radius:50%;
+  background:
+    radial-gradient(circle at 50% 50%, rgba(0,0,0,.6) 30%, transparent 31%),
+    conic-gradient(var(--accent) calc(var(--pct,0)*1%), rgba(255,255,255,.12) 0);
+  border:1px solid rgba(255,255,255,.1);
+  box-shadow:0 8px 18px rgba(0,0,0,.4);
+}
+
+/* RIGHT: indicators + workforce + maintenance + advisor */
 .right{padding:14px}
 .meters{display:grid;gap:12px}
 .meter{background:#0b1224aa;border:1px solid var(--border);border-radius:10px;padding:10px}
@@ -78,19 +176,35 @@ button.action:disabled{opacity:.35;cursor:not-allowed}
 .stat{font-size:12px;color:var(--muted);margin-top:6px}
 .kpi{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
 .chip{border:1px solid var(--border);border-radius:8px;padding:6px 8px;font-size:12px;color:var(--muted)}
+
 .workforce{margin-top:12px;border-top:1px dashed var(--border);padding-top:10px}
 .workforce h3{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.12em;margin:0 0 8px}
 .wbtn{border:1px solid var(--border);background:transparent;color:var(--text);border-radius:10px;padding:6px 10px;cursor:pointer;margin-right:6px}
 .wbtn.active{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#041018}
+
+.maint{margin-top:12px;border-top:1px dashed var(--border);padding-top:10px}
+.maint h3{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.12em;margin:0 0 8px}
+.mrow{display:flex;justify-content:space-between;align-items:center;border:1px solid var(--border);
+      border-radius:10px;padding:6px 8px;margin-bottom:6px;background:#0b1224aa;font-size:12px}
+.toggle{border:1px solid var(--border);background:transparent;color:var(--text);border-radius:999px;padding:4px 8px;cursor:pointer}
+.warn{color:var(--warn)} .bad{color:var(--bad)} .good{color:var(--good)}
+
+.advisor{margin-top:12px;border-top:1px dashed var(--border);padding-top:10px}
+.advisor h3{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.12em;margin:0 0 8px}
+.note{border:1px solid var(--border);border-radius:10px;background:#0b1224aa;padding:8px 10px;font-size:12px;color:var(--muted)}
+
+/* BOTTOM: controls */
 .bottom{margin:0 14px 14px;padding:12px}
 .reason{border:1px solid var(--border);border-radius:12px;background:#0b1224aa;padding:12px}
 .btnRow{display:flex;gap:10px;margin-top:10px;flex-wrap:wrap}
 .primary{background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;color:#041018;border-radius:10px;
          padding:10px 12px;font-weight:800;cursor:pointer}
 .ghost{background:transparent;border:1px solid var(--border);color:var(--text);border-radius:10px;padding:10px 12px;cursor:pointer}
+
 .toast{position:fixed;bottom:18px;right:18px;background:#0b1224ee;border:1px solid var(--border);padding:10px 12px;
        border-radius:10px;font-size:13px;display:none}
-/* tutorial overlay */
+
+/* Tutorial overlay (unchanged from last) */
 .tut{position:fixed;inset:0;background:rgba(2,6,23,.8);display:none;align-items:center;justify-content:center;z-index:50}
 .tcard{width:min(720px,90%);background:linear-gradient(180deg,var(--panel),var(--panel2));border:1px solid var(--border);
        border-radius:16px;padding:18px}
@@ -104,8 +218,8 @@ button.action:disabled{opacity:.35;cursor:not-allowed}
   <div class="shell">
     <header>
       <div>
-        <h1>EconoVille — Phase 1: Village Economy</h1>
-        <div class="tag">Subsistence → Surplus → Proto-Institutions • Queue • Upkeep • Workforce</div>
+        <h1>EconoVille — Phase 1</h1>
+        <div class="tag">Subsistence → Surplus → Proto-Institutions • Build Queue • Upkeep • Advisor</div>
       </div>
       <div class="tag">
         Date: <span id="date">Year 1, Month 1</span> •
@@ -130,29 +244,32 @@ button.action:disabled{opacity:.35;cursor:not-allowed}
       <section class="panel center">
         <div class="view" id="view">
           <div class="hud">
-            <div class="badge">Population: <span id="pop">100</span>/<span id="cap">100</span></div>
+            <div class="badge">Pop: <span id="pop">100</span>/<span id="cap">100</span></div>
             <div class="badge">Builders: <span id="labor">20%</span></div>
             <div class="badge">PP: <span id="pp">10</span></div>
             <div class="badge">Coins: <span id="money">20</span></div>
             <div class="badge">Food: <span id="food">100</span></div>
           </div>
-          <div class="stageBanner" id="stage">Stage: Village (Phase 1++)</div>
+          <div class="stageBanner">Stage: Village (Phase 1)</div>
 
-          <!-- baseline -->
-          <div class="sprite hut" title="Homes"></div>
-          <div class="sprite field" title="Fields"></div>
+          <!-- base icons -->
+          <div class="sprite icon hut" title="Homes cluster"></div>
+          <div class="sprite icon field" title="Fields"></div>
 
-          <!-- infra/institutions -->
-          <div class="sprite granary" id="spr_granary" title="Granary"></div>
-          <div class="sprite well" id="spr_well" title="Well"></div>
-          <div class="sprite canal" id="spr_canal" title="Irrigation"></div>
-          <div class="sprite council" id="spr_council" title="Council Hut"></div>
-          <div class="sprite market" id="spr_market" title="Market Fair"></div>
-          <div class="sprite workshop" id="spr_workshop" title="Workshop"></div>
+          <!-- buildings -->
+          <div class="sprite icon granary" id="ic_granary" title="Granary"></div>
+          <div class="sprite icon well" id="ic_well" title="Well"></div>
+          <div class="sprite icon canal" id="ic_canal" title="Irrigation"></div>
+          <div class="sprite icon council" id="ic_council" title="Council Hut"></div>
+          <div class="sprite icon market" id="ic_market" title="Market Fair"></div>
+          <div class="sprite icon workshop" id="ic_workshop" title="Workshop"></div>
 
-          <!-- dynamic houses/farms -->
-          <div class="sprite house" id="tpl_house" style="left:28px;bottom:200px"></div>
-          <div class="sprite farm"  id="tpl_farm"  style="left:320px;bottom:48px"></div>
+          <!-- templates for dynamic -->
+          <div class="sprite icon house" id="tpl_house" style="left:50px;bottom:250px"></div>
+          <div class="sprite icon farm"  id="tpl_farm"  style="left:360px;bottom:60px"></div>
+
+          <!-- progress rings container -->
+          <div id="rings"></div>
         </div>
       </section>
 
@@ -191,6 +308,17 @@ button.action:disabled{opacity:.35;cursor:not-allowed}
             <p class="stat">More builders speed construction but reduce farm labour this season.</p>
           </div>
 
+          <div class="maint">
+            <h3>Maintenance (toggle upkeep)</h3>
+            <div id="maintList"></div>
+            <p class="stat">Turning upkeep off saves coins but reduces benefits/legitimacy.</p>
+          </div>
+
+          <div class="advisor">
+            <h3>Advisor</h3>
+            <div class="note" id="advisorNote">Welcome! Start by securing food (Irrigation/Plough) or stability (Granary/Well).</div>
+          </div>
+
           <div class="kpi">
             <div class="chip">Season: <span id="kSeason">Spring</span></div>
             <div class="chip">Events: <span id="kEvents">None</span></div>
@@ -202,8 +330,7 @@ button.action:disabled{opacity:.35;cursor:not-allowed}
     <!-- BOTTOM -->
     <div class="bottom">
       <div class="reason" id="reason">
-        <b>Tip:</b> Surplus food turns into <b>coins</b> (more with a <i>Market Fair</i>) and <b>PP</b> via legitimacy (Council).
-        Build <b>Houses</b> to raise population capacity and <b>Farms</b> to grow output. Use the <b>Workforce</b> buttons to tune build speed vs food.
+        Build queue (left) shows status; progress rings appear on the map. Use Maintenance toggles to save coins when broke.
       </div>
       <div class="btnRow">
         <button class="ghost" id="btnReset">Reset</button>
@@ -215,6 +342,8 @@ button.action:disabled{opacity:.35;cursor:not-allowed}
           <option value="2">2x</option>
           <option value="3">3x</option>
         </select>
+        <button class="ghost" id="btnSave">Save</button>
+        <button class="ghost" id="btnLoad">Load</button>
       </div>
     </div>
   </div>
@@ -236,30 +365,30 @@ button.action:disabled{opacity:.35;cursor:not-allowed}
 
 <script>
 /* ==========================
-   Phase 1++ (Queue • Upkeep • Workforce • Tutorial)
-   Economics: Malthus (capacity/food), Lewis (surplus → non-farm),
-   Rodrik (institutions), Europe (plough, granaries, fairs).
+   Phase 1 (Polished)
+   - Build Queue visible + progress rings on map
+   - Maintenance toggles (upkeep on/off per building)
+   - Advisor notes
+   - Save/Load
+   Economics: Malthus (food/cap), Lewis (surplus→non-farm), Rodrik (institutions)
    ========================== */
-
 let TIMER=null, SPEED=1, MONTH_TIMER=null;
 
 const S = {
   // time
   turn:1, seasonIdx:0, seasons:["Spring","Summer","Autumn","Winter"], year:1, month:1,
   // people
-  pop:100, cap:100,
-  builderShare:0.2, // workforce assignment (0.1/0.2/0.3)
-  needsPerCap:0.9,
+  pop:100, cap:100, builderShare:0.2, needsPerCap:0.9,
   // production
   land:1.0, A:1.0, losses:0.12,
   // institutions & money
   health:0.35, trust:0.40, stability:0.45, pp:10, money:20,
   // builds / flags
   built:{ well:false, granary:false, irrigation:false, council:false, fair:false, workshop:false, plough:false },
+  online:{ well:true, granary:true, irrigation:true, council:true, fair:true, workshop:true, plough:true }, // maintenance toggles
   farms:0, houses:0,
-  // queue (construction)
-  queue:[], // {id,name,dur,left,lab,effect,upkeep}
-  // cooldowns
+  // queue
+  queue:[], // {id,name,dur,left,lab,effect,upkeep,anchor:{x,y}}
   cooldowns:{ gatherReadyAt:1 },
   eventsLast:[],
 };
@@ -268,20 +397,35 @@ const el=id=>document.getElementById(id);
 const toast=msg=>{const t=el('toast');t.innerHTML=msg;t.style.display='block';setTimeout(()=>t.style.display='none',2400)};
 function setDateDisplay(){ el('date').textContent=`Year ${S.year}, Month ${S.month}`; }
 
-// ======== Production snapshot ========
+function anchorFor(id){
+  // approximate anchor points for progress rings near icons
+  const map={
+    well:{x:330,y:210}, granary:{x:140,y:210}, irrigation:{x:280,y:140}, council:{x:400,y:120},
+    fair:{x:280,y:240}, workshop:{x:480,y:200}, house:{x:80,y:290}, farm:{x:420,y:120},
+  };
+  return map[id]||{x:200,y:200};
+}
+
+/* SNAPSHOT */
 function snapshot(){
   const builders = Math.floor(S.pop * S.builderShare);
-  const LA = Math.max(0, S.pop - builders); // farm labour pool
+  const LA = Math.max(0, S.pop - builders);
   const effLand = S.land + S.farms*0.15;
-  const tech = S.A * (S.built.irrigation?1.15:1) * (S.built.plough?1.25:1);
+  const on = (k)=> S.online[k]!==false;
+
+  const irr = (S.built.irrigation && on('irrigation'))?1.15:1;
+  const plg = (S.built.plough && on('plough'))?1.25:1;
+  const tech = S.A * irr * plg;
+
   const output = tech * Math.pow(effLand,0.3) * Math.pow(LA*0.9,0.7);
-  const loss = S.losses * (S.built.granary?0.6:1);
+  const loss = S.losses * ((S.built.granary && on('granary'))?0.6:1);
   const foodOut = Math.max(0, output * (1 - loss));
   const needs = S.pop * S.needsPerCap;
   const net = Math.round(foodOut - needs);
   return {builders, LA, effLand, foodOut, needs, net};
 }
 
+/* RECOMPUTE UI */
 function recompute(reason=""){
   const {builders, foodOut, needs, net} = snapshot();
 
@@ -303,20 +447,25 @@ function recompute(reason=""){
   el('kEvents').textContent=S.eventsLast.join(', ') || 'None';
   setDateDisplay();
 
-  // sprites toggles
-  el('spr_well').style.display=S.built.well?'block':'none';
-  el('spr_granary').style.display=S.built.granary?'block':'none';
-  el('spr_canal').style.display=S.built.irrigation?'block':'none';
-  el('spr_council').style.display=S.built.council?'block':'none';
-  el('spr_market').style.display=S.built.fair?'block':'none';
-  el('spr_workshop').style.display=S.built.workshop?'block':'none';
+  // toggle icons
+  el('ic_well').style.display     = S.built.well?'block':'none';
+  el('ic_granary').style.display  = S.built.granary?'block':'none';
+  el('ic_canal').style.display    = S.built.irrigation?'block':'none';
+  el('ic_council').style.display  = S.built.council?'block':'none';
+  el('ic_market').style.display   = S.built.fair?'block':'none';
+  el('ic_workshop').style.display = S.built.workshop?'block':'none';
   syncDynamicSprites();
 
   if(reason) el('reason').innerHTML=reason;
 
-  // Phase 2 teaser
-  if (net > 0 && (S.built.granary || S.built.irrigation) && !S.built.workshop) mountCards();
+  // Cards + Queue + Maintenance + Rings
+  mountCards();
   renderQueue();
+  renderMaintenance();
+  renderRings();
+
+  // Advisor tips
+  updateAdvisor(net);
 }
 
 function setBar(kind,val,foodOut,needs,surplus){
@@ -334,122 +483,101 @@ function setBar(kind,val,foodOut,needs,surplus){
 function syncDynamicSprites(){
   const view=el('view');
   [...view.querySelectorAll('.clone')].forEach(n=>n.remove());
-  // houses grid
   for(let i=0;i<S.houses;i++){
     const n=el('tpl_house').cloneNode(true); n.classList.add('clone'); n.style.display='block';
     const col=i%5, row=Math.floor(i/5);
-    n.style.left=(28+col*54)+'px'; n.style.bottom=(200+row*44)+'px';
+    n.style.left=(50+col*66)+'px'; n.style.bottom=(260+row*52)+'px';
     view.appendChild(n);
   }
-  // farms grid
   for(let i=0;i<S.farms;i++){
     const n=el('tpl_farm').cloneNode(true); n.classList.add('clone'); n.style.display='block';
     const col=i%4, row=Math.floor(i/4);
-    n.style.left=(320+col*120)+'px'; n.style.bottom=(48+row*70)+'px';
+    n.style.left=(360+col*140)+'px'; n.style.bottom=(60+row*84)+'px';
     view.appendChild(n);
   }
 }
 
-// ======== Cards (Projects & Builds) ========
+/* CARDS */
 const ALL_CARDS = [
-  // Soft-power — Community Gathering
   { id:'gather', name:'Community Gathering', cost:{pp:0,money:0,labor:1}, dur:1, upkeep:0,
-    desc:'Hold a gathering. +Trust, +1 PP. Cooldown 4 seasons.',
-    tip:'Legitimacy builds policy capacity.',
-    can:()=> S.turn>=S.cooldowns.gatherReadyAt,
-    req:()=> S.pop>=60,
-    effect:()=>{ S.trust=Math.min(1,S.trust+0.06); S.pp+=1; S.cooldowns.gatherReadyAt=S.turn+4; }
+    desc:'+Trust, +1 PP. Cooldown 4 seasons.', tip:'Legitimacy builds policy space.',
+    can:()=> S.turn>=S.cooldowns.gatherReadyAt, req:()=> S.pop>=60,
+    effect:()=>{ S.trust=Math.min(1,S.trust+0.06); S.pp+=1; S.cooldowns.gatherReadyAt=S.turn+4; }, anchor:'council'
   },
-  // Infrastructure / Institutions
   { id:'well', name:'Build Wells & Sanitation', cost:{pp:2,money:6,labor:2}, dur:2, upkeep:0.2,
-    desc:'Reduce disease; improves health.',
-    tip:'Public health cushions shocks.',
+    desc:'Reduce disease; improves health.', tip:'Public health cushions shocks.',
     can:()=>!S.built.well, req:()=> true,
-    effect:()=>{ S.built.well=true; S.health=Math.min(1,S.health+0.25); S.stability=Math.min(1,S.stability+0.05); }
+    effect:()=>{ S.built.well=true; S.health=Math.min(1,S.health+0.25); S.stability=Math.min(1,S.stability+0.05); }, anchor:'well'
   },
   { id:'granary', name:'Construct Granary', cost:{pp:3,money:8,labor:3}, dur:3, upkeep:0.3,
-    desc:'Cut spoilage; buffers bad harvests.',
-    tip:'Granaries reduce famine volatility.',
+    desc:'Cut spoilage; buffer bad harvests.', tip:'Reduces famine volatility.',
     can:()=>!S.built.granary, req:()=> true,
-    effect:()=>{ S.built.granary=true; S.stability=Math.min(1,S.stability+0.10); }
+    effect:()=>{ S.built.granary=true; S.stability=Math.min(1,S.stability+0.10); }, anchor:'granary'
   },
   { id:'council', name:'Form Village Council', cost:{pp:3,money:4,labor:1}, dur:1, upkeep:0.1,
-    desc:'Legitimacy & dispute resolution. Generates PP when surplus is positive.',
-    tip:'Market-creating institutions.',
+    desc:'Legitimacy & dispute resolution.', tip:'Institutions lower transaction costs.',
     can:()=>!S.built.council, req:()=> S.pop>=80,
-    effect:()=>{ S.built.council=true; S.trust=Math.min(1,S.trust+0.20); S.stability=Math.min(1,S.stability+0.15); }
+    effect:()=>{ S.built.council=true; S.trust=Math.min(1,S.trust+0.20); S.stability=Math.min(1,S.stability+0.15); }, anchor:'council'
   },
   { id:'literacy', name:'Run Literacy Classes', cost:{pp:2,money:5,labor:1}, dur:1, upkeep:0.1,
-    desc:'+TFP now; unlocks faster tech later.',
-    tip:'Human capital deepens growth.',
+    desc:'+TFP now; faster tech later.', tip:'Human capital deepens growth.',
     can:()=>true, req:()=> S.pop>=70,
-    effect:()=>{ S.A*=1.02; S.trust=Math.min(1,S.trust+0.05); }
+    effect:()=>{ S.A*=1.02; S.trust=Math.min(1,S.trust+0.05); }, anchor:'council'
   },
   { id:'fair', name:'Establish Market Fair', cost:{pp:2,money:10,labor:2}, dur:2, upkeep:0.2,
-    desc:'Boosts trade revenue from surplus; small stability bump.',
-    tip:'Fairs monetize surplus.',
+    desc:'Surplus monetization + stability.', tip:'Fairs thicken markets.',
     can:()=>!S.built.fair, req:()=> S.pop>=80,
-    effect:()=>{ S.built.fair=true; S.stability=Math.min(1,S.stability+0.05); }
+    effect:()=>{ S.built.fair=true; S.stability=Math.min(1,S.stability+0.05); }, anchor:'fair'
   },
   { id:'irrigation', name:'Dig Irrigation Ditch', cost:{pp:3,money:8,labor:3}, dur:3, upkeep:0.15,
-    desc:'+15% yields via secured water.',
-    tip:'Precondition to sustained surplus.',
+    desc:'+15% yields via water security.', tip:'Precondition to sustained surplus.',
     can:()=>!S.built.irrigation, req:()=> true,
-    effect:()=>{ S.built.irrigation=true; S.A*=1.05; }
+    effect:()=>{ S.built.irrigation=true; S.A*=1.05; }, anchor:'irrigation'
   },
   { id:'plough', name:'Adopt Heavy Plough/Rotation', cost:{pp:4,money:12,labor:3}, dur:3, upkeep:0.15,
-    desc:'+25% yield jump (tech step).',
-    tip:'Medieval divergence on heavy soils.',
+    desc:'+25% yield jump (tech step).', tip:'European divergence story on heavy soils.',
     can:()=>!S.built.plough, req:()=> true,
-    effect:()=>{ S.built.plough=true; S.A*=1.10; S.trust=Math.min(1,S.trust+0.03); }
+    effect:()=>{ S.built.plough=true; S.A*=1.10; S.trust=Math.min(1,S.trust+0.03); }, anchor:'irrigation'
   },
   { id:'workshop', name:'Open Community Workshop', cost:{pp:4,money:12,labor:3}, dur:3, upkeep:0.2,
-    desc:'Proto-industry; generates coin each season if surplus exists.',
-    tip:'Lewis: modern sector emerges post-surplus.',
-    can:()=> !S.built.workshop && (S.built.granary||S.built.irrigation),
-    req:()=> S.pop>=90,
-    effect:()=>{ S.built.workshop=true; }
+    desc:'Proto-industry; coins if surplus.', tip:'Lewis: modern sector after surplus.',
+    can:()=> !S.built.workshop && (S.built.granary||S.built.irrigation), req:()=> S.pop>=90,
+    effect:()=>{ S.built.workshop=true; }, anchor:'workshop'
   },
-  // Construction economy
   { id:'build_house', name:'Build House (+4 cap)', cost:{pp:2,money:8,labor:2}, dur:2, upkeep:0.05,
-    desc:'Raises population capacity to allow growth.',
-    tip:'Housing as capacity constraint.',
+    desc:'Raises population capacity.', tip:'Housing is a hard capacity constraint.',
     can:()=>true, req:()=> true,
-    effect:()=>{ S.houses+=1; S.cap+=4; }
+    effect:()=>{ S.houses+=1; S.cap+=4; }, anchor:'house'
   },
   { id:'build_farm', name:'Develop Farm Plot (+land)', cost:{pp:2,money:10,labor:3}, dur:2, upkeep:0.08,
-    desc:'Expands effective land; increases food output.',
-    tip:'Extensive margin growth.',
+    desc:'Expands effective land for output.', tip:'Extensive margin growth.',
     can:()=>true, req:()=> true,
-    effect:()=>{ S.farms+=1; }
+    effect:()=>{ S.farms+=1; }, anchor:'farm'
   },
 ];
 
-function totalQueuedLabor(){
-  return S.queue.reduce((a,q)=>a+q.lab,0);
-}
+function totalQueuedLabor(){ return S.queue.reduce((a,q)=>a+q.lab,0); }
 
 function enqueue(card){
   const builders = Math.floor(S.pop * S.builderShare);
+  if(!card.can()) { toast('Locked right now'); return; }
   if(S.pp < card.cost.pp){ toast('Not enough PP'); return; }
   if(S.money < (card.cost.money||0)){ toast('Not enough coins'); return; }
-  if((totalQueuedLabor()+ (card.cost.labor||0)) > builders){ toast('Not enough builders for this season'); return; }
+  if((totalQueuedLabor()+ (card.cost.labor||0)) > builders){ toast('Not enough builders this season'); return; }
   if(!card.req()){ toast('Requirements not met'); return; }
 
   S.pp -= card.cost.pp;
   S.money -= (card.cost.money||0);
-  const item = {
-    id: card.id, name: card.name, dur: card.dur, left: card.dur,
-    lab: card.cost.labor||0, effect: card.effect, upkeep: card.upkeep||0
-  };
-  S.queue.push(item);
-  toast(`Enqueued: <b>${card.name}</b> (${card.dur} seasons)`);
-  mountCards(); renderQueue(); recompute();
+  const anchor = anchorFor(card.anchor || card.id);
+  S.queue.push({ id:card.id, name:card.name, dur:card.dur, left:card.dur, lab:card.cost.labor||0,
+                 effect:card.effect, upkeep:card.upkeep||0, anchor });
+  toast(`Enqueued: <b>${card.name}</b>`);
+  recompute();
 }
 
 function cancelQueue(i){
   S.queue.splice(i,1);
-  renderQueue();
+  recompute();
 }
 
 function mountCards(){
@@ -463,7 +591,7 @@ function mountCards(){
     div.innerHTML = `
       <h3>${c.name}</h3>
       <div class="meta">
-        <span class="pill">Cost: PP ${c.cost.pp}</span>
+        <span class="pill">PP ${c.cost.pp}</span>
         <span class="pill">Coins ${c.cost.money||0}</span>
         <span class="pill">Labor ${c.cost.labor||0}/${builders}</span>
         <span class="pill">Duration ${c.dur}⏳</span>
@@ -473,28 +601,67 @@ function mountCards(){
       <p>${c.desc}</p>
       <button class="action">Enqueue</button>
     `;
-    const btn=div.querySelector('button');
-    btn.addEventListener('click',()=>enqueue(c));
+    div.querySelector('button').addEventListener('click',()=>enqueue(c));
     wrap.appendChild(div);
   });
 }
 
 function renderQueue(){
-  const q=el('queueList'); q.innerHTML='';
+  const list=el('queueList'); list.innerHTML='';
+  if(!S.queue.length){ list.innerHTML='<div class="stat">No projects in queue.</div>'; return; }
   S.queue.forEach((it,idx)=>{
-    const row=document.createElement('div');
-    row.className='qitem';
-    row.innerHTML=`
-      <span class="name">${it.name}</span>
-      <span class="prog">Lab ${it.lab} • ${it.left}/${it.dur} seasons</span>
-      <button class="cancel">Cancel</button>
-    `;
-    row.querySelector('.cancel').addEventListener('click',()=>cancelQueue(idx));
-    q.appendChild(row);
+    const row=document.createElement('div'); row.className='qitem';
+    row.innerHTML = `
+      <div class="qname">${it.name}</div>
+      <div class="qright">
+        <span class="qprog">${Math.max(0,Math.ceil(it.left))}/${it.dur}</span>
+        <button class="qcancel">Cancel</button>
+      </div>`;
+    row.querySelector('.qcancel').addEventListener('click',()=>cancelQueue(idx));
+    list.appendChild(row);
   });
 }
 
-// ===== Ambient micro-events =====
+function renderRings(){
+  const r=el('rings'); r.innerHTML='';
+  S.queue.forEach(it=>{
+    const pct = Math.max(0, (it.dur - it.left) / it.dur * 100);
+    const ring=document.createElement('div');
+    ring.className='ring';
+    ring.style.setProperty('--pct', pct);
+    ring.style.left = (it.anchor.x - 25)+'px';
+    ring.style.bottom = (it.anchor.y - 25)+'px';
+    ring.title = `${it.name}: ${Math.round(pct)}%`;
+    r.appendChild(ring);
+  });
+}
+
+function renderMaintenance(){
+  const on = (key)=> S.online[key]!==false;
+  const defs=[
+    {id:'granary', label:'Granary', penalty:'More spoilage'},
+    {id:'well', label:'Well', penalty:'Higher disease risk'},
+    {id:'council', label:'Council', penalty:'Lower legitimacy'},
+    {id:'fair', label:'Market Fair', penalty:'Less trade income'},
+    {id:'irrigation', label:'Irrigation', penalty:'Lower yields'},
+    {id:'plough', label:'Plough/Rotation', penalty:'Lower yields'},
+    {id:'workshop', label:'Workshop', penalty:'No workshop income'},
+  ];
+  const wrap=el('maintList'); wrap.innerHTML='';
+  defs.forEach(d=>{
+    if(!S.built[d.id]) return;
+    const row=document.createElement('div'); row.className='mrow';
+    row.innerHTML=`<span>${d.label}</span>
+      <span>${on(d.id)?'<span class="good">ON</span>':'<span class="warn">OFF</span>'} <button class="toggle">Toggle</button></span>`;
+    row.querySelector('.toggle').addEventListener('click', ()=>{
+      S.online[d.id] = !on(d.id);
+      recompute(`<b>${d.label}</b> maintenance turned ${on(d.id)?'ON':'OFF'} — ${d.penalty}.`);
+    });
+    wrap.appendChild(row);
+  });
+}
+
+/* EVENTS */
 function ambientEvents(){
   const events=[];
   if(Math.random()<0.10){ events.push('Good Rains'); S.A*=1.01; }
@@ -504,32 +671,43 @@ function ambientEvents(){
   if(events.length) S.eventsLast=S.eventsLast.concat(events);
 }
 
-// ===== Upkeep costs (coins per season) =====
+/* UPKEEP */
 function upkeepCost(){
+  const on = (k)=> S.online[k]!==false;
   let cost = 0;
   cost += S.houses * 0.2;
   cost += S.farms  * 0.3;
-  if(S.built.well)      cost += 0.2;
-  if(S.built.granary)   cost += 0.3;
-  if(S.built.council)   cost += 0.1;
-  if(S.built.fair)      cost += 0.2;
-  if(S.built.irrigation)cost += 0.15;
-  if(S.built.plough)    cost += 0.15;
-  if(S.built.workshop)  cost += 0.2;
+  if(S.built.well      && on('well'))      cost += 0.2;
+  if(S.built.granary   && on('granary'))   cost += 0.3;
+  if(S.built.council   && on('council'))   cost += 0.1;
+  if(S.built.fair      && on('fair'))      cost += 0.2;
+  if(S.built.irrigation&& on('irrigation'))cost += 0.15;
+  if(S.built.plough    && on('plough'))    cost += 0.15;
+  if(S.built.workshop  && on('workshop'))  cost += 0.2;
   return cost;
 }
 
-// ===== Season step =====
+/* ADVISOR */
+function updateAdvisor(net){
+  let msg = '';
+  if(net < 0) msg = 'Food deficit this season — consider Irrigation/Plough or adding Farm plots.';
+  else if(S.money < 5) msg = 'Coins are low — toggle upkeep or establish a Market Fair to monetize surplus.';
+  else if(S.cap - S.pop < 4) msg = 'Housing cap near limit — build Houses to allow population growth.';
+  else if(!S.built.council) msg = 'Form a Council to convert surplus into lasting legitimacy (PP).';
+  else msg = 'Balanced! Consider opening a Workshop (needs surplus) to start proto-industry.';
+  el('advisorNote').textContent = msg;
+}
+
+/* SEASON STEP */
 function advanceSeason(){
   S.turn++; S.seasonIdx=(S.seasonIdx+1)%4; el('turn').textContent=S.turn;
   S.eventsLast=[];
 
-  // 1) Progress queue (requires sufficient builders in total)
+  // 1) Queue progress
   const builders = Math.floor(S.pop * S.builderShare);
   const needLab = totalQueuedLabor();
-  const progressMultiplier = needLab<=builders ? 1 : Math.max(0.3, builders/Math.max(1,needLab)); // slow if understaffed
+  const progressMultiplier = needLab<=builders ? 1 : Math.max(0.3, builders/Math.max(1,needLab));
   S.queue.forEach(it=> it.left = Math.max(0, it.left - progressMultiplier));
-  // Complete finished items
   const completed = S.queue.filter(it=>it.left<=0);
   if(completed.length){
     completed.forEach(it=> it.effect && it.effect());
@@ -537,39 +715,37 @@ function advanceSeason(){
     S.eventsLast.push('Project Complete');
   }
 
-  // 2) Production & crises
-  const {foodOut, needs, net} = snapshot();
-  // Disease
+  // 2) Production + crises
+  const snap = snapshot();
   let deathRate = 0.02 * (1 - S.health);
-  const diseaseRisk = (S.built.well?0.03:0.10) * (1 - S.health);
+  const diseaseRisk = (S.built.well && S.online.well!==false ? 0.03: 0.10) * (1 - S.health);
   if(Math.random()<diseaseRisk){
     const dead=Math.max(1,Math.round(S.pop*(0.02 + Math.random()*0.03)));
     S.pop=Math.max(10,S.pop-dead); S.eventsLast.push('Disease'); S.stability=Math.max(0,S.stability-0.05);
   }
-  // Famine
-  if(net<0){
-    const famineRisk=(S.built.granary?0.15:0.45);
+  if(snap.net<0){
+    const hasGranary = S.built.granary && S.online.granary!==false;
+    const famineRisk=(hasGranary?0.15:0.45);
     if(Math.random()<famineRisk){
       const dead=Math.max(1,Math.round(S.pop*(0.03 + Math.random()*0.04)));
       S.pop=Math.max(10,S.pop-dead); S.eventsLast.push('Famine');
       S.trust=Math.max(0,S.trust-0.08); S.stability=Math.max(0,S.stability-0.08);
     }
   }
-  // Disputes
-  if(S.stability<0.35 && !S.built.council && Math.random()<0.25){ S.eventsLast.push('Dispute'); S.trust=Math.max(0,S.trust-0.06); }
-
-  // 3) Ambient
+  if(S.stability<0.35 && !(S.built.council && S.online.council!==false) && Math.random()<0.25){
+    S.eventsLast.push('Dispute'); S.trust=Math.max(0,S.trust-0.06);
+  }
   ambientEvents();
 
-  // 4) Demography (births capped by housing cap)
-  const births = Math.max(0, Math.min(S.cap - S.pop, Math.round((net>0? net:0) * 0.05)));
+  // 3) Demography — births capped by housing cap
+  const births = Math.max(0, Math.min(S.cap - S.pop, Math.round((snap.net>0? snap.net:0)*0.05)));
   const naturalDeaths = Math.round(S.pop*deathRate);
   S.pop = Math.max(10, S.pop + births - naturalDeaths);
 
-  // 5) Coins: trade surplus + workshop revenue, minus upkeep
-  const price = S.built.fair ? 0.20 : 0.05;
-  const tradeCoins = Math.max(0, net) * price;
-  const workshopCoins = (S.built.workshop && net>0) ? 2 : 0;
+  // 4) Coins: trade surplus + workshop income - upkeep
+  const price = (S.built.fair && S.online.fair!==false)? 0.20 : 0.05;
+  const tradeCoins = Math.max(0, snap.net) * price;
+  const workshopCoins = (S.built.workshop && S.online.workshop!==false && snap.net>0) ? 2 : 0;
   const upkeep = upkeepCost();
   S.money = Math.max(-50, Math.min(999, S.money + tradeCoins + workshopCoins - upkeep));
   if(S.money < 0){
@@ -579,31 +755,30 @@ function advanceSeason(){
     S.money = 0;
   }
 
-  // 6) Political Power engine
+  // 5) Political Power
   let ppGain=0;
-  if(net>0) ppGain+=1;
-  if(S.built.council && net>0) ppGain+=1;
-  if(S.built.fair) ppGain+=0.5;
+  if(snap.net>0) ppGain+=1;
+  if((S.built.council && S.online.council!==false) && snap.net>0) ppGain+=1;
+  if(S.built.fair && S.online.fair!==false) ppGain+=0.5;
   ppGain+=Math.max(0, Math.floor(S.trust*1));
   if(S.eventsLast.includes('Famine')) ppGain-=1;
   if(S.eventsLast.includes('Dispute')) ppGain-=0.5;
   S.pp=Math.max(0, Math.min(99, S.pp + ppGain));
 
-  // 7) Drifts
-  if(net>0 && S.built.council){ S.trust=Math.min(1,S.trust+0.03); }
-  if(S.built.council){ S.stability=Math.min(1,S.stability+0.02); }
-  if(net<0){ S.stability=Math.max(0,S.stability-0.01); }
+  // 6) Drifts
+  if(snap.net>0 && (S.built.council && S.online.council!==false)){ S.trust=Math.min(1,S.trust+0.03); }
+  if(S.built.council && S.online.council!==false){ S.stability=Math.min(1,S.stability+0.02); }
+  if(snap.net<0){ S.stability=Math.max(0,S.stability-0.01); }
 
-  const ready = (net>0) && (S.built.council || S.built.granary) && (S.built.irrigation || S.built.plough);
+  const ready = (snap.net>0) && (S.built.council || S.built.granary) && (S.built.irrigation || S.built.plough);
   const msg = ready
     ? `Surplus sustained; institutions forming. <b>Proto-Industry ready next</b>.`
-    : `Season passed. Net food: <b>${net>=0? '+'+net: net}</b>. Trade: <b>${tradeCoins.toFixed(1)}</b>, Workshop: <b>${workshopCoins}</b>, Upkeep: <b>-${upkeep.toFixed(1)}</b>. Events: <b>${S.eventsLast.join(', ')||'None'}</b>.`;
+    : `Season passed. Net food: <b>${snap.net>=0? '+'+snap.net: snap.net}</b>. Trade: <b>${tradeCoins.toFixed(1)}</b>, Workshop: <b>${workshopCoins}</b>, Upkeep: <b>-${upkeep.toFixed(1)}</b>. Events: <b>${S.eventsLast.join(', ')||'None'}</b>.`;
 
   recompute(msg);
-  mountCards();
 }
 
-// ===== Autoplay & Month ticker =====
+/* AUTOPLAY + MONTH TICKER */
 function start(){
   if(TIMER) return;
   const base=4000; TIMER=setInterval(advanceSeason, base / SPEED);
@@ -625,20 +800,24 @@ function startMonthTicker(){
 }
 function stopMonthTicker(){ if(!MONTH_TIMER) return; clearInterval(MONTH_TIMER); MONTH_TIMER=null; }
 
-// ===== Reset =====
-function reset(){
-  stop();
-  Object.assign(S,{
-    turn:1,seasonIdx:0,year:1,month:1,
-    pop:100,cap:100,builderShare:0.2,needsPerCap:0.9,land:1.0,A:1.0,losses:0.12,
-    health:0.35,trust:0.40,stability:0.45,pp:10,money:20,
-    built:{well:false,granary:false,irrigation:false,council:false,fair:false,workshop:false,plough:false},
-    farms:0,houses:0,queue:[],cooldowns:{gatherReadyAt:1},eventsLast:[]
-  });
-  mountCards(); renderQueue(); recompute('Reset to starting conditions.');
+/* SAVE / LOAD */
+function saveGame(){
+  localStorage.setItem('econoville_phase1', JSON.stringify(S));
+  toast('Game saved.');
+}
+function loadGame(){
+  const raw = localStorage.getItem('econoville_phase1');
+  if(!raw){ toast('No save found.'); return; }
+  try{
+    const obj = JSON.parse(raw);
+    Object.keys(S).forEach(k=>{
+      if(typeof obj[k] !== 'undefined') S[k] = obj[k];
+    });
+    recompute('Loaded save.');
+  }catch(e){ toast('Failed to load.'); }
 }
 
-// ===== Workforce buttons =====
+/* UI EVENTS */
 document.addEventListener('click', (e)=>{
   const b = e.target.closest('.wbtn');
   if(!b) return;
@@ -648,28 +827,42 @@ document.addEventListener('click', (e)=>{
   recompute('Workforce updated: Builders at ' + Math.round(S.builderShare*100) + '% this season.');
 });
 
-// ===== Tutorial overlay =====
+/* TUTORIAL */
 const tut = el('tut');
 const steps = [
   {t:'Welcome to EconoVille — Phase 1', b:'Create a food surplus, then build institutions to unlock proto-industry.'},
-  {t:'Projects & Build Queue', b:'Enqueue projects. Each uses PP, coins, and builders. Multi-season builds complete automatically.'},
-  {t:'Workforce Assignment', b:'Set Builders to 10/20/30%. More builders speed construction but reduce farming output.'},
-  {t:'Money & Upkeep', b:'Surplus converts to coins (more with Market Fair). Buildings have upkeep — shortfalls hurt trust & stability.'},
+  {t:'Build Queue + Progress Rings', b:'Enqueue projects on the left. Progress rings on the map show live build status.'},
+  {t:'Workforce & Maintenance', b:'Adjust builders (10–30%). Toggle maintenance to save coins but lose benefits.'},
+  {t:'Money & Legitimacy', b:'Surplus → coins (more with Market Fair); Council helps turn success into lasting PP.'},
 ];
-let stepIdx = 0;
+let stepIdx=0;
 function showTut(i=0){ stepIdx=i; el('tTitle').textContent=steps[i].t; el('tBody').textContent=steps[i].b; tut.style.display='flex'; }
 function hideTut(){ tut.style.display='none'; }
-el('tPrev').addEventListener('click', ()=>{ stepIdx=Math.max(0, stepIdx-1); showTut(stepIdx); });
-el('tNext').addEventListener('click', ()=>{ stepIdx++; if(stepIdx>=steps.length) hideTut(); else showTut(stepIdx); });
+document.getElementById('tPrev').addEventListener('click', ()=>{ stepIdx=Math.max(0, stepIdx-1); showTut(stepIdx); });
+document.getElementById('tNext').addEventListener('click', ()=>{ stepIdx++; if(stepIdx>=steps.length) hideTut(); else showTut(stepIdx); });
 
-// ===== Init =====
-mountCards(); renderQueue(); recompute();
-showTut(0);
-
-el('btnAdvance').addEventListener('click', advanceSeason);
-el('btnReset').addEventListener('click', reset);
-el('btnPlay').addEventListener('click', ()=> (TIMER? stop(): start()));
-el('speed').addEventListener('change',(e)=>{SPEED=parseFloat(e.target.value||'1'); if(TIMER){stop();start();} if(MONTH_TIMER){stopMonthTicker();startMonthTicker();}});
+/* INIT */
+function reset(){
+  stop();
+  Object.assign(S,{
+    turn:1,seasonIdx:0,year:1,month:1,
+    pop:100,cap:100,builderShare:0.2,needsPerCap:0.9,land:1.0,A:1.0,losses:0.12,
+    health:0.35,trust:0.40,stability:0.45,pp:10,money:20,
+    built:{well:false,granary:false,irrigation:false,council:false,fair:false,workshop:false,plough:false},
+    online:{well:true,granary:true,irrigation:true,council:true,fair:true,workshop:true,plough:true},
+    farms:0,houses:0,queue:[],cooldowns:{gatherReadyAt:1},eventsLast:[]
+  });
+  recompute('Reset to starting conditions.');
+}
+function wire(){
+  document.getElementById('btnAdvance').addEventListener('click', advanceSeason);
+  document.getElementById('btnReset').addEventListener('click', reset);
+  document.getElementById('btnPlay').addEventListener('click', ()=> (TIMER? stop(): start()));
+  document.getElementById('speed').addEventListener('change',(e)=>{SPEED=parseFloat(e.target.value||'1'); if(TIMER){stop();start();} if(MONTH_TIMER){stopMonthTicker();startMonthTicker();}});
+  document.getElementById('btnSave').addEventListener('click', saveGame);
+  document.getElementById('btnLoad').addEventListener('click', loadGame);
+}
+wire(); recompute(); showTut(0);
 </script>
 </body>
 </html>
