@@ -159,6 +159,14 @@ const S = {
   },
   victoryProgress: 0,
 
+  // Add to State object
+  seasonalPressure: {
+    spring: { farmers: 0.6, builders: 0.2, gatherers: 0.1, herders: 0.1 },
+    summer: { farmers: 0.5, builders: 0.3, gatherers: 0.1, herders: 0.1 },
+    autumn: { farmers: 0.7, builders: 0.1, gatherers: 0.1, herders: 0.1 },
+    winter: { farmers: 0.3, builders: 0.4, gatherers: 0.2, herders: 0.1 }
+  },
+
   age: 1,
   ageGoals: {
     1: { name: 'Survival', pop: 100, year: 3, complete: false },
@@ -1064,6 +1072,24 @@ function tick() {
     }
   }
 
+  if (S.day === 1 && autoStarted) {
+    const seasonIdx = S.season;
+    const seasonName = S.seasons[seasonIdx].toLowerCase();
+    const recommended = S.seasonalPressure[seasonName];
+    
+    // Check if player's allocation is way off
+    const farmerDiff = Math.abs(S.farmers - recommended.farmers);
+    const builderDiff = Math.abs(S.builders - recommended.builders);
+    
+    if (farmerDiff > 0.2) {
+      toast(`⚠️ ${S.seasons[seasonIdx]}: Consider ${recommended.farmers * 100}% farmers (currently ${Math.round(S.farmers * 100)}%)`, 6000);
+    }
+    
+    if (seasonIdx === 2 && S.farmers < 0.6) {
+      showSeasonalGuide('autumn');
+    }
+  }
+
   // Morale dynamics
   const intensityPenalty = (S.workIntensity - 1.0) * 0.3;
   if (S.foodStock > needPerDay * 7) {
@@ -1333,11 +1359,22 @@ function showWinterWarning(daysLeft, daysOfFood) {
   }, 5500);
 }
 
+// In onBuildComplete() function, add:
 function onBuildComplete(b) {
   playSound('complete'); 
   if (b.type === 'well') S.health = Math.min(1, S.health + 0.2);
   if (b.type === 'livestock') S.livestock += 2;
-  toast(`${BUILDS[b.type].name} construction complete!`);
+  
+  // NEW: Suggest labor reallocation after completing construction
+  if (b.type === 'farm' && S.farmers < 0.4) {
+    toast(`${BUILDS[b.type].name} complete! Consider increasing farmers to use it.`, 4000);
+  }
+  
+  if (b.type === 'mill' && S.builders > 0.3) {
+    toast(`${BUILDS[b.type].name} complete! Reduce builders, boost production.`, 4000);
+  } else {
+    toast(`${BUILDS[b.type].name} construction complete!`);
+  }
 }
 
 // ============================================
@@ -2528,6 +2565,61 @@ function exportData() {
   URL.revokeObjectURL(url);
 
   toast('Data exported!');
+}
+
+
+// ============================================
+// Seasonal Guide Pop Up
+// ============================================
+function showSeasonalGuide(season) {
+  const guides = {
+    autumn: {
+      title: 'Autumn Strategy',
+      advice: 'Harvest season! Maximize farmers (60-70%) to stockpile food for winter. Reduce builders temporarily.',
+      recommended: 'Farmers: 70%, Builders: 10%, Gatherers: 10%, Herders: 10%'
+    },
+    winter: {
+      title: 'Winter Strategy', 
+      advice: 'Survival mode. Low food production means focus on construction and gathering. Keep some farmers for maintenance.',
+      recommended: 'Farmers: 30%, Builders: 40%, Gatherers: 20%, Herders: 10%'
+    },
+    spring: {
+      title: 'Spring Strategy',
+      advice: 'Planting season. High farmers needed to establish crops. Build infrastructure if food secure.',
+      recommended: 'Farmers: 60%, Builders: 20%, Gatherers: 10%, Herders: 10%'
+    }
+  };
+  
+  const guide = guides[season];
+  if (!guide) return;
+  
+  const popup = document.createElement('div');
+  popup.style.cssText = `
+    position: fixed;
+    top: 180px;
+    right: 20px;
+    background: linear-gradient(135deg, var(--panel), var(--panel2));
+    border: 2px solid var(--accent);
+    border-radius: 12px;
+    padding: 20px;
+    max-width: 300px;
+    z-index: 5000;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+  `;
+  
+  popup.innerHTML = `
+    <div style="font-size: 16px; font-weight: 700; margin-bottom: 12px; color: var(--accent);">${guide.title}</div>
+    <div style="font-size: 13px; line-height: 1.5; margin-bottom: 12px;">${guide.advice}</div>
+    <div style="font-size: 11px; background: #0b1224aa; padding: 10px; border-radius: 8px; margin-bottom: 12px;">
+      <strong>Recommended:</strong><br/>${guide.recommended}
+    </div>
+    <button style="width: 100%; padding: 8px; background: var(--accent); color: #000; border: none; border-radius: 6px; font-weight: 600; cursor: pointer;" onclick="this.parentElement.remove()">
+      Got it
+    </button>
+  `;
+  
+  document.body.appendChild(popup);
+  setTimeout(() => popup.remove(), 15000);
 }
 
 // ============================================
