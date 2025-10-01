@@ -42,8 +42,8 @@ const S = {
   workIntensity: 1.0,
 
   // Resources
-  materials: 30,
-  foodStock: 40,
+  materials: 20,
+  foodStock: 100,
   livestock: 0,
 
   // Economic indicators
@@ -353,6 +353,36 @@ function startGame() {
   if (landing) landing.style.display = 'none';
   if (gameContainer) gameContainer.style.display = 'grid';
 
+  // ADD: Pre-build starting infrastructure
+  const grid = el('grid');
+  const rect = grid.getBoundingClientRect();
+  
+  // Start with 3 farms
+  for (let i = 0; i < 3; i++) {
+    S.builds.push({
+      id: Date.now() + Math.random(),
+      type: 'farm',
+      x: 100 + i * 100,
+      y: 200,
+      done: true,
+      progress: BUILDS.farm.dur,
+      dur: BUILDS.farm.dur
+    });
+  }
+  
+  // Start with 2 houses
+  for (let i = 0; i < 2; i++) {
+    S.builds.push({
+      id: Date.now() + Math.random(),
+      type: 'house',
+      x: 100 + i * 100,
+      y: 100,
+      done: true,
+      progress: BUILDS.house.dur,
+      dur: BUILDS.house.dur
+    });
+  }
+
   // Spawn resources
   spawnNodes();
 
@@ -462,7 +492,7 @@ function tick() {
   S.foodStock += netFood;
 
   // Consumption
-  const needPerDay = S.pop * 0.15;
+  const needPerDay = S.pop * 0.10;
   S.foodStock -= needPerDay;
 
   // Real wage calculation (Malthusian indicator)
