@@ -353,37 +353,38 @@ function startGame() {
   if (landing) landing.style.display = 'none';
   if (gameContainer) gameContainer.style.display = 'grid';
 
-  // ADD: Pre-build starting infrastructure
+  // Get grid dimensions for building placement
   const grid = el('grid');
-  const rect = grid.getBoundingClientRect();
+  const gridRect = grid.getBoundingClientRect();
   
-  // Start with 3 farms
+  // Pre-build starting infrastructure in the sky area (top half)
+  // 3 farms in a row
   for (let i = 0; i < 3; i++) {
     S.builds.push({
-      id: Date.now() + Math.random(),
+      id: 'start_farm_' + i,
       type: 'farm',
-      x: 100 + i * 100,
-      y: 200,
+      x: 150 + i * 120,
+      y: 100,
       done: true,
       progress: BUILDS.farm.dur,
       dur: BUILDS.farm.dur
     });
   }
   
-  // Start with 2 houses
+  // 2 houses in a row
   for (let i = 0; i < 2; i++) {
     S.builds.push({
-      id: Date.now() + Math.random(),
+      id: 'start_house_' + i,
       type: 'house',
-      x: 100 + i * 100,
-      y: 100,
+      x: 200 + i * 120,
+      y: 30,
       done: true,
       progress: BUILDS.house.dur,
       dur: BUILDS.house.dur
     });
   }
 
-  // Spawn resources
+  // NOW spawn resources on ground, avoiding buildings
   spawnNodes();
 
   // Set up game
@@ -910,24 +911,59 @@ function spawnNodes() {
   if (!ground) return;
   const rect = ground.getBoundingClientRect();
 
-  // Trees - use TOP instead of BOTTOM
+  // Helper function to check if position overlaps with buildings
+  function overlapsBuilding(x, y) {
+    const nodeSize = 48;
+    for (let b of S.builds) {
+      const buildSize = 72;
+      // Check if rectangles overlap
+      if (x < b.x + buildSize && x + nodeSize > b.x &&
+          y < b.y + buildSize && y + nodeSize > b.y) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // Helper to get valid position
+  function getValidPosition() {
+    let attempts = 0;
+    while (attempts < 50) {
+      const x = 30 + Math.random() * (rect.width - 100);
+      const y = 10 + Math.random() * (rect.height - 60);
+      
+      if (!overlapsBuilding(x, y)) {
+        return { x, y };
+      }
+      attempts++;
+    }
+    // Fallback to random position if can't find valid spot
+    return {
+      x: 30 + Math.random() * (rect.width - 100),
+      y: 10 + Math.random() * (rect.height - 60)
+    };
+  }
+
+  // Spawn trees
   for (let i = 0; i < 5; i++) {
+    const pos = getValidPosition();
     S.nodes.push({
       id: 'tree' + i,
       type: 'tree',
-      x: 30 + Math.random() * (rect.width - 100),
-      y: 10 + Math.random() * (rect.height - 60),  // This will be used as TOP position
+      x: pos.x,
+      y: pos.y,
       hp: 3
     });
   }
 
-  // Rocks - use TOP instead of BOTTOM
+  // Spawn rocks
   for (let i = 0; i < 3; i++) {
+    const pos = getValidPosition();
     S.nodes.push({
       id: 'rock' + i,
       type: 'rock',
-      x: 30 + Math.random() * (rect.width - 100),
-      y: 10 + Math.random() * (rect.height - 60),  // This will be used as TOP position
+      x: pos.x,
+      y: pos.y,
       hp: 2
     });
   }
