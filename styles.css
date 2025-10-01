@@ -1185,7 +1185,8 @@ input[type="range"] {
   to { opacity: 1; }
 }
 
-@keyframes pulse {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.05); }
+
+@keyframes flashFade {
+  0% { opacity: 1; }
+  100% { opacity: 0; }
 }

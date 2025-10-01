@@ -111,7 +111,7 @@ const S = {
 
   // Resources
   materials: 20,
-  foodStock: 100,
+  foodStock: 40,
   livestock: 0,
 
   // Economic indicators
@@ -654,7 +654,7 @@ function initializeGameState() {
 
 function startTick() {
   const speedSel = el('speedSelect');
-  const speed = speedSel ? parseInt(speedSel.value) : 500;
+  const speed = speedSel ? parseInt(speedSel.value) : 250;
   if (tickInterval) clearInterval(tickInterval);
   tickInterval = setInterval(tick, speed);
 }
@@ -800,6 +800,8 @@ function tick() {
   : (S.realWage > 1.2 ? 0.15 : S.realWage > 0.9 ? 0.1 : 0.05);
   if (S.foodStock > needPerDay * 10 && S.pop < S.cap && Math.random() < fertilityRate) {
     S.pop++;
+    playSound('complete'); // ADD
+    toast('👶 Population +1! Village growing.', 2000);
   }
 
   // Livestock breeding
@@ -1422,7 +1424,27 @@ function unlockTech(key) {
   if (key === 'seedSelection') S.tfp *= 1.08;
   if (key === 'well') S.health = Math.min(1, S.health + 0.2);
 
-  toast(`Unlocked: ${t.name}!`);
+  // ADD CELEBRATION FOR FIRST TECH UNLOCK
+  const techCount = Object.keys(S.tech).filter(k => S.tech[k]).length;
+  if (techCount === 2) { // 2 because basicFarming starts unlocked
+    // Flash effect
+    const flash = document.createElement('div');
+    flash.style.cssText = `
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(circle, rgba(34,211,238,0.3), transparent);
+      z-index: 8000;
+      pointer-events: none;
+      animation: flashFade 1s ease-out;
+    `;
+    document.body.appendChild(flash);
+    setTimeout(() => flash.remove(), 1000);
+    
+    toast('First technology unlocked! Your civilization advances.', 4000);
+  } else {
+    toast(`Unlocked: ${t.name}!`);
+  }
+
   renderTechTree();
   updateUI();
 }
