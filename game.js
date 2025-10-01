@@ -518,15 +518,27 @@ function init() {
 function startGame() {
   const landing = el('landing');
   const gameContainer = el('gameContainer');
-  if (landing) landing.style.display = 'none';
-  if (gameContainer) gameContainer.style.display = 'grid';
-
-  // Get grid dimensions for building placement
-  const grid = el('grid');
-  const gridRect = grid.getBoundingClientRect();
   
-  // Pre-build starting infrastructure in the sky area (top half)
-  // 3 farms in a row
+  // Fade out landing
+  if (landing) {
+    landing.style.transition = 'opacity 0.3s';
+    landing.style.opacity = '0';
+    setTimeout(() => {
+      landing.style.display = 'none';
+      gameContainer.style.display = 'grid';
+      
+      // Initialize game
+      initializeGameState();
+      
+      // Show tutorial immediately (no delay)
+      showTutorial();
+    }, 300);
+  }
+}
+
+// Extract game initialization to separate function
+function initializeGameState() {
+  // Pre-build starting infrastructure
   for (let i = 0; i < 3; i++) {
     S.builds.push({
       id: 'start_farm_' + i,
@@ -539,7 +551,6 @@ function startGame() {
     });
   }
   
-  // 2 houses in a row
   for (let i = 0; i < 2; i++) {
     S.builds.push({
       id: 'start_house_' + i,
@@ -552,31 +563,13 @@ function startGame() {
     });
   }
 
-  // NOW spawn resources on ground, avoiding buildings
   spawnNodes();
-
-  // Set up game
   setupEventListeners();
   renderPalette();
   updateUI();
 
-  // Show tutorial after UI renders
-  setTimeout(() => showTutorial(), 500); // ADD THIS
-
-  // Auto-start on first interaction
   document.addEventListener('click', autoStart, { once: true });
   document.addEventListener('input', autoStart, { once: true });
-
-  toast('Welcome, Chief! Time will begin when you interact.');
-}
-
-function autoStart() {
-  if (!autoStarted) {
-    autoStarted = true;
-    startTick();
-    scheduleEvent();
-    toast('Time flows! Make decisions to grow your village.');
-  }
 }
 
 // ============================================
