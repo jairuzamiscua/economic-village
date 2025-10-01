@@ -184,7 +184,12 @@ const TUTORIAL_STEPS = [
 ];
 
 function showTutorial() {
-  if (S.tutorialCompleted) return;
+  console.log('showTutorial called, step:', S.tutorialStep); // DEBUG
+  
+  if (S.tutorialCompleted) {
+    console.log('Tutorial already completed');
+    return;
+  }
   
   const step = TUTORIAL_STEPS[S.tutorialStep];
   if (!step) {
@@ -193,61 +198,57 @@ function showTutorial() {
     return;
   }
   
-  // Remove any existing overlay first
+  console.log('Showing step:', step.title); // DEBUG
+  
+  // Remove any existing overlay
   const existingOverlay = document.getElementById('tutorialOverlay');
-  if (existingOverlay) existingOverlay.remove();
-  
-  const overlay = document.createElement('div');
-  overlay.id = 'tutorialOverlay';
-  overlay.style.cssText = `
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.85);
-    z-index: 9999;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    animation: fadeIn 0.3s;
-  `;
-  
-  overlay.innerHTML = `
-    <div style="background: linear-gradient(180deg, #111827ee, #0b1224cc); border: 2px solid #22d3ee; border-radius: 16px; padding: 32px; max-width: 500px; box-shadow: 0 20px 60px rgba(0,0,0,0.7);">
-      <h3 style="color: #22d3ee; margin-bottom: 16px; font-size: 20px;">${step.title}</h3>
-      <p style="margin-bottom: 24px; line-height: 1.6; font-size: 15px;">${step.text}</p>
-      <button class="btn primary" id="tutorialNext" style="width: 100%; padding: 12px; font-size: 14px;">
-        Got it (${S.tutorialStep + 1}/${TUTORIAL_STEPS.length})
-      </button>
-    </div>
-  `;
-  
-  document.body.appendChild(overlay);
-  
-  // Highlight target element
-  if (step.target) {
-    setTimeout(() => {
-      const target = el(step.target);
-      if (target) {
-        target.style.position = 'relative';
-        target.style.zIndex = '10000';
-        target.style.border = '3px solid #22d3ee';
-        target.style.boxShadow = '0 0 30px #22d3ee';
-      }
-    }, 50);
+  if (existingOverlay) {
+    console.log('Removing existing overlay');
+    existingOverlay.remove();
   }
   
-  const nextBtn = document.getElementById('tutorialNext');
-  if (nextBtn) {
-    nextBtn.onclick = () => {
-      // Remove highlight
-      if (step.target) {
-        const target = el(step.target);
-        if (target) {
-          target.style.border = '';
-          target.style.boxShadow = '';
-          target.style.zIndex = '';
-        }
-      }
-      
+  // Create overlay
+  const overlay = document.createElement('div');
+  overlay.id = 'tutorialOverlay';
+  overlay.style.position = 'fixed';
+  overlay.style.top = '0';
+  overlay.style.left = '0';
+  overlay.style.width = '100vw';
+  overlay.style.height = '100vh';
+  overlay.style.background = 'rgba(0,0,0,0.9)';
+  overlay.style.zIndex = '99999'; // SUPER HIGH
+  overlay.style.display = 'flex';
+  overlay.style.alignItems = 'center';
+  overlay.style.justifyContent = 'center';
+  
+  const box = document.createElement('div');
+  box.style.background = 'linear-gradient(180deg, #111827, #0b1224)';
+  box.style.border = '2px solid #22d3ee';
+  box.style.borderRadius = '16px';
+  box.style.padding = '32px';
+  box.style.maxWidth = '500px';
+  box.style.width = '90%';
+  box.style.boxShadow = '0 20px 60px rgba(0,0,0,0.7)';
+  
+  box.innerHTML = `
+    <h3 style="color: #22d3ee; margin-bottom: 16px; font-size: 20px;">${step.title}</h3>
+    <p style="margin-bottom: 24px; line-height: 1.6; font-size: 15px; color: #e5e7eb;">${step.text}</p>
+    <button id="tutorialNext" style="width: 100%; padding: 12px; font-size: 14px; background: linear-gradient(135deg, #22d3ee, #a78bfa); border: none; border-radius: 8px; color: #000; font-weight: 600; cursor: pointer;">
+      Got it (${S.tutorialStep + 1}/${TUTORIAL_STEPS.length})
+    </button>
+  `;
+  
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
+  
+  console.log('Overlay appended to body'); // DEBUG
+  
+  // Attach click handler
+  const btn = document.getElementById('tutorialNext');
+  if (btn) {
+    console.log('Button found, attaching handler');
+    btn.onclick = () => {
+      console.log('Button clicked');
       overlay.remove();
       S.tutorialStep++;
       
@@ -258,6 +259,8 @@ function showTutorial() {
         toast('Tutorial complete! Good luck, Chief.', 4000);
       }
     };
+  } else {
+    console.error('Tutorial button not found!');
   }
 }
 
