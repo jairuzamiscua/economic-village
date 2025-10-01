@@ -71,7 +71,10 @@ const S = {
   wageAbove13Years: 0,
 
   // Data export
-  history: []
+  history: [],
+
+  // Material Generation System
+  nodeRegenQueue: []
 };
 
 const TECH_TREE = {
@@ -434,6 +437,27 @@ function tick() {
     }
   });
 
+  // Resource regeneration check - FIXED
+  if (S.day === 1) {
+    // Loop backwards to safely remove items
+    for (let i = S.nodeRegenQueue.length - 1; i >= 0; i--) {
+      const regen = S.nodeRegenQueue[i];
+      if (S.year >= regen.regenTime) {
+        // Respawn the node
+        S.nodes.push({
+          id: regen.id + '_regen_' + S.year,
+          type: regen.type,
+          x: regen.x,
+          y: regen.y,
+          hp: regen.type === 'tree' ? 3 : 2
+        });
+        S.nodeRegenQueue.splice(i, 1);
+        toast(`A ${regen.type} has regrown!`);
+      }
+    }
+  }
+
+
   // Food production
   const farms = S.builds.filter(b => b.type === 'farm' && b.done).length;
   const mills = S.builds.filter(b => b.type === 'mill' && b.done).length;
@@ -520,7 +544,7 @@ function tick() {
   }
 
   // Famine (Malthusian crisis)
-  if (S.foodStock < -needPerDay * 3 && Math.random() < 0.1) {
+  if (S.year >= 3 && S.foodStock < -needPerDay * 3 && Math.random() < 0.1) {
     const famineDeaths = Math.floor(S.pop * 0.15);
     S.pop = Math.max(20, S.pop - famineDeaths);
     S.totalDeaths += famineDeaths;
@@ -534,7 +558,9 @@ function tick() {
   const houses = S.builds.filter(b => b.type === 'house' && b.done).length;
   S.cap = 100 + houses * 5;
 
-  const fertilityRate = S.realWage > 1.2 ? 0.15 : S.realWage > 0.9 ? 0.1 : 0.05;
+  const fertilityRate = S.year < 3 
+  ? (S.realWage > 1.2 ? 0.08 : S.realWage > 0.9 ? 0.05 : 0.02)
+  : (S.realWage > 1.2 ? 0.15 : S.realWage > 0.9 ? 0.1 : 0.05);
   if (S.foodStock > needPerDay * 10 && S.pop < S.cap && Math.random() < fertilityRate) {
     S.pop++;
   }
@@ -599,6 +625,8 @@ function tick() {
   // Update UI
   updateUI();
   updateTheoryStatus();
+
+
 }
 
 function onBuildComplete(b) {
@@ -1010,6 +1038,11 @@ function harvestNode(n) {
   S.materials += gain;
   toast(`Gathered +${gain} materials`);
   if (n.hp <= 0) {
+    // Store node for regeneration instead of deleting
+    S.nodeRegenQueue.push({
+      ...n,
+      regenTime: S.year + 5  // Respawn in 5 years
+    });
     S.nodes = S.nodes.filter(x => x.id !== n.id);
   }
   updateUI();
