@@ -362,7 +362,6 @@ h2 {
   bottom: 0;
   height: 55%;
   z-index: 1;
-  pointer-events: none;
 }
 
 /* ============================================

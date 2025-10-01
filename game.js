@@ -1122,25 +1122,27 @@ function harvestNode(n) {
 // ============================================
 
 function attachGridDnD() {
-  const grid = el('grid');
-  if (!grid) return;
+  const ground = el('ground'); // CHANGED from grid
+  if (!ground) return;
 
-  grid.addEventListener('dragover', e => {
+  ground.addEventListener('dragover', e => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'copy';
   });
 
-  grid.addEventListener('drop', e => {
+  ground.addEventListener('drop', e => {
     e.preventDefault();
     if (!draggedType) return;
 
     const b = BUILDS[draggedType];
     if (S.materials < b.mat) {
+      playSound('bad');
       toast('Not enough materials!');
       return;
     }
 
-    const rect = grid.getBoundingClientRect();
+    playSound('build');
+    const rect = ground.getBoundingClientRect(); // CHANGED from grid
     const x = e.clientX - rect.left - 36;
     const y = e.clientY - rect.top - 36;
 
