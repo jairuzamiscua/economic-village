@@ -2156,6 +2156,37 @@ function updateUI() {
     }
   }
 
+  // Show construction queue
+  const inProgress = S.builds.filter(b => !b.done);
+  const queueBox = el('constructionQueue');
+  const queueList = el('queueList');
+  
+  if (queueBox && queueList) {
+    if (inProgress.length > 0) {
+      queueBox.style.display = 'block';
+      queueList.innerHTML = inProgress.map(b => {
+        const pct = Math.round((b.progress / b.dur) * 100);
+        const eta = Math.ceil((b.dur - b.progress) / (builderPop * 0.02 * S.workIntensity));
+        return `
+          <div style="margin-bottom: 8px; padding: 6px; background: #0b1224; border-radius: 6px;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+              <span>${BUILDS[b.type].name}</span>
+              <span style="color: var(--accent);">${pct}%</span>
+            </div>
+            <div style="height: 4px; background: #1f2937; border-radius: 2px; overflow: hidden;">
+              <div style="height: 100%; width: ${pct}%; background: var(--accent); transition: width 0.3s;"></div>
+            </div>
+            <div style="font-size: 9px; color: var(--muted); margin-top: 2px;">
+              ETA: ~${eta} days
+            </div>
+          </div>
+        `;
+      }).join('');
+    } else {
+      queueBox.style.display = 'none';
+    }
+  }
+
   // Render
   renderPalette();
   renderGrid();
