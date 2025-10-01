@@ -559,14 +559,19 @@ function startGame() {
     setTimeout(() => {
       landing.style.display = 'none';
       gameContainer.style.display = 'grid';
+      gameContainer.style.opacity = '0'; // ADD: Start invisible
       
       // Initialize game state
       initializeGameState();
       
-      // Show tutorial after DOM renders
-      requestAnimationFrame(() => {
-        setTimeout(() => showTutorial(), 50);
-      });
+      // Show tutorial FIRST, before revealing game
+      showTutorial();
+      
+      // THEN fade in game behind the overlay
+      setTimeout(() => {
+        gameContainer.style.transition = 'opacity 0.3s';
+        gameContainer.style.opacity = '1';
+      }, 100);
     }, 300);
   }
 }
@@ -986,6 +991,25 @@ function updateUI() {
     if (S.realWage < 0.95) wb.className = 'badge bad';
     else if (S.realWage < 1.1) wb.className = 'badge warn';
     else wb.className = 'badge';
+  }
+
+  // Tech Notifcation
+  const affordableTechs = Object.keys(TECH_TREE).filter(key => {
+    const t = TECH_TREE[key];
+    return !S.tech[key] && 
+           t.req.every(r => S.tech[r]) && 
+           S.materials >= t.cost;
+  }).length;
+  
+  const btnTech = el('btnTech');
+  if (btnTech) {
+    if (affordableTechs > 0) {
+      btnTech.innerHTML = `Tech Tree <span style="background:var(--accent); color:#000; padding:2px 6px; border-radius:10px; font-size:10px; margin-left:4px;">${affordableTechs}</span>`;
+      btnTech.style.animation = 'pulse 2s infinite';
+    } else {
+      btnTech.textContent = 'Tech Tree';
+      btnTech.style.animation = '';
+    }
   }
 
   // Meters
