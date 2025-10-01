@@ -812,6 +812,32 @@ function tick() {
   const farmerPop = Math.floor(S.pop * S.farmers);
   const herderPop = Math.floor(S.pop * S.herders);
   const gathererPop = Math.floor(S.pop * S.gatherers);
+  
+  if (S.gatherJobs && S.gatherJobs.length > 0) {
+    const job = S.gatherJobs[0]; // Work first in queue
+    job.progress += gathererPop * 0.05 * S.workIntensity;
+    
+    if (job.progress >= job.required) {
+      // Job complete
+      const gain = job.type === 'tree' ? 4 : 5;
+      S.materials += gain;
+      playSound('harvest');
+      toast(`Gathered +${gain} materials from ${job.type}`);
+      
+      // Remove node
+      const node = S.nodes.find(n => n.id === job.nodeId);
+      if (node) {
+        S.nodeRegenQueue.push({
+          ...node,
+          regenTime: S.year + 5
+        });
+        S.nodes = S.nodes.filter(n => n.id !== job.nodeId);
+      }
+      
+      // Remove job
+      S.gatherJobs.shift();
+    }
+  }
 
   // ===== SEASONAL FOOD PRODUCTION =====
   const seasonData = SEASON_DATA[S.season];
@@ -1826,36 +1852,29 @@ function drawNodes() {
       ground.appendChild(node);
     }
     
-    // ADD HP INDICATOR
-    let hpBar = node.querySelector('.node-hp');
-    if (!hpBar) {
-      hpBar = document.createElement('div');
-      hpBar.className = 'node-hp';
-      hpBar.style.cssText = `
-        position: absolute;
-        bottom: 2px;
-        left: 2px;
-        right: 2px;
-        height: 4px;
-        background: #0b1224;
-        border-radius: 2px;
-      `;
-      const fill = document.createElement('div');
-      fill.className = 'node-hp-fill';
-      fill.style.cssText = `
-        height: 100%;
-        background: var(--accent);
-        border-radius: 2px;
-        transition: width 0.3s;
-      `;
-      hpBar.appendChild(fill);
-      node.appendChild(hpBar);
+    // Check if this node has an active gathering job
+    const activeJob = S.gatherJobs && S.gatherJobs.find(j => j.nodeId === n.id);
+    
+    if (activeJob) {
+      // Show progress ring for active jobs
+      node.style.opacity = '0.7';
+      let ring = node.querySelector('.ring');
+      if (!ring) {
+        ring = document.createElement('div');
+        ring.className = 'ring';
+        node.appendChild(ring);
+      }
+      const pct = Math.min(100, (activeJob.progress / activeJob.required) * 100);
+      ring.style.setProperty('--pct', pct);
+    } else {
+      // Remove ring if not active
+      node.style.opacity = '1';
+      const ring = node.querySelector('.ring');
+      if (ring) ring.remove();
     }
-    const fill = hpBar.querySelector('.node-hp-fill');
-    const maxHp = n.type === 'tree' ? 3 : 2;
-    fill.style.width = ((n.hp / maxHp) * 100) + '%';
   });
   
+  // Remove nodes that no longer exist
   [...ground.querySelectorAll('.node')].forEach(node => {
     if (!S.nodes.find(n => n.id === node.dataset.nodeid)) {
       node.remove();
@@ -1864,34 +1883,32 @@ function drawNodes() {
 }
 
 function harvestNode(n) {
-  // Require gatherers allocated
+  // Check if gatherers allocated
   if (S.gatherers < 0.05) {
     playSound('bad');
-    toast('Allocate at least 5% labor to Gatherers to harvest resources!');
+    toast('Need at least 5% gatherers to harvest!');
     return;
   }
   
-  // Gathering is now a process, not instant
-  const gathererPop = Math.floor(S.pop * S.gatherers);
-  const gatherSpeed = Math.max(0.2, gathererPop * 0.1); // Slower with fewer gatherers
-  
-  playSound('harvest'); 
-  n.hp -= gatherSpeed;
-  
-  if (n.hp <= 0) {
-    const gain = n.type === 'tree' ? 4 : 5;
-    S.materials += gain;
-    toast(`Gathered +${gain} materials`);
-    
-    S.nodeRegenQueue.push({
-      ...n,
-      regenTime: S.year + 5
-    });
-    S.nodes = S.nodes.filter(x => x.id !== n.id);
-  } else {
-    toast(`Harvesting... ${Math.round(n.hp)} HP left (need ${Math.round(S.gatherers * 100)}% gatherers)`);
+  // Check if already gathering this node
+  if (S.gatherJobs && S.gatherJobs.find(j => j.nodeId === n.id)) {
+    toast('Already gathering this resource...');
+    return;
   }
   
+  // Start gathering job
+  if (!S.gatherJobs) S.gatherJobs = [];
+  
+  S.gatherJobs.push({
+    id: Date.now() + Math.random(),
+    nodeId: n.id,
+    progress: 0,
+    required: n.type === 'tree' ? 8 : 6, // days of work
+    type: n.type
+  });
+  
+  playSound('click');
+  toast(`Started gathering ${n.type}...`);
   updateUI();
 }
 
