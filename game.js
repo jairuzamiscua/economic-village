@@ -17,6 +17,74 @@ const toast = (msg, duration = 3000) => {
   setTimeout(() => (t.style.display = 'none'), duration);
 };
 
+// Sound System
+const AudioContext = window.AudioContext || window.webkitAudioContext;
+const audioCtx = new AudioContext();
+
+function playSound(type) {
+  if (!audioCtx) return;
+  
+  const oscillator = audioCtx.createOscillator();
+  const gainNode = audioCtx.createGain();
+  
+  oscillator.connect(gainNode);
+  gainNode.connect(audioCtx.destination);
+  
+  switch(type) {
+    case 'click':
+      oscillator.frequency.value = 800;
+      gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+      oscillator.start(audioCtx.currentTime);
+      oscillator.stop(audioCtx.currentTime + 0.1);
+      break;
+      
+    case 'build':
+      oscillator.frequency.value = 400;
+      gainNode.gain.setValueAtTime(0.15, audioCtx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+      oscillator.start(audioCtx.currentTime);
+      oscillator.stop(audioCtx.currentTime + 0.3);
+      break;
+      
+    case 'harvest':
+      oscillator.frequency.value = 600;
+      oscillator.type = 'square';
+      gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
+      oscillator.start(audioCtx.currentTime);
+      oscillator.stop(audioCtx.currentTime + 0.15);
+      break;
+      
+    case 'complete':
+      oscillator.frequency.value = 523.25; // C5
+      gainNode.gain.setValueAtTime(0.2, audioCtx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+      oscillator.start(audioCtx.currentTime);
+      oscillator.frequency.setValueAtTime(659.25, audioCtx.currentTime + 0.1); // E5
+      oscillator.stop(audioCtx.currentTime + 0.4);
+      break;
+      
+    case 'tech':
+      oscillator.frequency.value = 880;
+      oscillator.type = 'sine';
+      gainNode.gain.setValueAtTime(0.15, audioCtx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+      oscillator.start(audioCtx.currentTime);
+      oscillator.stop(audioCtx.currentTime + 0.5);
+      break;
+      
+    case 'bad':
+      oscillator.frequency.value = 200;
+      oscillator.type = 'sawtooth';
+      gainNode.gain.setValueAtTime(0.2, audioCtx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+      oscillator.start(audioCtx.currentTime);
+      oscillator.stop(audioCtx.currentTime + 0.3);
+      break;
+  }
+}
+
 let autoStarted = false;
 let tickInterval = null;
 let draggedType = null;
@@ -630,6 +698,7 @@ function tick() {
 }
 
 function onBuildComplete(b) {
+  playSound('complete'); 
   if (b.type === 'well') S.health = Math.min(1, S.health + 0.2);
   if (b.type === 'livestock') S.livestock += 2;
   toast(`${BUILDS[b.type].name} construction complete!`);
@@ -1033,15 +1102,15 @@ function drawNodes() {
 }
 
 function harvestNode(n) {
+  playSound('harvest'); 
   n.hp--;
   const gain = n.type === 'tree' ? 4 : 5;
   S.materials += gain;
   toast(`Gathered +${gain} materials`);
   if (n.hp <= 0) {
-    // Store node for regeneration instead of deleting
     S.nodeRegenQueue.push({
       ...n,
-      regenTime: S.year + 5  // Respawn in 5 years
+      regenTime: S.year + 5
     });
     S.nodes = S.nodes.filter(x => x.id !== n.id);
   }
@@ -1145,10 +1214,12 @@ function renderTechTree() {
 function unlockTech(key) {
   const t = TECH_TREE[key];
   if (S.materials < t.cost) {
+    playSound('bad');
     toast('Not enough materials!');
     return;
   }
 
+  playSound('tech');
   S.materials -= t.cost;
   S.tech[key] = true;
 
@@ -1327,6 +1398,7 @@ function setupEventListeners() {
   const techClose = el('techClose');
   if (btnTech)
     btnTech.addEventListener('click', () => {
+      playSound('click');  
       renderTechTree();
       showModal('techModal');
     });
