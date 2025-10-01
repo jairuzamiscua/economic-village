@@ -868,8 +868,14 @@ function renderPalette() {
 
 function renderGrid() {
   const grid = el('grid');
-  if (!grid) return;
-  const existing = [...grid.querySelectorAll('.icon')];
+  const ground = el('ground');
+  if (!grid || !ground) return;
+  
+  // Check both grid and ground for existing icons
+  const existing = [
+    ...grid.querySelectorAll('.icon'),
+    ...ground.querySelectorAll('.icon')
+  ];
 
   S.builds.forEach(b => {
     let icon = existing.find(e => e.dataset.id == b.id);
@@ -879,7 +885,7 @@ function renderGrid() {
       icon.dataset.id = b.id;
       icon.style.left = b.x + 'px';
       icon.style.top = b.y + 'px';
-      grid.appendChild(icon);
+      ground.appendChild(icon); // CHANGED: append to ground instead of grid
     }
 
     if (!b.done) {
