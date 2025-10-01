@@ -528,6 +528,30 @@ const EVENTS = [
       S.tfp *= 0.9;
       toast('Tools degrade! -10% TFP');
     }
+  },
+  {
+   id: 'bad_harvest',
+    title: 'Bad Harvest',
+    desc: 'Blight hits the fields. Yields fall unexpectedly.',
+    effect: '−30% farm output for 20 days',
+    action: () => {
+      S.tfp *= 0.7;
+      setTimeout(() => (S.tfp /= 0.7), 20000);
+      toast('Bad harvest! Output down temporarily.');
+      return true;
+    }
+  },
+  {
+    id: 'rats_granary',
+    title: 'Rats in the Granary',
+    desc: 'Pests spoil your stores overnight.',
+    effect: 'Lose 25% of stored food',
+    action: () => {
+      const loss = Math.max(0, Math.floor(S.foodStock * 0.25));
+      S.foodStock = Math.max(0, S.foodStock - loss);
+      toast(`Rats! Lost ${loss} food from stores.`);
+      return true;
+    }
   }
 ];
 
@@ -546,7 +570,7 @@ const SEASON_DATA = {
   },
   1: { 
     name: 'Summer', 
-    mult: 1.1,
+    mult: 1.0,
     color: '#fcd34d',
     icon: '☀️',
     desc: 'Growing season - good yields',
@@ -554,7 +578,7 @@ const SEASON_DATA = {
   },
   2: { 
     name: 'Autumn',
-    mult: 1.8,
+    mult: 1.5,
     color: '#fb923c',
     icon: '🌾',
     desc: 'HARVEST! Store food for winter',
@@ -562,7 +586,7 @@ const SEASON_DATA = {
   },
   3: { 
     name: 'Winter',
-    mult: 0.2,
+    mult: 0.1,
     color: '#93c5fd',
     icon: '❄️',
     desc: 'SURVIVAL MODE - live on stores',
@@ -690,6 +714,42 @@ function initializeGameState() {
     });
   }
 
+  // Leaner start: 1 finished farm, 1 half-built farm, 1 house
+  S.builds.push({
+    id: 'start_farm_1',
+    type: 'farm',
+    x: 150,
+    y: 100,
+    done: true,
+    progress: BUILDS.farm.dur,
+    dur: BUILDS.farm.dur
+  });
+  S.builds.push({
+    id: 'start_farm_2',
+    type: 'farm',
+    x: 270,
+   y: 100,
+    done: false,
+    progress: BUILDS.farm.dur / 2,
+    dur: BUILDS.farm.dur
+  });
+  S.builds.push({
+    id: 'start_house_1',
+    type: 'house',
+    x: 200,
+    y: 30,
+    done: true,
+   progress: BUILDS.house.dur,
+   dur: BUILDS.house.dur
+  });
+
+  // Tighter early buffer & worried village
+  S.foodStock = 15;
+  S.morale = 0.45;
+
+
+
+
   spawnNodes();
   setupEventListeners();
   renderPalette();
@@ -761,7 +821,7 @@ function tick() {
 
   // Crop-specific multipliers
   const crop = CROP_DATA[S.cropType];
-  const baseFoodPerFarm = 3.5 * crop.yield;
+  const baseFoodPerFarm = 2.5 * crop.yield;
 
   // Farm production with SEASONAL multiplier
   let farmFood =
@@ -819,7 +879,10 @@ function tick() {
   // Total food
   const totalFood = farmFood + livestockFood;
   const spoilage = totalFood * w.spoil;
-  const netFood = totalFood - spoilage;
+  
+  // Year 1 villages have poor storage unless Granary tech is unlocked
+  const extraYearOneSpoil = (!S.tech.granary && S.year === 1) ? totalFood * 0.10 : 0;
+  const netFood = totalFood - spoilage - extraYearOneSpoil;
 
   // Store for UI display
   S.lastFoodProduction = netFood;
@@ -829,6 +892,16 @@ function tick() {
   // Consumption
   const needPerDay = S.pop * 0.10;
   S.foodStock -= needPerDay;
+
+  // Early survival warning in first Spring
+  if (S.year === 1 && S.season === 0 && S.day === 20) {
+   const daysOfFoodNow = S.foodStock / needPerDay;
+    if (daysOfFoodNow < 30) {
+     toast('⚠️ Your stores won’t last winter. Shift labor to farming and build another farm.', 6000);
+     const log = el('gameLog');
+     if (log) log.innerHTML = `<span style="color:var(--warn)">Early warning: You need ~90 days stored by end of Autumn.</span>`;
+    }
+  }
 
   // Real wage calculation (Malthusian indicator)
   S.realWage = (S.foodStock / Math.max(1, S.pop)) / 0.2;
@@ -858,6 +931,17 @@ function tick() {
         toast(`Winter takes its toll: -${deaths} population`, 4000);
         playSound('bad');
       }
+    }
+
+    // FIRST WINTER CHECK: if you didn't stockpile, people die
+    if (S.year === 1 && daysOfFood < 60) {
+      const deaths = Math.max(4, Math.floor(S.pop * 0.10));
+      S.pop = Math.max(10, S.pop - deaths);
+      S.totalDeaths += deaths;
+      const gameLog = el('gameLog');
+      if (gameLog) gameLog.innerHTML = `<span style="color:var(--bad)">First winter bites! ${deaths} villagers perished.</span>`;
+      toast(`First winter was harsh: -${deaths} population`, 4500);
+      playSound('bad');
     }
   }
 
@@ -2167,10 +2251,10 @@ function resetGame() {
     herders: 0.1,
     workIntensity: 1.0,
     materials: 30,
-    foodStock: 20,
+    foodStock: 15,
     livestock: 0,
-    health: 0.6,
-    morale: 0.6,
+    health: 0.55,
+    morale: 0.45,
     tfp: 1.0,
     landQuality: 1.0,
     realWage: 1.0,
