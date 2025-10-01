@@ -971,6 +971,22 @@ input[type="range"] {
   margin-top: 4px;
 }
 
+.tech-card.affordable {
+  border-color: var(--accent);
+  background: rgba(34, 211, 238, 0.1);
+  box-shadow: 0 0 12px rgba(34, 211, 238, 0.3);
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    box-shadow: 0 0 12px rgba(34, 211, 238, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(34, 211, 238, 0.5);
+  }
+}
+
 /* Progress Modal */
 .progress-bar-container {
   position: relative;

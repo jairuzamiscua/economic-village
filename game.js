@@ -998,10 +998,15 @@ function renderTechTree() {
   Object.keys(TECH_TREE).forEach(key => {
     const t = TECH_TREE[key];
     const unlocked = S.tech[key];
-    const canUnlock = !unlocked && t.req.every(r => S.tech[r]) && S.materials >= t.cost;
+    const reqsMet = t.req.every(r => S.tech[r]);
+    const canAfford = S.materials >= t.cost;
+    const canUnlock = !unlocked && reqsMet && canAfford;
 
     const card = document.createElement('div');
-    card.className = 'tech-card' + (unlocked ? ' unlocked' : '') + (!canUnlock && !unlocked ? ' locked' : '');
+    card.className = 'tech-card' + 
+      (unlocked ? ' unlocked' : '') + 
+      (!canUnlock && !unlocked ? ' locked' : '') +
+      (canAfford && reqsMet && !unlocked ? ' affordable' : ''); // NEW
 
     let reqText = '';
     if (t.req.length && !unlocked) {
