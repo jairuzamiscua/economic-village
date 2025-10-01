@@ -100,7 +100,7 @@ const S = {
 
   // Population
   pop: 80,
-  cap: 100,
+  cap: 150,
   totalDeaths: 0,
 
   // Labor allocation
