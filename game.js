@@ -138,6 +138,9 @@ const S = {
   // Win condition tracking
   wageAbove13Years: 0,
 
+  tutorialStep: 0,
+  tutorialCompleted: false,
+
   // Data export
   history: [],
 
@@ -145,6 +148,100 @@ const S = {
   nodeRegenQueue: []
 };
 
+
+// Tutorial Overlay
+const TUTORIAL_STEPS = [
+  {
+    target: 'buildPalette',
+    title: 'Build Your Economy',
+    text: 'Drag farms and houses onto the green area. Farms produce food, houses increase population cap.',
+    highlight: true
+  },
+  {
+    target: 'farmerSlider',
+    title: 'Allocate Labor',
+    text: '50% farmers grow food. 30% builders construct faster. Balance these carefully.',
+    highlight: true
+  },
+  {
+    target: 'realWage',
+    title: 'Watch Real Wages',
+    text: 'This is your survival meter. Below 1.0 = crisis. Population grows when wages are high.',
+    highlight: true
+  },
+  {
+    target: 'ground',
+    title: 'Gather Resources',
+    text: 'Click trees and rocks to gather materials for buildings and technology.',
+    highlight: true
+  },
+  {
+    target: 'btnTech',
+    title: 'Unlock Technologies',
+    text: 'Spend materials here to improve farming, reduce disease, and grow faster.',
+    highlight: true
+  }
+];
+
+function showTutorial() {
+  if (S.tutorialCompleted) return;
+  
+  const step = TUTORIAL_STEPS[S.tutorialStep];
+  if (!step) {
+    S.tutorialCompleted = true;
+    toast('Tutorial complete! Now survive and grow.', 5000);
+    return;
+  }
+  
+  const overlay = document.createElement('div');
+  overlay.id = 'tutorialOverlay';
+  overlay.style.cssText = `
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.8);
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  `;
+  
+  overlay.innerHTML = `
+    <div style="background: var(--panel); border: 2px solid var(--accent); border-radius: 16px; padding: 24px; max-width: 400px;">
+      <h3 style="color: var(--accent); margin-bottom: 12px;">${step.title}</h3>
+      <p style="margin-bottom: 20px;">${step.text}</p>
+      <button class="btn primary" id="tutorialNext">Got it (${S.tutorialStep + 1}/${TUTORIAL_STEPS.length})</button>
+    </div>
+  `;
+  
+  document.body.appendChild(overlay);
+  
+  if (step.target) {
+    const target = el(step.target);
+    if (target) {
+      target.style.border = '3px solid var(--accent)';
+      target.style.boxShadow = '0 0 20px var(--accent)';
+    }
+  }
+  
+  el('tutorialNext').onclick = () => {
+    if (step.target) {
+      const target = el(step.target);
+      if (target) {
+        target.style.border = '';
+        target.style.boxShadow = '';
+      }
+    }
+    overlay.remove();
+    S.tutorialStep++;
+    if (S.tutorialStep < TUTORIAL_STEPS.length) {
+      setTimeout(showTutorial, 1000);
+    } else {
+      S.tutorialCompleted = true;
+    }
+  };
+}
+
+// Tech Tree
 const TECH_TREE = {
   basicFarming: {
     name: 'Basic Farming',
