@@ -150,7 +150,16 @@ const S = {
   harvestBonusShown: false,
   seasonTransitionShown: false,
 
-    age: 1,
+  milestones: {
+    firstWinter: { complete: false, reward: 'materials', amount: 15 },
+    population100: { complete: false, reward: 'tfp', amount: 1.1 },
+    firstMill: { complete: false, reward: 'morale', amount: 0.2 },
+    marketBuilt: { complete: false, reward: 'materials_income', amount: 2 },
+    sustained_wage: { complete: false, reward: 'victory_progress', amount: 25 }
+  },
+  victoryProgress: 0,
+
+  age: 1,
   ageGoals: {
     1: { name: 'Survival', pop: 100, year: 3, complete: false },
     2: { name: 'Expansion', pop: 125, mills: 2, complete: false },
@@ -655,7 +664,6 @@ function autoStart() {
   if (!autoStarted) {
     autoStarted = true;
     startTick();
-    scheduleEvent();
     toast('Time flows! Make decisions to grow your village.');
   }
 }
@@ -804,6 +812,89 @@ function tick() {
         toast(`A ${regen.type} has regrown!`);
       }
     }
+  }
+
+  function checkMilestones() {
+  // First winter survival
+  if (!S.milestones.firstWinter.complete && S.year === 2 && S.season === 0) {
+    S.milestones.firstWinter.complete = true;
+    S.materials += 15;
+    showMilestone('Survived First Winter!', 'Gained 15 materials bonus', '+15 Materials');
+    playSound('complete');
+  }
+  
+  // Population milestone
+  if (!S.milestones.population100.complete && S.pop >= 100) {
+    S.milestones.population100.complete = true;
+    S.tfp *= 1.1;
+    showMilestone('Village Expansion!', 'Population reached 100', '+10% Productivity');
+    playSound('complete');
+  }
+  
+  // First mill (capital accumulation)
+  const mills = S.builds.filter(b => b.type === 'mill' && b.done).length;
+  if (!S.milestones.firstMill.complete && mills >= 1) {
+    S.milestones.firstMill.complete = true;
+    S.morale = Math.min(1, S.morale + 0.2);
+    showMilestone('Industrial Revolution Begins!', 'First windmill operational', '+20% Morale');
+    playSound('complete');
+  }
+  
+  // Market economy
+  const hasMarket = S.builds.some(b => b.type === 'market' && b.done);
+  if (!S.milestones.marketBuilt.complete && hasMarket) {
+    S.milestones.marketBuilt.complete = true;
+    S.materialsPerYear = 2; // Passive income
+    showMilestone('Market Economy Unlocked!', 'Trade generates passive materials', '+2 Materials/Year');
+    playSound('complete');
+  }
+  
+  // Sustained prosperity
+  if (!S.milestones.sustained_wage.complete && S.wageAbove13Years >= 1) {
+    S.milestones.sustained_wage.complete = true;
+    S.victoryProgress += 25;
+    showMilestone('Prosperity Sustained!', 'High wages for 1 full year', 'Victory: 25%');
+    playSound('complete');
+  }
+}
+
+  function showMilestone(title, desc, reward) {
+    const popup = document.createElement('div');
+    popup.style.cssText = `
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: linear-gradient(135deg, var(--accent)22, var(--panel));
+      border: 3px solid var(--accent);
+      border-radius: 16px;
+      padding: 30px 40px;
+      z-index: 10000;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.7);
+      text-align: center;
+      min-width: 350px;
+      animation: scaleIn 0.5s;
+    `;
+    
+    popup.innerHTML = `
+      <div style="font-size: 48px; margin-bottom: 16px;">🏆</div>
+      <div style="font-size: 22px; font-weight: 800; margin-bottom: 8px; color: var(--accent);">
+        ${title}
+      </div>
+      <div style="font-size: 14px; margin-bottom: 16px; color: var(--muted);">
+        ${desc}
+      </div>
+      <div style="font-size: 18px; font-weight: 700; color: var(--good); background: #0b1224aa; padding: 12px; border-radius: 8px;">
+        ${reward}
+      </div>
+    `;
+    
+    document.body.appendChild(popup);
+    
+    setTimeout(() => {
+      popup.style.animation = 'fadeOut 0.5s';
+      setTimeout(() => popup.remove(), 500);
+    }, 3500);
   }
 
   // Food production
@@ -1108,8 +1199,18 @@ function tick() {
   // Check win condition
   checkVictory();
 
+  // Check Milestones
+  checkMilestones();
+
+  if (S.milestones.marketBuilt.complete && S.day === 1) {
+    S.materials += S.materialsPerYear || 0;
+  }
+
   // Check critical alerts
   checkCriticalAlerts();
+
+  // Check for contextual events
+  checkContextualEvents()
 
   // Update UI
   updateUI();
@@ -1415,14 +1516,57 @@ function showWinterWarning(daysLeft, daysOfFood) {
 // EVENT SYSTEM
 // ============================================
 
-function scheduleEvent() {
-  const delay = 30000 + Math.random() * 20000; // 30-50 seconds
-  eventTimeout = setTimeout(() => {
-    if (!isPaused && autoStarted) {
-      triggerRandomEvent();
-    }
-    scheduleEvent();
-  }, delay);
+function checkContextualEvents() {
+  // Only check every 7 days to avoid spam
+  if (S.day % 7 !== 0) return;
+  
+  const possibleEvents = [];
+  
+  // Crisis events (only when struggling)
+  if (S.realWage < 0.9 && S.foodStock < S.pop * 2) {
+    const evt = EVENTS.find(e => e.id === 'neighbor_aid');
+    if (evt) possibleEvents.push(evt);
+  }
+  
+  if (S.foodStock < 0 && S.livestock >= 3) {
+    const evt = EVENTS.find(e => e.id === 'harsh_winter');
+    if (evt) possibleEvents.push(evt);
+  }
+  
+  // Opportunity events (only when thriving)
+  if (S.materials >= 20 && S.realWage > 1.2) {
+    const evt = EVENTS.find(e => e.id === 'merchant_tools');
+    if (evt) possibleEvents.push(evt);
+  }
+  
+  if (S.morale < 0.4 && S.foodStock > S.pop * 10) {
+    const evt = EVENTS.find(e => e.id === 'festival');
+    if (evt) possibleEvents.push(evt);
+  }
+  
+  // Tech opportunity (only if can actually afford and use it)
+  if (S.materials >= 15 && !S.tech.heavyPlough && S.tech.livestock) {
+    const evt = EVENTS.find(e => e.id === 'scholar');
+    if (evt) possibleEvents.push(evt);
+  }
+  
+  // Tool maintenance (only if you have TFP to lose)
+  if (S.tfp > 1.2 && S.materials < 20) {
+    const evt = EVENTS.find(e => e.id === 'tool_repair');
+    if (evt) possibleEvents.push(evt);
+  }
+  
+  // Bandit threat (only mid-game)
+  if (S.year >= 2 && S.materials >= 10 && Math.random() < 0.3) {
+    const evt = EVENTS.find(e => e.id === 'bandits');
+    if (evt) possibleEvents.push(evt);
+  }
+  
+  // Trigger one if conditions met (30% chance when eligible)
+  if (possibleEvents.length > 0 && Math.random() < 0.3) {
+    const event = possibleEvents[Math.floor(Math.random() * possibleEvents.length)];
+    showEventCard(event);
+  }
 }
 
 function triggerRandomEvent() {
@@ -1637,6 +1781,12 @@ function updateUI() {
   if (herderPct) herderPct.textContent = Math.round(S.herders * 100) + '%';
   if (gathererPct) gathererPct.textContent = Math.round(S.gatherers * 100) + '%';
   if (idlePct) idlePct.textContent = Math.round(idle * 100) + '%';
+
+  const victoryBar = el('victoryProgressBar');
+  if (victoryBar) {
+    victoryBar.style.width = S.victoryProgress + '%';
+    victoryBar.textContent = S.victoryProgress + '%';
+  }
 
   // Render
   renderPalette();
@@ -2061,8 +2211,16 @@ function checkVictory() {
   const hasMarket = S.builds.some(b => b.type === 'market' && b.done);
   const mills = S.builds.filter(b => b.type === 'mill' && b.done).length;
   const capitalGoods = mills >= 3;
-
-  if (pop150 && wage13 && hasMarket && capitalGoods) {
+  
+  // Progressive victory counter
+  S.victoryProgress = 0;
+  if (pop150) S.victoryProgress += 25;
+  if (wage13) S.victoryProgress += 25;
+  if (hasMarket) S.victoryProgress += 25;
+  if (capitalGoods) S.victoryProgress += 25;
+  
+  // Show victory when all complete
+  if (S.victoryProgress >= 100) {
     showVictory();
   }
 }
