@@ -1090,6 +1090,29 @@ function tick() {
     }
   }
 
+  // In tick(), after season change:
+  if (S.day === 1 && autoStarted) {
+  const seasonIdx = S.season;
+  
+  // Critical autumn warning
+  if (seasonIdx === 2 && S.farmers < 0.6) {
+    showSeasonalGuide('autumn');
+    highlightSlider('farmer', 8000);
+  }
+  
+  // Winter construction opportunity
+  if (seasonIdx === 3 && S.builders < 0.3) {
+    showSeasonalGuide('winter');
+    highlightSlider('builder', 8000);
+  }
+  
+  // Spring planting
+  if (seasonIdx === 0 && S.farmers < 0.5) {
+    showSeasonalGuide('spring');
+    highlightSlider('farmer', 8000);
+  }
+}
+
   // Morale dynamics
   const intensityPenalty = (S.workIntensity - 1.0) * 0.3;
   if (S.foodStock > needPerDay * 7) {
@@ -1718,6 +1741,35 @@ function updateUI() {
   if (landQual) landQual.textContent = Math.round(S.landQuality * 100) + '%';
   if (landPolicy) landPolicy.textContent = S.landPolicy === 'commons' ? 'Commons' : 'Enclosed';
   if (intensityPct) intensityPct.textContent = Math.round(S.workIntensity * 100) + '%';
+
+  const laborHeader = document.querySelector('.labor').previousElementSibling; // The <h2>
+  if (laborHeader && autoStarted) {
+    let badge = laborHeader.querySelector('.labor-hint');
+    
+    const needsAdjustment = 
+      (S.season === 2 && S.farmers < 0.6) ||
+      (S.season === 3 && S.builders < 0.3) ||
+      (S.season === 0 && S.farmers < 0.5);
+    
+    if (needsAdjustment && !badge) {
+      badge = document.createElement('span');
+      badge.className = 'labor-hint';
+      badge.style.cssText = `
+        background: var(--warn);
+        color: #000;
+        padding: 2px 8px;
+        border-radius: 10px;
+        font-size: 10px;
+        margin-left: 8px;
+        font-weight: 700;
+        animation: pulse 2s infinite;
+      `;
+      badge.textContent = '! ADJUST';
+      laborHeader.appendChild(badge);
+    } else if (!needsAdjustment && badge) {
+      badge.remove();
+    }
+  }
 
   // Real wage badge
   const wb = el('wagebadge');
@@ -2571,55 +2623,158 @@ function exportData() {
 // ============================================
 // Seasonal Guide Pop Up
 // ============================================
+// In showSeasonalGuide() function, REPLACE the popup with:
 function showSeasonalGuide(season) {
   const guides = {
     autumn: {
-      title: 'Autumn Strategy',
-      advice: 'Harvest season! Maximize farmers (60-70%) to stockpile food for winter. Reduce builders temporarily.',
-      recommended: 'Farmers: 70%, Builders: 10%, Gatherers: 10%, Herders: 10%'
+      title: 'HARVEST SEASON',
+      advice: 'Maximize food production NOW to survive winter',
+      farmers: 70,
+      builders: 10,
+      gatherers: 10,
+      herders: 10
     },
     winter: {
-      title: 'Winter Strategy', 
-      advice: 'Survival mode. Low food production means focus on construction and gathering. Keep some farmers for maintenance.',
-      recommended: 'Farmers: 30%, Builders: 40%, Gatherers: 20%, Herders: 10%'
+      title: 'WINTER STRATEGY',
+      advice: 'Low food production - focus on construction',
+      farmers: 30,
+      builders: 40,
+      gatherers: 20,
+      herders: 10
     },
     spring: {
-      title: 'Spring Strategy',
-      advice: 'Planting season. High farmers needed to establish crops. Build infrastructure if food secure.',
-      recommended: 'Farmers: 60%, Builders: 20%, Gatherers: 10%, Herders: 10%'
+      title: 'PLANTING SEASON',
+      advice: 'Establish crops for the growing season',
+      farmers: 60,
+      builders: 20,
+      gatherers: 10,
+      herders: 10
+    },
+    summer: {
+      title: 'GROWTH SEASON',
+      advice: 'Balance food and infrastructure',
+      farmers: 50,
+      builders: 30,
+      gatherers: 10,
+      herders: 10
     }
   };
   
   const guide = guides[season];
   if (!guide) return;
   
-  const popup = document.createElement('div');
-  popup.style.cssText = `
+  // Highlight the labor panel
+  const laborPanel = document.querySelector('.labor');
+  if (laborPanel) {
+    laborPanel.style.border = '3px solid var(--warn)';
+    laborPanel.style.animation = 'pulse 1.5s ease-in-out 3';
+    
+    setTimeout(() => {
+      laborPanel.style.border = '';
+      laborPanel.style.animation = '';
+    }, 5000);
+  }
+  
+  // Show overlay directly over labor sliders
+  const overlay = document.createElement('div');
+  overlay.id = 'laborGuideOverlay';
+  overlay.style.cssText = `
     position: fixed;
-    top: 180px;
-    right: 20px;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.85);
+    z-index: 9500;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: fadeIn 0.3s;
+  `;
+  
+  const box = document.createElement('div');
+  box.style.cssText = `
     background: linear-gradient(135deg, var(--panel), var(--panel2));
-    border: 2px solid var(--accent);
-    border-radius: 12px;
-    padding: 20px;
-    max-width: 300px;
-    z-index: 5000;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    border: 3px solid var(--warn);
+    border-radius: 16px;
+    padding: 30px;
+    max-width: 500px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.7);
   `;
   
-  popup.innerHTML = `
-    <div style="font-size: 16px; font-weight: 700; margin-bottom: 12px; color: var(--accent);">${guide.title}</div>
-    <div style="font-size: 13px; line-height: 1.5; margin-bottom: 12px;">${guide.advice}</div>
-    <div style="font-size: 11px; background: #0b1224aa; padding: 10px; border-radius: 8px; margin-bottom: 12px;">
-      <strong>Recommended:</strong><br/>${guide.recommended}
+  box.innerHTML = `
+    <div style="font-size: 24px; font-weight: 800; margin-bottom: 12px; color: var(--warn); text-align: center;">
+      ${guide.title}
     </div>
-    <button style="width: 100%; padding: 8px; background: var(--accent); color: #000; border: none; border-radius: 6px; font-weight: 600; cursor: pointer;" onclick="this.parentElement.remove()">
-      Got it
-    </button>
+    <div style="font-size: 15px; line-height: 1.6; margin-bottom: 20px; text-align: center;">
+      ${guide.advice}
+    </div>
+    
+    <div style="background: #0b1224aa; border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 20px;">
+      <div style="font-size: 13px; font-weight: 600; margin-bottom: 12px; color: var(--accent);">Recommended Allocation:</div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 13px;">
+        <div>👨‍🌾 Farmers:</div><div style="text-align: right; font-weight: 700;">${guide.farmers}%</div>
+        <div>🔨 Builders:</div><div style="text-align: right; font-weight: 700;">${guide.builders}%</div>
+        <div>🪓 Gatherers:</div><div style="text-align: right; font-weight: 700;">${guide.gatherers}%</div>
+        <div>🐑 Herders:</div><div style="text-align: right; font-weight: 700;">${guide.herders}%</div>
+      </div>
+      
+      <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); font-size: 11px; color: var(--muted);">
+        Current: Farmers ${Math.round(S.farmers * 100)}%, Builders ${Math.round(S.builders * 100)}%, Gatherers ${Math.round(S.gatherers * 100)}%, Herders ${Math.round(S.herders * 100)}%
+      </div>
+    </div>
+    
+    <div style="display: flex; gap: 12px;">
+      <button id="btnApplyLabor" style="flex: 1; padding: 12px; background: linear-gradient(135deg, var(--accent), var(--accent2)); border: none; border-radius: 8px; color: #000; font-weight: 700; cursor: pointer; font-size: 14px;">
+        Apply Recommendation
+      </button>
+      <button id="btnIgnoreLabor" style="flex: 1; padding: 12px; background: transparent; border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-weight: 600; cursor: pointer; font-size: 14px;">
+        I'll Adjust Myself
+      </button>
+    </div>
   `;
   
-  document.body.appendChild(popup);
-  setTimeout(() => popup.remove(), 15000);
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
+  
+  // Apply button
+  document.getElementById('btnApplyLabor').onclick = () => {
+    S.farmers = guide.farmers / 100;
+    S.builders = guide.builders / 100;
+    S.gatherers = guide.gatherers / 100;
+    S.herders = guide.herders / 100;
+    normalizeLabor();
+    updateUI();
+    overlay.remove();
+    toast(`Labor adjusted for ${guide.title}`, 3000);
+    playSound('click');
+  };
+  
+  // Ignore button
+  document.getElementById('btnIgnoreLabor').onclick = () => {
+    overlay.remove();
+    playSound('click');
+  };
+}
+
+function highlightSlider(sliderType, duration = 5000) {
+  const slider = el(sliderType + 'Slider');
+  const label = slider?.parentElement;
+  
+  if (label) {
+    label.style.background = 'rgba(251, 146, 60, 0.2)';
+    label.style.border = '2px solid var(--warn)';
+    label.style.borderRadius = '8px';
+    label.style.padding = '8px';
+    label.style.animation = 'pulse 1.5s ease-in-out infinite';
+    
+    setTimeout(() => {
+      label.style.background = '';
+      label.style.border = '';
+      label.style.padding = '';
+      label.style.animation = '';
+    }, duration);
+  }
 }
 
 // ============================================
