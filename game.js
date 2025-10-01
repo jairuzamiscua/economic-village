@@ -2157,12 +2157,14 @@ function updateUI() {
   }
 
   // Show construction queue
+  // Show construction queue
   const inProgress = S.builds.filter(b => !b.done);
   const queueBox = el('constructionQueue');
   const queueList = el('queueList');
   
   if (queueBox && queueList) {
     if (inProgress.length > 0) {
+      const builderPop = Math.floor(S.pop * S.builders); // Calculate it locally
       queueBox.style.display = 'block';
       queueList.innerHTML = inProgress.map(b => {
         const pct = Math.round((b.progress / b.dur) * 100);
