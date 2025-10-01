@@ -43,7 +43,7 @@ const S = {
 
   // Resources
   materials: 30,
-  foodStock: 20,
+  foodStock: 40,
   livestock: 0,
 
   // Economic indicators
@@ -415,7 +415,7 @@ function tick() {
 
   // Crop-specific multipliers
   const crop = CROP_DATA[S.cropType];
-  const baseFoodPerFarm = 2.0 * crop.yield;
+  const baseFoodPerFarm = 3.5 * crop.yield;
 
   // Farm production
   let farmFood =
@@ -462,7 +462,7 @@ function tick() {
   S.foodStock += netFood;
 
   // Consumption
-  const needPerDay = S.pop * 0.2;
+  const needPerDay = S.pop * 0.15;
   S.foodStock -= needPerDay;
 
   // Real wage calculation (Malthusian indicator)
@@ -905,8 +905,7 @@ function spawnNodes() {
 
 function drawNodes() {
   const ground = el('ground');
-  if (!ground) return;
-
+  
   S.nodes.forEach(n => {
     let node = ground.querySelector(`[data-nodeid="${n.id}"]`);
     if (!node) {
@@ -915,12 +914,14 @@ function drawNodes() {
       node.dataset.nodeid = n.id;
       node.style.left = n.x + 'px';
       node.style.bottom = n.y + 'px';
-      node.textContent = n.type === 'tree' ? '🌳' : '🪨';
+      node.style.cursor = 'pointer';
+      node.style.pointerEvents = 'auto';
+      node.style.zIndex = '10';
       node.onclick = () => harvestNode(n);
       ground.appendChild(node);
     }
   });
-
+  
   [...ground.querySelectorAll('.node')].forEach(node => {
     if (!S.nodes.find(n => n.id === node.dataset.nodeid)) {
       node.remove();
@@ -1277,13 +1278,15 @@ function normalizeLabor() {
 // ============================================
 
 function showModal(id) {
-  const m = el(id);
-  if (m) m.classList.add('show');
+  el(id).classList.add('show');
+  isPaused = true;
 }
 
 function hideModal(id) {
-  const m = el(id);
-  if (m) m.classList.remove('show');
+  el(id).classList.remove('show');
+  if (!el('eventCard').classList.contains('show')) {
+    isPaused = false;
+  }
 }
 
 function saveGame() {
