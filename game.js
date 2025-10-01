@@ -560,6 +560,9 @@ function startGame() {
   renderPalette();
   updateUI();
 
+  // Show tutorial after UI renders
+  setTimeout(() => showTutorial(), 500); // ADD THIS
+
   // Auto-start on first interaction
   document.addEventListener('click', autoStart, { once: true });
   document.addEventListener('input', autoStart, { once: true });
