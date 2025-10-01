@@ -107,6 +107,7 @@ const S = {
   farmers: 0.5,
   builders: 0.3,
   herders: 0.1,
+  gatherers: 0.1,
   workIntensity: 1.0,
 
   // Resources
@@ -810,6 +811,7 @@ function tick() {
   const mills = S.builds.filter(b => b.type === 'mill' && b.done).length;
   const farmerPop = Math.floor(S.pop * S.farmers);
   const herderPop = Math.floor(S.pop * S.herders);
+  const gathererPop = Math.floor(S.pop * S.gatherers);
 
   // ===== SEASONAL FOOD PRODUCTION =====
   const seasonData = SEASON_DATA[S.season];
@@ -1814,7 +1816,7 @@ function drawNodes() {
       node.className = 'node ' + n.type;
       node.dataset.nodeid = n.id;
       node.style.left = n.x + 'px';
-      node.style.top = n.y + 'px';  // CHANGED from bottom to top
+      node.style.top = n.y + 'px';
       
       node.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -1823,6 +1825,35 @@ function drawNodes() {
       
       ground.appendChild(node);
     }
+    
+    // ADD HP INDICATOR
+    let hpBar = node.querySelector('.node-hp');
+    if (!hpBar) {
+      hpBar = document.createElement('div');
+      hpBar.className = 'node-hp';
+      hpBar.style.cssText = `
+        position: absolute;
+        bottom: 2px;
+        left: 2px;
+        right: 2px;
+        height: 4px;
+        background: #0b1224;
+        border-radius: 2px;
+      `;
+      const fill = document.createElement('div');
+      fill.className = 'node-hp-fill';
+      fill.style.cssText = `
+        height: 100%;
+        background: var(--accent);
+        border-radius: 2px;
+        transition: width 0.3s;
+      `;
+      hpBar.appendChild(fill);
+      node.appendChild(hpBar);
+    }
+    const fill = hpBar.querySelector('.node-hp-fill');
+    const maxHp = n.type === 'tree' ? 3 : 2;
+    fill.style.width = ((n.hp / maxHp) * 100) + '%';
   });
   
   [...ground.querySelectorAll('.node')].forEach(node => {
@@ -1833,18 +1864,34 @@ function drawNodes() {
 }
 
 function harvestNode(n) {
+  // Require gatherers allocated
+  if (S.gatherers < 0.05) {
+    playSound('bad');
+    toast('Allocate at least 5% labor to Gatherers to harvest resources!');
+    return;
+  }
+  
+  // Gathering is now a process, not instant
+  const gathererPop = Math.floor(S.pop * S.gatherers);
+  const gatherSpeed = Math.max(0.2, gathererPop * 0.1); // Slower with fewer gatherers
+  
   playSound('harvest'); 
-  n.hp--;
-  const gain = n.type === 'tree' ? 4 : 5;
-  S.materials += gain;
-  toast(`Gathered +${gain} materials`);
+  n.hp -= gatherSpeed;
+  
   if (n.hp <= 0) {
+    const gain = n.type === 'tree' ? 4 : 5;
+    S.materials += gain;
+    toast(`Gathered +${gain} materials`);
+    
     S.nodeRegenQueue.push({
       ...n,
       regenTime: S.year + 5
     });
     S.nodes = S.nodes.filter(x => x.id !== n.id);
+  } else {
+    toast(`Harvesting... ${Math.round(n.hp)} HP left (need ${Math.round(S.gatherers * 100)}% gatherers)`);
   }
+  
   updateUI();
 }
 
@@ -2089,7 +2136,15 @@ function setupEventListeners() {
   const farmerSlider = el('farmerSlider');
   const builderSlider = el('builderSlider');
   const herderSlider = el('herderSlider');
+  const gathererSlider = el('gathererSlider');
   const intensitySlider = el('intensitySlider');
+
+  if (gathererSlider)
+    gathererSlider.addEventListener('input', e => {
+      S.gatherers = e.target.value / 100;
+      normalizeLabor();
+      updateUI();
+    });
 
   if (farmerSlider)
     farmerSlider.addEventListener('input', e => {
@@ -2196,19 +2251,22 @@ function setupEventListeners() {
 }
 
 function normalizeLabor() {
-  const total = S.farmers + S.builders + S.herders;
+  const total = S.farmers + S.builders + S.herders + S.gatherers; // ADD S.gatherers
   if (total > 1) {
     const scale = 1 / total;
     S.farmers *= scale;
     S.builders *= scale;
     S.herders *= scale;
+    S.gatherers *= scale; // ADD THIS LINE
   }
   const fs = el('farmerSlider');
   const bs = el('builderSlider');
   const hs = el('herderSlider');
+  const gs = el('gathererSlider'); // ADD THIS LINE
   if (fs) fs.value = S.farmers * 100;
   if (bs) bs.value = S.builders * 100;
   if (hs) hs.value = S.herders * 100;
+  if (gs) gs.value = S.gatherers * 100; // ADD THIS LINE
 }
 
 // ============================================
@@ -2249,6 +2307,7 @@ function resetGame() {
     farmers: 0.5,
     builders: 0.3,
     herders: 0.1,
+    gatherers: 0.1,
     workIntensity: 1.0,
     materials: 30,
     foodStock: 15,
