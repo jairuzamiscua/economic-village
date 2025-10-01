@@ -905,6 +905,7 @@ function spawnNodes() {
 
 function drawNodes() {
   const ground = el('ground');
+  if (!ground) return;
   
   S.nodes.forEach(n => {
     let node = ground.querySelector(`[data-nodeid="${n.id}"]`);
@@ -916,12 +917,19 @@ function drawNodes() {
       node.style.bottom = n.y + 'px';
       node.style.cursor = 'pointer';
       node.style.pointerEvents = 'auto';
-      node.style.zIndex = '10';
-      node.onclick = () => harvestNode(n);
+      node.style.zIndex = '100'; // Increase this significantly
+      
+      // Make sure click handler is attached
+      node.addEventListener('click', (e) => {
+        e.stopPropagation(); // Prevent event bubbling
+        harvestNode(n);
+      });
+      
       ground.appendChild(node);
     }
   });
   
+  // Clean up removed nodes
   [...ground.querySelectorAll('.node')].forEach(node => {
     if (!S.nodes.find(n => n.id === node.dataset.nodeid)) {
       node.remove();
