@@ -880,24 +880,24 @@ function spawnNodes() {
   if (!ground) return;
   const rect = ground.getBoundingClientRect();
 
-  // Trees
+  // Trees - use TOP instead of BOTTOM
   for (let i = 0; i < 5; i++) {
     S.nodes.push({
       id: 'tree' + i,
       type: 'tree',
       x: 30 + Math.random() * (rect.width - 100),
-      y: 10 + Math.random() * (rect.height - 60),
+      y: 10 + Math.random() * (rect.height - 60),  // This will be used as TOP position
       hp: 3
     });
   }
 
-  // Rocks
+  // Rocks - use TOP instead of BOTTOM
   for (let i = 0; i < 3; i++) {
     S.nodes.push({
       id: 'rock' + i,
       type: 'rock',
       x: 30 + Math.random() * (rect.width - 100),
-      y: 10 + Math.random() * (rect.height - 60),
+      y: 10 + Math.random() * (rect.height - 60),  // This will be used as TOP position
       hp: 2
     });
   }
@@ -914,14 +914,10 @@ function drawNodes() {
       node.className = 'node ' + n.type;
       node.dataset.nodeid = n.id;
       node.style.left = n.x + 'px';
-      node.style.bottom = n.y + 'px';
-      node.style.cursor = 'pointer';
-      node.style.pointerEvents = 'auto';
-      node.style.zIndex = '100'; // Increase this significantly
+      node.style.top = n.y + 'px';  // CHANGED from bottom to top
       
-      // Make sure click handler is attached
       node.addEventListener('click', (e) => {
-        e.stopPropagation(); // Prevent event bubbling
+        e.stopPropagation();
         harvestNode(n);
       });
       
@@ -929,7 +925,6 @@ function drawNodes() {
     }
   });
   
-  // Clean up removed nodes
   [...ground.querySelectorAll('.node')].forEach(node => {
     if (!S.nodes.find(n => n.id === node.dataset.nodeid)) {
       node.remove();
