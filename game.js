@@ -538,6 +538,15 @@ function init() {
   rollWeather();
 }
 
+function autoStart() {
+  if (!autoStarted) {
+    autoStarted = true;
+    startTick();
+    scheduleEvent();
+    toast('Time flows! Make decisions to grow your village.');
+  }
+}
+
 function startGame() {
   const landing = el('landing');
   const gameContainer = el('gameContainer');
