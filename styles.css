@@ -297,7 +297,7 @@ h2 {
 /* ============================================
    MAP VIEW
    ============================================ */
-
+   
 .view {
   height: 100%;
   min-height: 500px;
@@ -311,6 +311,11 @@ h2 {
   );
   position: relative;
   overflow: hidden;
+  pointer-events: none; /* ADD THIS */
+}
+
+.view * {
+  pointer-events: auto; /* ADD THIS - let children catch events */
 }
 
 .hud {
