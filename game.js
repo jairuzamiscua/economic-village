@@ -176,6 +176,8 @@ const S = {
   gatherers: 0, // For gatherer system if you implement it
   lastFoodProduction: 0, // Track food production for display
 
+  lastLaborWarning: -1, // Prevent spam
+
   // Material Generation System
   nodeRegenQueue: []
 };
@@ -796,7 +798,14 @@ function tick() {
   const builderPop = Math.floor(S.pop * S.builders);
   S.builds.forEach(b => {
     if (!b.done) {
+      const oldProgress = b.progress;
       b.progress += builderPop * 0.02 * S.workIntensity;
+      
+      // Audio feedback at milestones
+      if (Math.floor(oldProgress / (b.dur / 4)) < Math.floor(b.progress / (b.dur / 4))) {
+        playSound('click'); // Quarter completion sound
+      }
+      
       if (b.progress >= b.dur) {
         b.done = true;
         onBuildComplete(b);
@@ -824,47 +833,47 @@ function tick() {
 
   function checkMilestones() {
   // First winter survival
-  if (!S.milestones.firstWinter.complete && S.year === 2 && S.season === 0) {
-    S.milestones.firstWinter.complete = true;
-    S.materials += 15;
-    showMilestone('Survived First Winter!', 'Gained 15 materials bonus', '+15 Materials');
-    playSound('complete');
+    if (!S.milestones.firstWinter.complete && S.year === 2 && S.season === 0) {
+      S.milestones.firstWinter.complete = true;
+      S.materials += 15;
+      showMilestone('Survived First Winter!', 'Gained 15 materials bonus', '+15 Materials');
+      playSound('complete');
+    }
+    
+    // Population milestone
+    if (!S.milestones.population100.complete && S.pop >= 100) {
+      S.milestones.population100.complete = true;
+      S.tfp *= 1.1;
+      showMilestone('Village Expansion!', 'Population reached 100', '+10% Productivity');
+      playSound('complete');
+    }
+    
+    // First mill (capital accumulation)
+    const mills = S.builds.filter(b => b.type === 'mill' && b.done).length;
+    if (!S.milestones.firstMill.complete && mills >= 1) {
+      S.milestones.firstMill.complete = true;
+      S.morale = Math.min(1, S.morale + 0.2);
+      showMilestone('Industrial Revolution Begins!', 'First windmill operational', '+20% Morale');
+      playSound('complete');
+    }
+    
+    // Market economy
+    const hasMarket = S.builds.some(b => b.type === 'market' && b.done);
+    if (!S.milestones.marketBuilt.complete && hasMarket) {
+      S.milestones.marketBuilt.complete = true;
+      S.materialsPerYear = 2; // Passive income
+      showMilestone('Market Economy Unlocked!', 'Trade generates passive materials', '+2 Materials/Year');
+      playSound('complete');
+    }
+    
+    // Sustained prosperity
+    if (!S.milestones.sustained_wage.complete && S.wageAbove13Years >= 1) {
+      S.milestones.sustained_wage.complete = true;
+      S.victoryProgress += 25;
+      showMilestone('Prosperity Sustained!', 'High wages for 1 full year', 'Victory: 25%');
+      playSound('complete');
+    }
   }
-  
-  // Population milestone
-  if (!S.milestones.population100.complete && S.pop >= 100) {
-    S.milestones.population100.complete = true;
-    S.tfp *= 1.1;
-    showMilestone('Village Expansion!', 'Population reached 100', '+10% Productivity');
-    playSound('complete');
-  }
-  
-  // First mill (capital accumulation)
-  const mills = S.builds.filter(b => b.type === 'mill' && b.done).length;
-  if (!S.milestones.firstMill.complete && mills >= 1) {
-    S.milestones.firstMill.complete = true;
-    S.morale = Math.min(1, S.morale + 0.2);
-    showMilestone('Industrial Revolution Begins!', 'First windmill operational', '+20% Morale');
-    playSound('complete');
-  }
-  
-  // Market economy
-  const hasMarket = S.builds.some(b => b.type === 'market' && b.done);
-  if (!S.milestones.marketBuilt.complete && hasMarket) {
-    S.milestones.marketBuilt.complete = true;
-    S.materialsPerYear = 2; // Passive income
-    showMilestone('Market Economy Unlocked!', 'Trade generates passive materials', '+2 Materials/Year');
-    playSound('complete');
-  }
-  
-  // Sustained prosperity
-  if (!S.milestones.sustained_wage.complete && S.wageAbove13Years >= 1) {
-    S.milestones.sustained_wage.complete = true;
-    S.victoryProgress += 25;
-    showMilestone('Prosperity Sustained!', 'High wages for 1 full year', 'Victory: 25%');
-    playSound('complete');
-  }
-}
 
   function showMilestone(title, desc, reward) {
     const popup = document.createElement('div');
@@ -912,6 +921,19 @@ function tick() {
   const herderPop = Math.floor(S.pop * S.herders);
   const gathererPop = Math.floor(S.pop * S.gatherers);
   
+  if (S.day % 30 === 0 && autoStarted) {
+    const gameLog = el('gameLog');
+    if (gameLog && farms > 0) {
+      const foodPerFarm = S.lastFoodProduction / Math.max(1, farms);
+      gameLog.innerHTML = `
+        <span style="color:var(--accent)">
+          📊 ${farms} farms producing ${foodPerFarm.toFixed(1)} food/farm/day
+          ${mills > 0 ? `| ${mills} mills = +${Math.round(mills * 12)}% TFP` : ''}
+        </span>
+      `;
+    }
+  }
+
   if (S.gatherJobs && S.gatherJobs.length > 0) {
     const job = S.gatherJobs[0]; // Work first in queue
     job.progress += gathererPop * 0.05 * S.workIntensity;
@@ -935,6 +957,70 @@ function tick() {
       
       // Remove job
       S.gatherJobs.shift();
+    }
+  }
+
+  // ===== CONTINUOUS SEASONAL LABOR FEEDBACK =====
+  // Check every 10 days if allocation is suboptimal
+  if (S.day % 10 === 0 && autoStarted) {
+    const seasonName = S.seasons[S.season].toLowerCase();
+    const recommended = S.seasonalPressure[seasonName];
+    
+    // Calculate how far off they are
+    const farmerGap = recommended.farmers - S.farmers;
+    const builderGap = recommended.builders - S.builders;
+    
+    // Autumn: Penalize low farmers during harvest
+    if (S.season === 2 && S.farmers < 0.55) {
+      const penalty = Math.abs(farmerGap) * 0.15; // Up to 15% production loss
+      farmFood *= (1 - penalty);
+      
+      if (S.day % 30 === 0 && S.lastLaborWarning !== S.day) {
+        S.lastLaborWarning = S.day;
+        toast(`⚠️ Harvest suffers! Only ${Math.round(S.farmers * 100)}% farmers = ${Math.round(penalty * 100)}% food loss`, 5000);
+        highlightSlider('farmer', 8000);
+      }
+    }
+    
+    // Winter: Reward high builders (they have nothing else to do)
+    if (S.season === 3 && S.builders > 0.35) {
+      const bonus = (S.builders - 0.3) * 0.5; // Up to 10% construction bonus
+      S.builds.forEach(b => {
+        if (!b.done) {
+          b.progress += builderPop * 0.01 * bonus; // Extra construction
+        }
+      });
+      
+      if (S.day === 30 && S.lastLaborWarning !== S.day) {
+        S.lastLaborWarning = S.day;
+        toast(`❄️ Winter efficiency! High builders = +${Math.round(bonus * 100)}% construction`, 4000);
+      }
+    }
+    
+    // Spring: Penalize low farmers (crops need planting)
+    if (S.season === 0 && S.farmers < 0.5) {
+      const penalty = Math.abs(farmerGap) * 0.12;
+      farmFood *= (1 - penalty);
+      
+      if (S.day === 40 && S.lastLaborWarning !== S.day) {
+        S.lastLaborWarning = S.day;
+        toast(`🌱 Planting delayed! Low farmers = ${Math.round(penalty * 100)}% yield loss`, 5000);
+        highlightSlider('farmer', 8000);
+      }
+    }
+    
+    // Summer: Balanced - warn if too extreme either way
+    if (S.season === 1 && (S.farmers < 0.4 || S.farmers > 0.7)) {
+      if (S.day === 45 && S.lastLaborWarning !== S.day) {
+        S.lastLaborWarning = S.day;
+        if (S.farmers < 0.4) {
+          toast(`☀️ Summer shortage! Crops need more attention`, 4000);
+          highlightSlider('farmer', 6000);
+        } else {
+          toast(`☀️ Overfarming! You could expand infrastructure`, 4000);
+          highlightSlider('builder', 6000);
+        }
+      }
     }
   }
 
@@ -1384,20 +1470,179 @@ function showWinterWarning(daysLeft, daysOfFood) {
 
 // In onBuildComplete() function, add:
 function onBuildComplete(b) {
-  playSound('complete'); 
-  if (b.type === 'well') S.health = Math.min(1, S.health + 0.2);
-  if (b.type === 'livestock') S.livestock += 2;
+  playSound('complete');
   
-  // NEW: Suggest labor reallocation after completing construction
-  if (b.type === 'farm' && S.farmers < 0.4) {
-    toast(`${BUILDS[b.type].name} complete! Consider increasing farmers to use it.`, 4000);
+  // Visual celebration effect
+  const icon = document.querySelector(`[data-id="${b.id}"]`);
+  if (icon) {
+    // Flash effect
+    icon.style.animation = 'scaleIn 0.5s, pulse 0.3s 3';
+    setTimeout(() => icon.style.animation = '', 2000);
+    
+    // Particle burst
+    for (let i = 0; i < 8; i++) {
+      const particle = document.createElement('div');
+      particle.style.cssText = `
+        position: absolute;
+        width: 6px;
+        height: 6px;
+        background: var(--accent);
+        border-radius: 50%;
+        left: ${icon.offsetLeft + 36}px;
+        top: ${icon.offsetTop + 36}px;
+        pointer-events: none;
+        z-index: 1000;
+      `;
+      document.getElementById('ground').appendChild(particle);
+      
+      const angle = (i / 8) * Math.PI * 2;
+      const distance = 40;
+      const tx = Math.cos(angle) * distance;
+      const ty = Math.sin(angle) * distance;
+      
+      particle.animate([
+        { transform: 'translate(0, 0)', opacity: 1 },
+        { transform: `translate(${tx}px, ${ty}px)`, opacity: 0 }
+      ], {
+        duration: 600,
+        easing: 'ease-out'
+      }).onfinish = () => particle.remove();
+    }
   }
   
-  if (b.type === 'mill' && S.builders > 0.3) {
-    toast(`${BUILDS[b.type].name} complete! Reduce builders, boost production.`, 4000);
-  } else {
-    toast(`${BUILDS[b.type].name} construction complete!`);
+  // Immediate stat impact display
+  const buildType = BUILDS[b.type];
+  let impactMsg = '';
+  let statChange = '';
+  
+  if (b.type === 'farm') {
+    const oldProduction = S.lastFoodProduction;
+    // Recalculate to show new production
+    setTimeout(() => {
+      const newProduction = S.lastFoodProduction;
+      const gain = newProduction - oldProduction;
+      if (gain > 0) {
+        toast(`🌾 Farm complete! +${gain.toFixed(1)} food/day production`, 4000);
+      }
+    }, 100);
+    
+    if (S.farmers < 0.4) {
+      setTimeout(() => {
+        toast(`Tip: Increase farmers to ${Math.round(S.farmers * 100 + 10)}% to use this farm`, 3000);
+        highlightSlider('farmer', 5000);
+      }, 4500);
+    }
+    statChange = 'food production';
   }
+  
+  if (b.type === 'house') {
+    const oldCap = S.cap;
+    S.cap += 5; // Already happens but show it
+    toast(`🏠 House complete! Population cap: ${oldCap} → ${S.cap}`, 4000);
+    statChange = 'population capacity';
+  }
+  
+  if (b.type === 'well') {
+    const oldHealth = S.health;
+    S.health = Math.min(1, S.health + 0.2);
+    const healthGain = Math.round((S.health - oldHealth) * 100);
+    toast(`💧 Well complete! Health: +${healthGain}%, disease risk halved`, 4000);
+    statChange = 'health';
+    
+    // Show visible meter change
+    setTimeout(() => updateUI(), 200);
+  }
+  
+  if (b.type === 'granary') {
+    toast(`🌾 Granary complete! Food spoilage: 25% → 10%`, 4000);
+    toast(`Each harvest now wastes 60% less food`, 3000);
+    statChange = 'food efficiency';
+  }
+  
+  if (b.type === 'livestock') {
+    S.livestock += 2;
+    toast(`🐑 Livestock Pen complete! +2 animals (now ${S.livestock} total)`, 4000);
+    if (S.herders < 0.1) {
+      setTimeout(() => {
+        toast(`Tip: Allocate 10%+ to herders to breed animals`, 3000);
+        highlightSlider('herder', 5000);
+      }, 4500);
+    }
+    statChange = 'livestock count';
+  }
+  
+  if (b.type === 'market') {
+    toast(`🏛️ Market complete! Unlocked: +2 materials/year passive income`, 4000);
+    S.materialsPerYear = 2;
+    statChange = 'trade income';
+  }
+  
+  if (b.type === 'mill') {
+    const oldTFP = S.tfp;
+    S.tfp *= 1.12;
+    const tfpGain = Math.round((S.tfp - oldTFP) * 100);
+    toast(`⚙️ Windmill complete! Total Factor Productivity: +${tfpGain}%`, 4000);
+    
+    if (S.builders > 0.3) {
+      setTimeout(() => {
+        toast(`Consider reducing builders now that construction is done`, 3000);
+        highlightSlider('builder', 5000);
+      }, 4500);
+    }
+    statChange = 'productivity';
+  }
+  
+  // Show before/after comparison popup
+  showBuildingImpact(buildType.name, statChange);
+}
+
+function showBuildingImpact(buildingName, statType) {
+  const popup = document.createElement('div');
+  popup.style.cssText = `
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: linear-gradient(135deg, var(--panel), var(--panel2));
+    border: 3px solid var(--accent);
+    border-radius: 16px;
+    padding: 24px 32px;
+    z-index: 10000;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.7);
+    min-width: 300px;
+    text-align: center;
+    animation: scaleIn 0.4s;
+  `;
+  
+  const impacts = {
+    'food production': '🌾',
+    'population capacity': '🏠',
+    'health': '💧',
+    'food efficiency': '📦',
+    'livestock count': '🐑',
+    'trade income': '💰',
+    'productivity': '⚙️'
+  };
+  
+  popup.innerHTML = `
+    <div style="font-size: 48px; margin-bottom: 12px;">${impacts[statType] || '✨'}</div>
+    <div style="font-size: 20px; font-weight: 700; margin-bottom: 8px; color: var(--accent);">
+      ${buildingName} Complete!
+    </div>
+    <div style="font-size: 14px; color: var(--muted); margin-bottom: 16px;">
+      Impact: ${statType}
+    </div>
+    <div style="font-size: 13px; padding: 12px; background: #0b1224aa; border-radius: 8px; color: var(--good);">
+      Check your meters to see the improvement
+    </div>
+  `;
+  
+  document.body.appendChild(popup);
+  
+  setTimeout(() => {
+    popup.style.animation = 'fadeOut 0.4s';
+    setTimeout(() => popup.remove(), 400);
+  }, 2500);
 }
 
 // ============================================
@@ -1816,8 +2061,23 @@ function updateUI() {
 
   // Food production display
   const foodProduction = el('foodProduction');
-  if (foodProduction) foodProduction.textContent = (S.lastFoodProduction || 0).toFixed(1);
-
+  if (foodProduction) {
+    foodProduction.textContent = (S.lastFoodProduction || 0).toFixed(1);
+    
+    // Show if seasonal penalty active
+    const seasonName = S.seasons[S.season].toLowerCase();
+    const recommended = S.seasonalPressure[seasonName];
+    const farmerGap = Math.abs(recommended.farmers - S.farmers);
+    
+    if (farmerGap > 0.15 && (S.season === 0 || S.season === 2)) {
+      foodProduction.style.color = 'var(--warn)';
+      foodProduction.parentElement.style.animation = 'pulse 2s infinite';
+    } else {
+      foodProduction.style.color = '';
+      foodProduction.parentElement.style.animation = '';
+    }
+  }
+  
   // ===== FOOD BUFFER DISPLAY =====
   const daysOfFood = S.foodStock / needPerDay;
   const foodDays = el('foodDays');
@@ -1875,6 +2135,25 @@ function updateUI() {
   if (victoryBar) {
     victoryBar.style.width = S.victoryProgress + '%';
     victoryBar.textContent = S.victoryProgress + '%';
+  }
+
+  // Show building count and impact
+  const farms = S.builds.filter(b => b.type === 'farm' && b.done).length;
+  const houses = S.builds.filter(b => b.type === 'house' && b.done).length;
+  const mills = S.builds.filter(b => b.type === 'mill' && b.done).length;
+  
+  // Update game log with building stats every 30 days
+  if (S.day % 30 === 0 && autoStarted) {
+    const gameLog = el('gameLog');
+    if (gameLog && farms > 0) {
+      const foodPerFarm = S.lastFoodProduction / Math.max(1, farms);
+      gameLog.innerHTML = `
+        <span style="color:var(--accent)">
+          📊 ${farms} farms producing ${foodPerFarm.toFixed(1)} food/farm/day
+          ${mills > 0 ? `| ${mills} mills = +${Math.round(mills * 12)}% TFP` : ''}
+        </span>
+      `;
+    }
   }
 
   // Render
