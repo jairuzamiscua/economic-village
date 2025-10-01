@@ -519,24 +519,26 @@ function startGame() {
   const landing = el('landing');
   const gameContainer = el('gameContainer');
   
-  // Fade out landing
-  if (landing) {
+  if (landing && gameContainer) {
+    // Fade out landing
     landing.style.transition = 'opacity 0.3s';
     landing.style.opacity = '0';
+    
     setTimeout(() => {
       landing.style.display = 'none';
       gameContainer.style.display = 'grid';
       
-      // Initialize game
+      // Initialize game state
       initializeGameState();
       
-      // Show tutorial immediately (no delay)
-      showTutorial();
+      // Show tutorial after DOM renders
+      requestAnimationFrame(() => {
+        setTimeout(() => showTutorial(), 50);
+      });
     }, 300);
   }
 }
 
-// Extract game initialization to separate function
 function initializeGameState() {
   // Pre-build starting infrastructure
   for (let i = 0; i < 3; i++) {
@@ -570,6 +572,8 @@ function initializeGameState() {
 
   document.addEventListener('click', autoStart, { once: true });
   document.addEventListener('input', autoStart, { once: true });
+
+  toast('Welcome, Chief! Time will begin when you interact.');
 }
 
 // ============================================
