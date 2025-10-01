@@ -111,7 +111,7 @@ const S = {
 
   // Resources
   materials: 20,
-  foodStock: 40,
+  foodStock: 5,
   livestock: 0,
 
   // Economic indicators
@@ -143,6 +143,20 @@ const S = {
 
   // Data export
   history: [],
+
+  // Seasonality
+  lastSeasonWarning: -1,
+  harvestBonusShown: false,
+  seasonTransitionShown: false,
+
+    age: 1,
+  ageGoals: {
+    1: { name: 'Survival', pop: 100, year: 3, complete: false },
+    2: { name: 'Expansion', pop: 125, mills: 2, complete: false },
+    3: { name: 'Prosperity', pop: 150, mills: 3, wage: true, complete: false }
+  },
+  gatherers: 0, // For gatherer system if you implement it
+  lastFoodProduction: 0, // Track food production for display
 
   // Material Generation System
   nodeRegenQueue: []
@@ -517,6 +531,45 @@ const EVENTS = [
   }
 ];
 
+// Current (too subtle)
+const seasonalYield = [1.0, 1.2, 0.8, 0.3];
+
+// Better (creates real crisis)
+const SEASON_DATA = {
+  0: { 
+    name: 'Spring',
+    mult: 0.7,
+    color: '#86efac',
+    icon: '🌱',
+    desc: 'Planting season - reduced yields',
+    warning: null // ADD THIS
+  },
+  1: { 
+    name: 'Summer', 
+    mult: 1.1,
+    color: '#fcd34d',
+    icon: '☀️',
+    desc: 'Growing season - good yields',
+    warning: null // ADD THIS
+  },
+  2: { 
+    name: 'Autumn',
+    mult: 1.8,
+    color: '#fb923c',
+    icon: '🌾',
+    desc: 'HARVEST! Store food for winter',
+    warning: 'Winter approaches - store 90+ days of food!' // ADD THIS
+  },
+  3: { 
+    name: 'Winter',
+    mult: 0.2,
+    color: '#93c5fd',
+    icon: '❄️',
+    desc: 'SURVIVAL MODE - live on stores',
+    warning: 'Ration carefully - spring comes soon' // ADD THIS
+  }
+};
+
 function checkCriticalAlerts() {
   const needPerDay = S.pop * 0.10;
   const daysOfFood = S.foodStock / needPerDay;
@@ -674,13 +727,11 @@ function tick() {
     }
   });
 
-  // Resource regeneration check - FIXED
+  // Resource regeneration check
   if (S.day === 1) {
-    // Loop backwards to safely remove items
     for (let i = S.nodeRegenQueue.length - 1; i >= 0; i--) {
       const regen = S.nodeRegenQueue[i];
       if (S.year >= regen.regenTime) {
-        // Respawn the node
         S.nodes.push({
           id: regen.id + '_regen_' + S.year,
           type: regen.type,
@@ -694,12 +745,15 @@ function tick() {
     }
   }
 
-
   // Food production
   const farms = S.builds.filter(b => b.type === 'farm' && b.done).length;
   const mills = S.builds.filter(b => b.type === 'mill' && b.done).length;
   const farmerPop = Math.floor(S.pop * S.farmers);
   const herderPop = Math.floor(S.pop * S.herders);
+
+  // ===== SEASONAL FOOD PRODUCTION =====
+  const seasonData = SEASON_DATA[S.season];
+  const seasonMult = seasonData.mult;
 
   // Diminishing returns to land (Ricardian)
   const landPerFarm = S.totalLand / Math.max(1, farms);
@@ -709,7 +763,7 @@ function tick() {
   const crop = CROP_DATA[S.cropType];
   const baseFoodPerFarm = 3.5 * crop.yield;
 
-  // Farm production
+  // Farm production with SEASONAL multiplier
   let farmFood =
     farms *
     baseFoodPerFarm *
@@ -717,7 +771,8 @@ function tick() {
     S.landQuality *
     diminishingReturns *
     (farmerPop / Math.max(1, S.pop)) *
-    S.workIntensity;
+    S.workIntensity *
+    seasonMult; // SEASONAL MULTIPLIER APPLIED
 
   // Weather effects
   const w = weatherEffect(S.weatherNow);
@@ -730,6 +785,21 @@ function tick() {
   // Enclosure bonus
   if (S.landPolicy === 'enclosed') {
     farmFood *= 1.15;
+  }
+
+  // ===== AUTUMN HARVEST RUSH BONUS =====
+  if (S.season === 2 && S.farmers > 0.6) {
+    farmFood *= 1.3; // 30% bonus for dedicating workers
+    
+    if (S.day === 1 && !S.harvestBonusShown) {
+      S.harvestBonusShown = true;
+      toast('HARVEST RUSH ACTIVE: 60%+ farmers = +30% bonus!', 5000);
+    }
+  }
+
+  // Reset harvest flag each spring
+  if (S.day === 1 && S.season === 0) {
+    S.harvestBonusShown = false;
   }
 
   // Livestock production
@@ -751,6 +821,9 @@ function tick() {
   const spoilage = totalFood * w.spoil;
   const netFood = totalFood - spoilage;
 
+  // Store for UI display
+  S.lastFoodProduction = netFood;
+
   S.foodStock += netFood;
 
   // Consumption
@@ -759,6 +832,34 @@ function tick() {
 
   // Real wage calculation (Malthusian indicator)
   S.realWage = (S.foodStock / Math.max(1, S.pop)) / 0.2;
+
+  // ===== WINTER SURVIVAL MECHANICS =====
+  if (S.season === 3) { // Winter
+    const daysOfFood = S.foodStock / needPerDay;
+    
+    // Health deteriorates faster without wells
+    if (!S.tech.well) {
+      S.health = Math.max(0.2, S.health - 0.005);
+    }
+    
+    // Morale crisis if food insecure
+    if (daysOfFood < 30) {
+      S.morale = Math.max(0.1, S.morale - 0.015);
+    }
+    
+    // Increased disease risk in winter starvation
+    if (S.foodStock < 0) {
+      if (Math.random() < w.disease * 2) {
+        const deaths = Math.max(2, Math.floor(S.pop * 0.04));
+        S.pop = Math.max(10, S.pop - deaths);
+        S.totalDeaths += deaths;
+        const gameLog = el('gameLog');
+        if (gameLog) gameLog.innerHTML = `<span style="color:var(--bad)">Winter disease! Lost ${deaths} villagers.</span>`;
+        toast(`Winter takes its toll: -${deaths} population`, 4000);
+        playSound('bad');
+      }
+    }
+  }
 
   // Morale dynamics
   const intensityPenalty = (S.workIntensity - 1.0) * 0.3;
@@ -796,11 +897,11 @@ function tick() {
   S.cap = 100 + houses * 5;
 
   const fertilityRate = S.year < 3 
-  ? (S.realWage > 1.2 ? 0.08 : S.realWage > 0.9 ? 0.05 : 0.02)
-  : (S.realWage > 1.2 ? 0.15 : S.realWage > 0.9 ? 0.1 : 0.05);
+    ? (S.realWage > 1.2 ? 0.08 : S.realWage > 0.9 ? 0.05 : 0.02)
+    : (S.realWage > 1.2 ? 0.15 : S.realWage > 0.9 ? 0.1 : 0.05);
   if (S.foodStock > needPerDay * 10 && S.pop < S.cap && Math.random() < fertilityRate) {
     S.pop++;
-    playSound('complete'); // ADD
+    playSound('complete');
     toast('👶 Population +1! Village growing.', 2000);
   }
 
@@ -817,19 +918,44 @@ function tick() {
     S.landQuality = Math.min(1.0, S.landQuality + 0.005);
   }
 
+  // ===== SEASON WARNINGS =====
+  const daysOfFood = S.foodStock / needPerDay;
+
+  // Winter warning at day 75 of Autumn
+  if (S.season === 2 && S.day === 75 && S.lastSeasonWarning !== 2) {
+    S.lastSeasonWarning = 2;
+    if (daysOfFood < 90) {
+      showWinterWarning(15, daysOfFood);
+    }
+  }
+
+  // Critical warning at day 85 of Autumn
+  if (S.season === 2 && S.day === 85 && daysOfFood < 60) {
+    showWinterWarning(5, daysOfFood);
+  }
+
   // Time progression
   S.day++;
   if (S.day > 90) {
     S.day = 1;
     S.year++;
+    const oldSeason = S.season;
     S.season = (S.season + 1) % 4;
-
+    
+    // Announce season change
+    if (autoStarted) {
+      announceSeasonChange(oldSeason, S.season);
+    }
+    
     // Track sustained high wages
     if (S.realWage > 1.3) {
       S.wageAbove13Years++;
     } else {
       S.wageAbove13Years = 0;
     }
+    
+    // Reset season warning flag
+    S.lastSeasonWarning = -1;
   }
 
   // Weather update
@@ -837,12 +963,6 @@ function tick() {
     S.weatherNow = S.weatherNext;
     S.weatherNext = seasonWeighted(S.season);
   }
-
-  // Weather labels (if present)
-  const nowLbl = el('weatherNowLbl');
-  const nextLbl = el('weatherNextLbl');
-  if (nowLbl) nowLbl.textContent = S.weatherNow;
-  if (nextLbl) nextLbl.textContent = S.weatherNext;
 
   // Data logging
   if (S.day % 10 === 0) {
@@ -858,17 +978,146 @@ function tick() {
     });
   }
 
+  // Age progression
+  if (S.age === 1 && S.year >= 3 && S.pop >= 100 && !S.ageGoals[1].complete) {
+    S.ageGoals[1].complete = true;
+    S.age = 2;
+    S.tfp *= 1.1;
+    toast('🎉 BRONZE AGE UNLOCKED! +10% TFP. New technologies available.', 6000);
+    playSound('complete');
+  }
+  if (S.age === 2 && S.pop >= 125 && mills >= 2 && !S.ageGoals[2].complete) {
+    S.ageGoals[2].complete = true;
+    S.age = 3;
+    toast('🎉 IRON AGE UNLOCKED! Markets now generate trade income.', 6000);
+    playSound('complete');
+  }
+
   // Check win condition
   checkVictory();
 
-  // Check critical alerts - ADD THIS LINE
+  // Check critical alerts
   checkCriticalAlerts();
 
   // Update UI
   updateUI();
   updateTheoryStatus();
+}
 
+// ===== SEASON ANNOUNCEMENT =====
+function announceSeasonChange(oldSeason, newSeason) {
+  const seasonData = SEASON_DATA[newSeason];
+  
+  // Full-screen overlay
+  const overlay = document.createElement('div');
+  overlay.style.cssText = `
+    position: fixed;
+    inset: 0;
+    background: linear-gradient(135deg, ${seasonData.color}22, #00000088);
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: fadeIn 0.5s;
+  `;
+  
+  const box = document.createElement('div');
+  box.style.cssText = `
+    background: var(--panel);
+    border: 3px solid ${seasonData.color};
+    border-radius: 20px;
+    padding: 40px 60px;
+    text-align: center;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    animation: scaleIn 0.5s;
+  `;
+  
+  box.innerHTML = `
+    <div style="font-size: 72px; margin-bottom: 20px;">${seasonData.icon}</div>
+    <div style="font-size: 32px; font-weight: 800; margin-bottom: 12px; color: ${seasonData.color};">
+      ${seasonData.name.toUpperCase()}
+    </div>
+    <div style="font-size: 16px; margin-bottom: 16px; color: var(--muted);">
+      ${seasonData.desc}
+    </div>
+    <div style="font-size: 20px; font-weight: 600; color: ${seasonData.mult > 1 ? 'var(--good)' : seasonData.mult < 0.5 ? 'var(--bad)' : 'var(--warn)'}">
+      Food Production: ${Math.round(seasonData.mult * 100)}%
+    </div>
+    ${seasonData.warning ? `
+      <div style="font-size: 14px; margin-top: 16px; padding: 12px; background: #7f1d1d44; border: 1px solid var(--bad); border-radius: 8px; color: var(--bad);">
+        ${seasonData.warning}
+      </div>
+    ` : ''}
+  `;
+  
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
+  
+  // Sound effects
+  if (newSeason === 3) { // Winter
+    playSound('bad');
+    setTimeout(() => playSound('bad'), 200);
+  } else if (newSeason === 2) { // Autumn harvest
+    playSound('complete');
+  } else {
+    playSound('click');
+  }
+  
+  // Auto-remove after 3 seconds
+  setTimeout(() => {
+    overlay.style.animation = 'fadeOut 0.5s';
+    setTimeout(() => overlay.remove(), 500);
+  }, 2500);
+}
 
+// ===== WINTER WARNING =====
+function showWinterWarning(daysLeft, daysOfFood) {
+  const warning = document.createElement('div');
+  warning.style.cssText = `
+    position: fixed;
+    top: 120px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: linear-gradient(135deg, #7f1d1dcc, #450a0acc);
+    border: 2px solid var(--bad);
+    border-radius: 12px;
+    padding: 20px 30px;
+    z-index: 8000;
+    max-width: 500px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+    animation: shake 0.5s, fadeIn 0.3s;
+  `;
+  
+  const deficit = Math.max(0, 90 - daysOfFood);
+  
+  warning.innerHTML = `
+    <div style="font-size: 32px; text-align: center; margin-bottom: 12px;">⚠️</div>
+    <div style="font-size: 18px; font-weight: 700; margin-bottom: 8px; color: var(--bad); text-align: center;">
+      WINTER APPROACHING
+    </div>
+    <div style="font-size: 14px; line-height: 1.6; text-align: center;">
+      Winter starts in <strong>${daysLeft} days</strong>. Food production drops to <strong>20%</strong>.
+      <br/><br/>
+      Current stores: <strong>${Math.floor(daysOfFood)} days</strong>
+      <br/>
+      <span style="color: ${deficit > 30 ? 'var(--bad)' : 'var(--warn)'}; font-weight: 600;">
+        ${deficit > 0 ? `You need ${Math.ceil(deficit)} more days of food!` : 'You are prepared for winter.'}
+      </span>
+      <br/><br/>
+      <span style="font-size: 12px; opacity: 0.8;">
+        ${deficit > 0 ? 'Build more farms and increase farmer allocation NOW!' : 'Well done! Maintain your stores.'}
+      </span>
+    </div>
+  `;
+  
+  document.body.appendChild(warning);
+  
+  playSound('bad');
+  
+  setTimeout(() => {
+    warning.style.animation = 'fadeOut 0.5s';
+    setTimeout(() => warning.remove(), 500);
+  }, 5500);
 }
 
 function onBuildComplete(b) {
@@ -929,6 +1178,125 @@ function weatherEffect(w) {
 function rollWeather() {
   S.weatherNow = seasonWeighted(S.season);
   S.weatherNext = seasonWeighted(S.season);
+}
+
+// ============================================
+// SEASON ANNOUNCEMENT
+// ============================================
+// ===== SEASON ANNOUNCEMENT =====
+function announceSeasonChange(oldSeason, newSeason) {
+  const seasonData = SEASON_DATA[newSeason];
+  
+  // Full-screen overlay
+  const overlay = document.createElement('div');
+  overlay.style.cssText = `
+    position: fixed;
+    inset: 0;
+    background: linear-gradient(135deg, ${seasonData.color}22, #00000088);
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: fadeIn 0.5s;
+  `;
+  
+  const box = document.createElement('div');
+  box.style.cssText = `
+    background: var(--panel);
+    border: 3px solid ${seasonData.color};
+    border-radius: 20px;
+    padding: 40px 60px;
+    text-align: center;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    animation: scaleIn 0.5s;
+  `;
+  
+  box.innerHTML = `
+    <div style="font-size: 72px; margin-bottom: 20px;">${seasonData.icon}</div>
+    <div style="font-size: 32px; font-weight: 800; margin-bottom: 12px; color: ${seasonData.color};">
+      ${seasonData.name.toUpperCase()}
+    </div>
+    <div style="font-size: 16px; margin-bottom: 16px; color: var(--muted);">
+      ${seasonData.desc}
+    </div>
+    <div style="font-size: 20px; font-weight: 600; color: ${seasonData.mult > 1 ? 'var(--good)' : seasonData.mult < 0.5 ? 'var(--bad)' : 'var(--warn)'}">
+      Food Production: ${Math.round(seasonData.mult * 100)}%
+    </div>
+    ${seasonData.warning ? `
+      <div style="font-size: 14px; margin-top: 16px; padding: 12px; background: #7f1d1d44; border: 1px solid var(--bad); border-radius: 8px; color: var(--bad);">
+        ${seasonData.warning}
+      </div>
+    ` : ''}
+  `;
+  
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
+  
+  // Sound effects
+  if (newSeason === 3) { // Winter
+    playSound('bad');
+    setTimeout(() => playSound('bad'), 200);
+  } else if (newSeason === 2) { // Autumn harvest
+    playSound('complete');
+  } else {
+    playSound('click');
+  }
+  
+  // Auto-remove after 3 seconds
+  setTimeout(() => {
+    overlay.style.animation = 'fadeOut 0.5s';
+    setTimeout(() => overlay.remove(), 500);
+  }, 2500);
+}
+
+// ===== WINTER WARNING =====
+function showWinterWarning(daysLeft, daysOfFood) {
+  const warning = document.createElement('div');
+  warning.style.cssText = `
+    position: fixed;
+    top: 120px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: linear-gradient(135deg, #7f1d1dcc, #450a0acc);
+    border: 2px solid var(--bad);
+    border-radius: 12px;
+    padding: 20px 30px;
+    z-index: 8000;
+    max-width: 500px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+    animation: shake 0.5s, fadeIn 0.3s;
+  `;
+  
+  const deficit = Math.max(0, 90 - daysOfFood);
+  
+  warning.innerHTML = `
+    <div style="font-size: 32px; text-align: center; margin-bottom: 12px;">⚠️</div>
+    <div style="font-size: 18px; font-weight: 700; margin-bottom: 8px; color: var(--bad); text-align: center;">
+      WINTER APPROACHING
+    </div>
+    <div style="font-size: 14px; line-height: 1.6; text-align: center;">
+      Winter starts in <strong>${daysLeft} days</strong>. Food production drops to <strong>20%</strong>.
+      <br/><br/>
+      Current stores: <strong>${Math.floor(daysOfFood)} days</strong>
+      <br/>
+      <span style="color: ${deficit > 30 ? 'var(--bad)' : 'var(--warn)'}; font-weight: 600;">
+        ${deficit > 0 ? `You need ${Math.ceil(deficit)} more days of food!` : 'You are prepared for winter.'}
+      </span>
+      <br/><br/>
+      <span style="font-size: 12px; opacity: 0.8;">
+        ${deficit > 0 ? 'Build more farms and increase farmer allocation NOW!' : 'Well done! Maintain your stores.'}
+      </span>
+    </div>
+  `;
+  
+  document.body.appendChild(warning);
+  
+  playSound('bad');
+  
+  setTimeout(() => {
+    warning.style.animation = 'fadeOut 0.5s';
+    setTimeout(() => warning.remove(), 500);
+  }, 5500);
 }
 
 // ============================================
@@ -1015,6 +1383,39 @@ function updateUI() {
   if (livestock) livestock.textContent = S.livestock;
   if (realWage) realWage.textContent = S.realWage.toFixed(2);
 
+  // Weather display
+  const weatherIcon = el('weatherIcon');
+  const weatherNowLbl = el('weatherNow');
+  const weatherNextLbl = el('weatherNext');
+  const weatherIcons = {
+    sunny: '☀️',
+    rain: '🌧️',
+    storm: '⛈️',
+    drought: '🌵'
+  };
+  if (weatherIcon) weatherIcon.textContent = weatherIcons[S.weatherNow] || '🌤️';
+  if (weatherNowLbl) weatherNowLbl.textContent = S.weatherNow;
+  if (weatherNextLbl) weatherNextLbl.textContent = S.weatherNext;
+
+  // ===== SEASON BANNER UPDATE =====
+  const seasonData = SEASON_DATA[S.season];
+  const banner = el('seasonBanner');
+  const seasonIcon = el('seasonIcon');
+  const seasonName = el('seasonName');
+  const seasonDesc = el('seasonDesc');
+  const seasonDay = el('seasonDay');
+
+  if (banner) {
+    banner.style.setProperty('--season-color', seasonData.color);
+    banner.className = 'season-banner';
+    if (S.season === 3) banner.classList.add('winter');
+    if (S.season === 2) banner.classList.add('autumn');
+  }
+  if (seasonIcon) seasonIcon.textContent = seasonData.icon;
+  if (seasonName) seasonName.textContent = seasonData.name;
+  if (seasonDesc) seasonDesc.textContent = seasonData.desc;
+  if (seasonDay) seasonDay.textContent = S.day;
+
   // Labor & land UI
   const popTotal = el('popTotal');
   const landQual = el('landQual');
@@ -1033,7 +1434,7 @@ function updateUI() {
     else wb.className = 'badge';
   }
 
-  // Tech Notifcation
+  // Tech Notification
   const affordableTechs = Object.keys(TECH_TREE).filter(key => {
     const t = TECH_TREE[key];
     return !S.tech[key] && 
@@ -1068,6 +1469,43 @@ function updateUI() {
   const foodNeed = el('foodNeed');
   if (foodNeed) foodNeed.textContent = Math.floor(needPerDay);
 
+  // Food production display
+  const foodProduction = el('foodProduction');
+  if (foodProduction) foodProduction.textContent = (S.lastFoodProduction || 0).toFixed(1);
+
+  // ===== FOOD BUFFER DISPLAY =====
+  const daysOfFood = S.foodStock / needPerDay;
+  const foodDays = el('foodDays');
+  const bufferFill = el('bufferFill');
+  const bufferWarning = el('bufferWarning');
+
+  if (foodDays) {
+    foodDays.textContent = Math.floor(daysOfFood);
+    if (daysOfFood < 30) {
+      foodDays.style.color = 'var(--bad)';
+    } else if (daysOfFood < 90) {
+      foodDays.style.color = 'var(--warn)';
+    } else {
+      foodDays.style.color = 'var(--good)';
+    }
+  }
+
+  if (bufferFill) {
+    const maxDisplay = 180; // Show up to 6 months
+    const pct = Math.min(100, (daysOfFood / maxDisplay) * 100);
+    bufferFill.style.width = pct + '%';
+  }
+
+  if (bufferWarning) {
+    if (S.season === 2 && daysOfFood < 90) {
+      bufferWarning.innerHTML = `<span style="color:var(--bad)">⚠️ Store ${Math.ceil(90 - daysOfFood)} more days for winter!</span>`;
+    } else if (S.season === 3 && daysOfFood < 30) {
+      bufferWarning.innerHTML = `<span style="color:var(--bad)">🚨 CRITICAL: Only ${Math.floor(daysOfFood)} days left!</span>`;
+    } else {
+      bufferWarning.textContent = 'Winter requires 90 days of stored food';
+    }
+  }
+
   updateMeter('fillHealth', 'healthLbl', null, S.health);
   const w = weatherEffect(S.weatherNow);
   const diseaseRisk = el('diseaseRisk');
@@ -1076,19 +1514,35 @@ function updateUI() {
   updateMeter('fillMorale', 'moraleLbl', null, S.morale);
 
   // Labor percentages
-  const idle = Math.max(0, 1 - S.farmers - S.builders - S.herders);
+  const idle = Math.max(0, 1 - S.farmers - S.builders - S.herders - S.gatherers);
   const farmerPct = el('farmerPct');
   const builderPct = el('builderPct');
   const herderPct = el('herderPct');
+  const gathererPct = el('gathererPct');
   const idlePct = el('idlePct');
   if (farmerPct) farmerPct.textContent = Math.round(S.farmers * 100) + '%';
   if (builderPct) builderPct.textContent = Math.round(S.builders * 100) + '%';
   if (herderPct) herderPct.textContent = Math.round(S.herders * 100) + '%';
+  if (gathererPct) gathererPct.textContent = Math.round(S.gatherers * 100) + '%';
   if (idlePct) idlePct.textContent = Math.round(idle * 100) + '%';
 
   // Render
   renderPalette();
   renderGrid();
+}
+
+function updateMeter(fillId, lblId, statusId, pct, statusText = '', fillClass = '') {
+  const fill = el(fillId);
+  if (fill) {
+    fill.style.width = Math.round(pct * 100) + '%';
+    fill.className = 'fill ' + fillClass;
+  }
+  const lbl = el(lblId);
+  if (lbl) lbl.textContent = Math.round(pct * 100) + '%';
+  if (statusId) {
+    const s = el(statusId);
+    if (s) s.innerHTML = statusText;
+  }
 }
 
 function updateMeter(fillId, lblId, statusId, pct, statusText = '', fillClass = '') {

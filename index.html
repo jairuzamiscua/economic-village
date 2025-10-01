@@ -185,73 +185,99 @@
     </div>
   </aside>
 
-  <!-- Center Map -->
-  <section class="panel center">
-    <div class="view">
-      <div class="hud">
-        <div class="badge">Pop: <span id="pop">80</span>/<span id="cap">100</span></div>
-        <div class="badge" id="wagebadge">
-          <span class="tooltip-trigger">Wage: <span id="realWage">1.0</span>
-            <span class="tooltip">Real Wage = Food per capita / Subsistence. Below 1.0 = crisis!</span>
-          </span>
-        </div>
-        <div class="badge" id="weatherBadge">
-            <span id="weatherIcon">🌤️</span> <span id="weatherNow">Sunny</span> → <span id="weatherNext">Rain</span>
-        </div>
-        <div class="badge">Materials: <span id="mat">30</span></div>
-        <div class="badge">Food: <span id="foodStock">20</span></div>
-        <div class="badge">Animals: <span id="livestock">0</span></div>
+<!-- Center Map -->
+<section class="panel center">
+  <div class="view">
+    <div class="hud">
+      <div class="badge">Pop: <span id="pop">80</span>/<span id="cap">100</span></div>
+      <div class="badge" id="wagebadge">
+        <span class="tooltip-trigger">Wage: <span id="realWage">1.0</span>
+          <span class="tooltip">Real Wage = Food per capita / Subsistence. Below 1.0 = crisis!</span>
+        </span>
       </div>
-      <div class="grid" id="grid"></div>
-      <div class="ground" id="ground"></div>
+      <div class="badge" id="weatherBadge">
+        <span id="weatherIcon">🌤️</span> <span id="weatherNow">Sunny</span> → <span id="weatherNext">Rain</span>
+      </div>
+      <div class="badge">Materials: <span id="mat">30</span></div>
+      <div class="badge">Food: <span id="foodStock">20</span></div>
+      <div class="badge">Animals: <span id="livestock">0</span></div>
     </div>
-  </section>
-
-  <!-- Right Panel -->
-  <aside class="panel right">
-    <h2>Economic Indicators</h2>
     
-    <div class="meter">
-      <header>
-        <h4 class="tooltip-trigger">Real Wage<span class="tooltip-icon">?</span>
-          <span class="tooltip">Malthusian indicator: when population grows faster than food, wages fall to subsistence (1.0). Crises reset the cycle.</span>
-        </h4>
-        <span id="wageLbl">100%</span>
-      </header>
-      <div class="bar"><div class="fill" id="fillWage"></div></div>
-      <div class="stat"><span id="wageStatus">Subsistence = 1.0</span></div>
+    <!-- Season Banner -->
+    <div class="season-banner" id="seasonBanner">
+      <div class="season-icon" id="seasonIcon">🌱</div>
+      <div class="season-info">
+        <div class="season-name" id="seasonName">Spring</div>
+        <div class="season-desc" id="seasonDesc">Planting season</div>
+        <div class="season-progress">
+          Day <span id="seasonDay">1</span>/90
+        </div>
+      </div>
     </div>
+    
+    <div class="grid" id="grid"></div>
+    <div class="ground" id="ground"></div>
+  </div>
+</section>
 
-    <div class="meter">
-      <header><h4>Food Security</h4><span id="foodLbl">0%</span></header>
-      <div class="bar"><div class="fill" id="fillFood"></div></div>
-      <div class="stat">Daily need: <span id="foodNeed">16</span></div>
-    </div>
+<!-- Right Panel -->
+<aside class="panel right">
+  <h2>Economic Indicators</h2>
+  
+  <div class="meter">
+    <header>
+      <h4 class="tooltip-trigger">Real Wage<span class="tooltip-icon">?</span>
+        <span class="tooltip">Malthusian indicator: when population grows faster than food, wages fall to subsistence (1.0). Crises reset the cycle.</span>
+      </h4>
+      <span id="wageLbl">100%</span>
+    </header>
+    <div class="bar"><div class="fill" id="fillWage"></div></div>
+    <div class="stat"><span id="wageStatus">Subsistence = 1.0</span></div>
+  </div>
 
-    <div class="meter">
-      <header><h4>Health</h4><span id="healthLbl">60%</span></header>
-      <div class="bar"><div class="fill" id="fillHealth"></div></div>
-      <div class="stat">Disease risk: <span id="diseaseRisk">1.0%</span></div>
+  <div class="meter">
+    <header><h4>Food Security</h4><span id="foodLbl">0%</span></header>
+    <div class="bar"><div class="fill" id="fillFood"></div></div>
+    <div class="stat">Daily need: <span id="foodNeed">16</span></div>
+    <div class="stat">Production: <span id="foodProduction">0</span>/day</div>
+  </div>
+  
+  <div class="info-box">
+    <h2 style="margin:0 0 8px">Food Buffer</h2>
+    <div class="stat">
+      Stored: <b id="foodDays" style="color:var(--accent)">0</b> days
     </div>
+    <div class="food-buffer-bar">
+      <div class="buffer-fill" id="bufferFill"></div>
+      <div class="buffer-marker winter">
+        <span>90d</span>
+      </div>
+    </div>
+    <div class="stat-small" id="bufferWarning">Winter requires 90 days of stored food</div>
+  </div>
 
-    <div class="meter">
-      <header><h4>Morale</h4><span id="moraleLbl">60%</span></header>
-      <div class="bar"><div class="fill" id="fillMorale"></div></div>
-      <div class="stat">Affects productivity ±10%</div>
-    </div>
+  <div class="meter">
+    <header><h4>Health</h4><span id="healthLbl">60%</span></header>
+    <div class="bar"><div class="fill" id="fillHealth"></div></div>
+    <div class="stat">Disease risk: <span id="diseaseRisk">1.0%</span></div>
+  </div>
 
-    <div class="info-box">
-      <h2 style="margin:0 0 8px">Theory Active</h2>
-      <div class="stat" id="theoryStatus">Malthusian Trap</div>
-    </div>
+  <div class="meter">
+    <header><h4>Morale</h4><span id="moraleLbl">60%</span></header>
+    <div class="bar"><div class="fill" id="fillMorale"></div></div>
+    <div class="stat">Affects productivity ±10%</div>
+  </div>
 
-    <div class="info-box">
-      <h2 style="margin:0 0 8px">Game Log</h2>
-      <div class="stat" id="gameLog">Time will start when you interact...</div>
-    </div>
-  </aside>
-</div>
-</div>
+  <div class="info-box">
+    <h2 style="margin:0 0 8px">Theory Active</h2>
+    <div class="stat" id="theoryStatus">Malthusian Trap</div>
+  </div>
+
+  <div class="info-box">
+    <h2 style="margin:0 0 8px">Game Log</h2>
+    <div class="stat" id="gameLog">Time will start when you interact...</div>
+  </div>
+</aside>
 
 <!-- Event Card -->
 <div class="event-card" id="eventCard">
