@@ -193,52 +193,72 @@ function showTutorial() {
     return;
   }
   
+  // Remove any existing overlay first
+  const existingOverlay = document.getElementById('tutorialOverlay');
+  if (existingOverlay) existingOverlay.remove();
+  
   const overlay = document.createElement('div');
   overlay.id = 'tutorialOverlay';
   overlay.style.cssText = `
     position: fixed;
     inset: 0;
-    background: rgba(0,0,0,0.8);
+    background: rgba(0,0,0,0.85);
     z-index: 9999;
     display: flex;
     align-items: center;
     justify-content: center;
+    animation: fadeIn 0.3s;
   `;
   
   overlay.innerHTML = `
-    <div style="background: var(--panel); border: 2px solid var(--accent); border-radius: 16px; padding: 24px; max-width: 400px;">
-      <h3 style="color: var(--accent); margin-bottom: 12px;">${step.title}</h3>
-      <p style="margin-bottom: 20px;">${step.text}</p>
-      <button class="btn primary" id="tutorialNext">Got it (${S.tutorialStep + 1}/${TUTORIAL_STEPS.length})</button>
+    <div style="background: linear-gradient(180deg, #111827ee, #0b1224cc); border: 2px solid #22d3ee; border-radius: 16px; padding: 32px; max-width: 500px; box-shadow: 0 20px 60px rgba(0,0,0,0.7);">
+      <h3 style="color: #22d3ee; margin-bottom: 16px; font-size: 20px;">${step.title}</h3>
+      <p style="margin-bottom: 24px; line-height: 1.6; font-size: 15px;">${step.text}</p>
+      <button class="btn primary" id="tutorialNext" style="width: 100%; padding: 12px; font-size: 14px;">
+        Got it (${S.tutorialStep + 1}/${TUTORIAL_STEPS.length})
+      </button>
     </div>
   `;
   
   document.body.appendChild(overlay);
   
+  // Highlight target element
   if (step.target) {
-    const target = el(step.target);
-    if (target) {
-      target.style.border = '3px solid var(--accent)';
-      target.style.boxShadow = '0 0 20px var(--accent)';
-    }
-  }
-  
-  el('tutorialNext').onclick = () => {
-    if (step.target) {
+    setTimeout(() => {
       const target = el(step.target);
       if (target) {
-        target.style.border = '';
-        target.style.boxShadow = '';
+        target.style.position = 'relative';
+        target.style.zIndex = '10000';
+        target.style.border = '3px solid #22d3ee';
+        target.style.boxShadow = '0 0 30px #22d3ee';
       }
-    }
-    overlay.remove();
-    S.tutorialStep++;
-    if (S.tutorialStep < TUTORIAL_STEPS.length) {
-      setTimeout(showTutorial, 1000);
-    } else {
-      S.tutorialCompleted = true;
-    }
-  };
+    }, 50);
+  }
+  
+  const nextBtn = document.getElementById('tutorialNext');
+  if (nextBtn) {
+    nextBtn.onclick = () => {
+      // Remove highlight
+      if (step.target) {
+        const target = el(step.target);
+        if (target) {
+          target.style.border = '';
+          target.style.boxShadow = '';
+          target.style.zIndex = '';
+        }
+      }
+      
+      overlay.remove();
+      S.tutorialStep++;
+      
+      if (S.tutorialStep < TUTORIAL_STEPS.length) {
+        setTimeout(() => showTutorial(), 400);
+      } else {
+        S.tutorialCompleted = true;
+        toast('Tutorial complete! Good luck, Chief.', 4000);
+      }
+    };
+  }
 }
 
 // Tech Tree
