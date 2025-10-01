@@ -297,7 +297,7 @@ h2 {
 /* ============================================
    MAP VIEW
    ============================================ */
-   
+
 .view {
   height: 100%;
   min-height: 500px;
@@ -363,7 +363,6 @@ h2 {
   height: 55%;
   z-index: 1;
   pointer-events: none;
-  background: rgba(255, 0, 0, 0.2) !important; /* TEMP: See the ground area */
 }
 
 /* ============================================
@@ -438,8 +437,7 @@ h2 {
   width: 48px;
   height: 48px;
   border-radius: 8px;
-  border: 3px solid lime !important; /* TEMP: Make them super visible */
-  background: red !important; /* TEMP: Bright color */
+  border: 1px solid rgba(0, 0, 0, 0.4);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
   cursor: pointer;
   transition: transform 0.2s;
