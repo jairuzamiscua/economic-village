@@ -37,6 +37,32 @@
   </div>
 </div>
 
+<!-- Main Game -->
+<div id="gameContainer" class="shell" style="display:none">
+<header>
+  <div>
+    <h1>EconoVille — Phase 1: Agrarian Economy</h1>
+    <div class="header-stats">
+      <span>Day <span id="day">1</span> • Year <span id="year">1</span> • <span id="season">Spring</span></span>
+      <button class="btn-icon" id="btnPause" title="Pause/Resume">⏸</button>
+      <select class="speed-select" id="speedSelect">
+        <option value="4000">0.5x</option>
+        <option value="2000" selected>1x</option>
+        <option value="1000">2x</option>
+        <option value="500">4x</option>
+      </select>
+    </div>
+  </div>
+  <div class="header-buttons">
+    <button class="btn" id="btnTech">Tech Tree</button>
+    <button class="btn" id="btnTheory">Theory</button>
+    <button class="btn" id="btnProgress">Progress</button>
+    <button class="btn" id="btnExport">Export Data</button>
+    <button class="btn" id="btnSave">Save</button>
+    <button class="btn" id="btnReset">Reset</button>
+  </div>
+</header>
+
 <div class="main">
   <!-- Left Panel -->
   <aside class="panel left">
@@ -236,6 +262,7 @@
     </div>
   </aside>
 </div>
+</div>
 
 <!-- How To Play Modal -->
 <div class="modal" id="howToModal">
@@ -275,8 +302,6 @@
     </div>
   </div>
 </div>
-
-
 
 <!-- Event Card -->
 <div class="event-card" id="eventCard">
