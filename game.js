@@ -517,6 +517,41 @@ const EVENTS = [
   }
 ];
 
+function checkCriticalAlerts() {
+  const needPerDay = S.pop * 0.10;
+  const daysOfFood = S.foodStock / needPerDay;
+  
+  // Food crisis warning
+  if (daysOfFood < 10 && daysOfFood > 0) {
+    const warning = el('gameLog');
+    if (warning) {
+      warning.innerHTML = `<span style="color:var(--warn);">⚠ LOW FOOD: ${Math.floor(daysOfFood)} days remaining!</span>`;
+    }
+  } else if (S.foodStock < 0) {
+    const warning = el('gameLog');
+    if (warning) {
+      warning.innerHTML = `<span style="color:var(--bad);">🚨 STARVATION: Build more farms NOW!</span>`;
+    }
+  }
+  
+  // Material shortage
+  if (S.materials < 10 && S.nodes.length === 0) {
+    const warning = el('gameLog');
+    if (warning) {
+      warning.innerHTML = `<span style="color:var(--warn);">⚠ Material shortage: Wait for resources to respawn</span>`;
+    }
+  }
+  
+  // Wage crisis
+  if (S.realWage < 0.8) {
+    const warning = el('gameLog');
+    if (warning) {
+      warning.innerHTML = `<span style="color:var(--bad);">🚨 WAGE CRISIS: Famine imminent!</span>`;
+    }
+  }
+}
+
+
 // ============================================
 // INITIALIZATION & LANDING SCREEN
 // ============================================
@@ -823,6 +858,9 @@ function tick() {
 
   // Check win condition
   checkVictory();
+
+  // Check critical alerts - ADD THIS LINE
+  checkCriticalAlerts();
 
   // Update UI
   updateUI();
