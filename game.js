@@ -954,6 +954,8 @@ function tick() {
     farms.forEach((farm) => {
       // SAFETY: Skip farms under construction
       if (!farm.done) return;
+
+      const farmId = 'farm_' + farm.id;
     
     if (!S.farmCrops[farmId]) {
       // New farm - plant if season is right
@@ -1720,7 +1722,13 @@ function showMilestone(title, desc, reward) {
     </div>
   `;
   
-  docume
+  document.body.appendChild(popup);
+  
+  setTimeout(() => {
+    popup.style.animation = 'fadeOut 0.5s';
+    setTimeout(() => popup.remove(), 500);
+  }, 3500);
+}
 
 // ============================================
 // SEASON ANNOUNCEMENT
