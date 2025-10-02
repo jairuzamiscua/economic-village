@@ -98,6 +98,16 @@ const S = {
   season: 0,
   seasons: ['Spring', 'Summer', 'Autumn', 'Winter'],
 
+  // Feudal obligations
+  lordTithePct: 0.40, // Lord takes 40% of harvest
+  churchTithePct: 0.10, // Church takes 10%
+  laborDays: 0, // Days owed to lord's demesne
+  
+  // Social stratification
+  freeholderPct: 0.2, // % who own land (pay less tithe)
+  villeinPct: 0.6, // Unfree peasants (full obligations)
+  cottarPct: 0.2, // Landless laborers
+
   // Population
   pop: 80,
   cap: 150,
@@ -387,6 +397,13 @@ const TECH_TREE = {
     req: ['basicFarming'],
     effect: '+12% TFP (capital good)',
     desc: 'Mechanical grain milling'
+  },
+  charteredRights: {
+    name: 'Town Charter',
+    cost: 50,
+    req: ['market'],
+    effect: 'Reduce lord tithe 40% → 25%',
+    desc: 'Negotiate reduced feudal obligations'
   },
   market: {
     name: 'Market Charter',
@@ -754,7 +771,7 @@ function startGame() {
       initializeGameState();
       
       // Show tutorial FIRST, before revealing game
-      showTutorial();
+      //showTutorial();
       
       // THEN fade in game behind the overlay
       setTimeout(() => {
@@ -1014,27 +1031,96 @@ function tick() {
 
   // ===== SEASONAL FOOD PRODUCTION =====
   const seasonData = SEASON_DATA[S.season];
-  const seasonMult = seasonData.mult;
+  let seasonMult = seasonData.mult;
+
+  // WINTER: Kill unharvested non-hardy crops
+  if (S.season === 3 && S.day === 1) {
+    let cropsDied = 0;
+    Object.keys(S.farmCrops).forEach(farmId => {
+      const cropData = S.farmCrops[farmId];
+      if (cropData && !cropData.harvested) {
+        const cropType = CROP_DATA[cropData.crop];
+        if (cropType && !cropType.winterHardy) {
+          delete S.farmCrops[farmId];
+          cropsDied++;
+        }
+      }
+    });
+    
+    if (cropsDied > 0) {
+      toast(`❄️ Winter killed ${cropsDied} unharvested crops!`, 5000);
+      playSound('bad');
+    }
+  }
+
+  // Calculate harvestable farms THIS season
+  let harvestableFarms = 0;
+  farms.forEach(farm => {
+    const farmId = 'farm_' + farm.id;
+    const cropData = S.farmCrops[farmId];
+    
+    if (cropData && cropData.mature && !cropData.harvested) {
+      const cropType = CROP_DATA[cropData.crop];
+      // Can harvest if: crop is mature AND it's the right season
+      if (cropType && cropType.harvestSeasons.includes(S.season)) {
+        harvestableFarms++;
+      }
+    }
+  });
 
   // Diminishing returns to land (Ricardian)
   const landPerFarm = S.totalLand / Math.max(1, totalFarms);
   const diminishingReturns = Math.pow(landPerFarm / 10, 0.6);
 
-  // Crop-specific multipliers
-  const crop = CROP_DATA[S.cropType];
-  const baseFoodPerFarm = crop ? 2.5 * crop.yield : 2.5;
-
-  // Farm production calculation
-  let farmFood =
-    totalFarms *
-    baseFoodPerFarm *
-    S.tfp *
-    S.landQuality *
-    diminishingReturns *
-    (farmerPop / Math.max(1, S.pop)) *
-    S.workIntensity *
-    seasonMult * // Seasonal base multiplier
-    harvestMult; // Crop maturity multiplier
+  // REALISTIC: Farms only produce during harvest season
+  let farmFood = 0;
+  if (harvestableFarms > 0) {
+    // Daily harvest work during the harvest window
+    const crop = CROP_DATA[S.cropType];
+    const harvestPerDay = harvestableFarms * 
+      2.0 * // Base daily harvest rate
+      (crop ? crop.yield : 1.0) *
+      S.tfp *
+      S.landQuality *
+      diminishingReturns *
+      (farmerPop / Math.max(1, S.pop)) * // Labor intensity matters!
+      S.workIntensity;
+    
+    farmFood = harvestPerDay;
+    
+    // Mark farms as harvested after they've been worked for a while
+    if (S.day % 10 === 0 && farmerPop > totalFarms * 0.3) {
+      // Every 10 days, mark some farms harvested if enough farmers
+      let toHarvest = Math.floor(harvestableFarms * 0.3);
+      let harvested = 0;
+      
+      farms.forEach(farm => {
+        if (harvested >= toHarvest) return;
+        const farmId = 'farm_' + farm.id;
+        const cropData = S.farmCrops[farmId];
+        
+        if (cropData && cropData.mature && !cropData.harvested) {
+          const cropType = CROP_DATA[cropData.crop];
+          if (cropType && cropType.harvestSeasons.includes(S.season)) {
+            cropData.harvested = true;
+            harvested++;
+          }
+        }
+      });
+      
+      if (harvested > 0) {
+        toast(`Completed harvest on ${harvested} farms`, 2500);
+      }
+    }
+  } else if (totalFarms > 0 && S.season === 2) {
+    // Autumn with no harvestable crops = penalty warning
+    farmFood = 0;
+    if (S.day === 1 && S.lastPlantingWarning !== S.year) {
+      S.lastPlantingWarning = S.year;
+      toast('⚠️ NO CROPS TO HARVEST! Plant in correct seasons!', 6000);
+      playSound('bad');
+    }
+  }
 
   // Weather effects
   const w = weatherEffect(S.weatherNow);
@@ -1049,8 +1135,14 @@ function tick() {
     farmFood *= 1.15;
   }
 
-  // Livestock production
+  // Livestock production (year-round)
   let livestockFood = S.livestock * 0.5 * (herderPop / Math.max(1, S.pop));
+
+  // Foraging (spring/summer/autumn only)
+  let foragedFood = 0;
+  if (S.season !== 3) {
+    foragedFood = gathererPop * 0.3 * S.workIntensity;
+  }
 
   // Tech bonuses
   if (S.tech.manure) {
@@ -1064,13 +1156,34 @@ function tick() {
   }
 
   // Total food with spoilage
-  const totalFood = farmFood + livestockFood;
+  const totalFood = farmFood + livestockFood + foragedFood;
   const spoilage = totalFood * w.spoil;
-  const extraYearOneSpoil = (!S.tech.granary && S.year === 1) ? totalFood * 0.10 : 0;
-  const netFood = totalFood - spoilage - extraYearOneSpoil;
+  const netFood = totalFood - spoilage;
 
-  S.lastFoodProduction = netFood;
-  S.foodStock += netFood;
+  // FEUDAL EXTRACTION
+  let foodAfterTithe = netFood;
+  
+  if (S.landPolicy === 'commons') {
+    // Commons = collective obligations
+    const lordTake = netFood * S.lordTithePct;
+    const churchTake = netFood * S.churchTithePct;
+    foodAfterTithe = netFood - lordTake - churchTake;
+    
+    if (S.day === 1 && autoStarted) {
+      toast(`Lord's tithe: ${lordTake.toFixed(1)} food (${Math.round(S.lordTithePct * 100)}%)`, 3000);
+    }
+  } else if (S.landPolicy === 'enclosed') {
+    // Enclosure = private rents higher but fewer obligations
+    const rentTake = netFood * 0.50; // Landlord takes 50%!
+    foodAfterTithe = netFood - rentTake;
+    
+    if (S.day === 1 && autoStarted) {
+      toast(`Rent to landlord: ${rentTake.toFixed(1)} food (50%)`, 3000);
+    }
+  }
+  
+  S.lastFoodProduction = foodAfterTithe;
+  S.foodStock += foodAfterTithe;
 
   // Consumption
   const needPerDay = S.pop * 0.10;
@@ -2671,6 +2784,7 @@ function unlockTech(key) {
   if (key === 'heavyPlough') S.tfp *= 1.2;
   if (key === 'seedSelection') S.tfp *= 1.08;
   if (key === 'well') S.health = Math.min(1, S.health + 0.2);
+  if (key === 'charteredRights') S.lordTithePct = 0.25;
 
   // ADD CELEBRATION FOR FIRST TECH UNLOCK
   const techCount = Object.keys(S.tech).filter(k => S.tech[k]).length;
