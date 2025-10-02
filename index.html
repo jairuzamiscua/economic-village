@@ -303,6 +303,29 @@
   </div>
 </div>
 
+<!-- Crop Picker Modal -->
+<div class="modal" id="cropModal">
+  <div class="modal-content" style="max-width:720px">
+    <button class="modal-close" id="cropClose">×</button>
+    <h3 id="cropModalTitle">Choose crop for this farm</h3>
+
+    <div class="stat-small" style="margin-bottom:10px; opacity:.85">
+      Tip: Planting windows matter. Non-hardy crops die in winter; legumes enrich soil.
+    </div>
+
+    <div id="cropGrid" class="crop-grid"></div>
+
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-top:12px; gap:12px;">
+      <label class="stat-small" style="display:flex; gap:8px; align-items:center;">
+        <input type="checkbox" id="setDefaultCrop">
+        Set as default for new/unassigned farms
+      </label>
+      <button class="btn" id="cropCancel">Cancel</button>
+    </div>
+  </div>
+</div>
+
+
 <!-- Event Card -->
 <div class="event-card" id="eventCard">
   <div class="event-content">

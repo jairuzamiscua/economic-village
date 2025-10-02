@@ -1595,6 +1595,9 @@ function onBuildComplete(b) {
     }
     statChange = 'food production';
   }
+
+  // ➕ Add this:
+  setTimeout(() => openCropMenu(b.id), 300);
   
   if (b.type === 'house') {
     const oldCap = S.cap;
@@ -2520,6 +2523,29 @@ function renderGrid() {
     }
   });
 
+  // Add after icon class/position updates inside renderGrid()
+  if (b.type === 'farm' && b.done) {
+    icon.style.cursor = 'pointer';
+    icon.onclick = (e) => {
+      e.stopPropagation();
+      openCropMenu(b.id);
+    };
+
+    // Show "Set Crop" tag if unassigned
+    const farmId = 'farm_' + b.id;
+    if (!S.farmCrops[farmId]) {
+      if (!icon.querySelector('.need-crop')) {
+        const tag = document.createElement('div');
+        tag.className = 'need-crop';
+        tag.textContent = 'Set Crop';
+        icon.appendChild(tag);
+      }
+    } else {
+      const tag = icon.querySelector('.need-crop');
+      if (tag) tag.remove();
+    }
+  }
+
   existing.forEach(e => {
     if (!S.builds.find(b => b.id == e.dataset.id)) e.remove();
   });
@@ -2674,6 +2700,96 @@ function harvestNode(n) {
 // ============================================
 // DRAG & DROP
 // ============================================
+
+function openCropMenu(buildId) {
+  const farmId = 'farm_' + buildId;
+  S._activeFarmSelect = farmId;
+
+  const modal = el('cropModal');
+  const grid = el('cropGrid');
+  const title = el('cropModalTitle');
+  const setDefault = el('setDefaultCrop');
+  if (!modal || !grid) return;
+
+  title.textContent = 'Choose crop for this farm';
+  setDefault.checked = false;
+
+  // Build crop cards from CROP_DATA
+  grid.innerHTML = Object.entries(CROP_DATA).map(([key, v]) => {
+    const canPlantNow = v.plantSeasons.includes(S.season);
+    const plantLbl = v.plantSeasons.map(s => S.seasons[s]).join(' / ');
+    const harvestLbl = v.harvestSeasons.map(s => S.seasons[s]).join(' / ');
+    const hardy = v.winterHardy ? 'Hardy' : 'Not hardy';
+
+    return `
+      <div class="crop-card">
+        <div>
+          <div class="name">${v.name}</div>
+          <div class="meta">
+            <span class="crop-badge">Yield ${Math.round(v.yield*100)}%</span>
+            <span class="crop-badge">${hardy}</span>
+            <span class="crop-badge">Soil ${v.soilDrain >= 0 ? '−' : '+'}${Math.abs(v.soilDrain*100).toFixed(1)}%</span><br/>
+            Plant: ${plantLbl} • Harvest: ${harvestLbl} • Growth: ${v.growthDays}d
+          </div>
+        </div>
+        <div>
+          <button class="pick" data-crop="${key}" ${canPlantNow ? '' : 'disabled'}>${canPlantNow ? 'Plant' : 'Not in season'}</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  // Button events
+  grid.querySelectorAll('.pick').forEach(btn => {
+    btn.onclick = () => {
+      const choice = btn.dataset.crop;
+      selectCropForFarm(farmId, choice, setDefault.checked);
+    };
+  });
+
+  // Close buttons
+  const cropCancel = el('cropCancel');
+  const cropClose = el('cropClose');
+  if (cropCancel) cropCancel.onclick = () => hideModal('cropModal');
+  if (cropClose) cropClose.onclick = () => hideModal('cropModal');
+
+  showModal('cropModal');
+}
+
+function selectCropForFarm(farmId, cropKey, setDefaultAlso) {
+  const cd = CROP_DATA[cropKey];
+  if (!cd) return;
+
+  // Season gate
+  if (!cd.plantSeasons.includes(S.season)) {
+    const names = cd.plantSeasons.map(s => S.seasons[s]).join(' or ');
+    toast(`⚠️ ${cd.name} can only be planted in ${names}.`);
+    playSound('bad');
+    return;
+  }
+
+  // Plant this farm
+  S.farmCrops[farmId] = {
+    crop: cropKey,
+    plantedDay: S.day,
+    plantedSeason: S.season,
+    plantedYear: S.year,
+    mature: false,
+    daysGrowing: 0,
+    harvested: false
+  };
+
+  // Optional: set as default for new/unassigned farms
+  if (setDefaultAlso) {
+    S.cropType = cropKey; // keep as global default
+    toast(`Default crop set to ${cd.name}.`);
+  }
+
+  toast(`🌱 Planted ${cd.name} on this farm. Harvest in ~${cd.growthDays} days.`);
+  playSound('click');
+  hideModal('cropModal');
+  updateUI();
+}
 
 function attachGridDnD() {
   const ground = el('ground'); // CHANGED from grid
@@ -2963,38 +3079,19 @@ function setupEventListeners() {
     btn.addEventListener('click', () => {
       const newCrop = btn.dataset.crop;
       const cropType = CROP_DATA[newCrop];
-      
-      // Check if plantable this season
-      if (!cropType.plantSeasons.includes(S.season)) {
-        const seasonNames = cropType.plantSeasons.map(s => S.seasons[s]).join(' or ');
-        toast(`⚠️ ${cropType.name} can only be planted in ${seasonNames}!`, 4500);
-        playSound('bad');
-        return;
-      }
-      
+
+      // update UI highlighting
       document.querySelectorAll('.crop-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
+
+      // set as global default crop (used for unassigned/new farms)
       S.cropType = newCrop;
-      
-      // Replant existing farms with new crop
-      let replanted = 0;
-      S.builds.filter(b => b.type === 'farm' && b.done).forEach(farm => {
-        const farmId = 'farm_' + farm.id;
-        S.farmCrops[farmId] = {
-          crop: newCrop,
-          plantedDay: S.day,
-          plantedSeason: S.season,
-          plantedYear: S.year,
-          mature: false,
-          daysGrowing: 0
-        };
-        replanted++;
-      });
-      
-      toast(`Planted ${cropType.name} on ${replanted} farms. Harvest in ${cropType.growthDays} days.`, 4000);
+
+      toast(`Default crop set to ${cropType.name}. Click a farm to plant it.`, 3500);
       playSound('click');
     });
   });
+
 
   // Enclosure toggle
   const btnEnclosure = el('btnEnclosure');
