@@ -783,7 +783,7 @@ function startGame() {
 }
 
 function initializeGameState() {
-  // Pre-build starting infrastructure
+  // Pre-build starting infrastructure (3 finished farms)
   for (let i = 0; i < 3; i++) {
     S.builds.push({
       id: 'start_farm_' + i,
@@ -796,6 +796,7 @@ function initializeGameState() {
     });
   }
   
+  // ...and 2 finished houses
   for (let i = 0; i < 2; i++) {
     S.builds.push({
       id: 'start_house_' + i,
@@ -808,62 +809,39 @@ function initializeGameState() {
     });
   }
 
-  // Leaner start: 1 finished farm, 1 half-built farm, 1 house
-  S.builds.push({
-    id: 'start_farm_1',
-    type: 'farm',
-    x: 150,
-    y: 100,
-    done: true,
-    progress: BUILDS.farm.dur,
-    dur: BUILDS.farm.dur
-  });
-  S.builds.push({
-    id: 'start_farm_2',
-    type: 'farm',
-    x: 270,
-   y: 100,
-    done: false,
-    progress: BUILDS.farm.dur / 2,
-    dur: BUILDS.farm.dur
-  });
-  S.builds.push({
-    id: 'start_house_1',
-    type: 'house',
-    x: 200,
-    y: 30,
-    done: true,
-   progress: BUILDS.house.dur,
-   dur: BUILDS.house.dur
-  });
+  // NOTE: Removed the duplicate/half-built "Leaner start" block that
+  // re-added start_farm_1, start_farm_2, and start_house_1.
+  // That was causing the middle farm to look like it was "loading".
 
   // Tighter early buffer & worried village
   S.foodStock = 15;
   S.morale = 0.45;
 
-
-
-
+  // Boot world & UI
   spawnNodes();
   setupEventListeners();
   renderPalette();
   updateUI();
 
+  // Start ticking on first interaction
   document.addEventListener('click', autoStart, { once: true });
   document.addEventListener('input', autoStart, { once: true });
 
   toast('Welcome, Chief! Time will begin when you interact.');
-  // Force interaction listeners
+
+  // Force interaction listeners (extra guard)
   const forceStart = () => {
     if (!autoStarted) {
       autoStart();
     }
   };
-  
-  document.addEventListener('click', forceStart, { once: true });
-  document.addEventListener('input', forceStart, { once: true });
+  document.addEventListener('click',  forceStart, { once: true });
+  document.addEventListener('input',  forceStart, { once: true });
   document.addEventListener('change', forceStart, { once: true });
 }
+
+  
+
 
 // ============================================
 // GAME LOOP
@@ -1307,7 +1285,7 @@ function tick() {
   if (herderPop > 0 && S.livestock < herderPop * 3 && Math.random() < breedRate) {
     S.livestock++;
   }
-  
+
   // Soil quality dynamics (use actual planted crops)
   if (totalFarms > 0) {
     if (!S.tech.threeField) {
@@ -2804,6 +2782,7 @@ function selectCropForFarm(farmId, cropKey, setDefaultAlso) {
   playSound('click');
   hideModal('cropModal');
   updateUI();
+  renderGrid();
 }
 
 function attachGridDnD() {

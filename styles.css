@@ -1423,3 +1423,44 @@ input[type="range"] {
   box-shadow: 0 6px 16px rgba(0,0,0,.45);
   animation: pulse 2s infinite;
 }
+
+/* Base farm tile */
+.icon.farm { border-radius: 10px; }
+
+/* Empty = dirt */
+.farm-empty {
+  background: linear-gradient(135deg, #5b4636 0%, #463428 100%);
+  box-shadow: inset 0 0 0 2px rgba(0,0,0,0.25);
+}
+
+/* Growing stages */
+.farm-wheat-growing  { background: repeating-linear-gradient(135deg, #2d6a4f 0 10px, #1b4332 10px 20px); }
+.farm-wheat-mature   { background: repeating-linear-gradient(135deg, #e9c46a 0 10px, #c1993f 10px 20px); }
+
+.farm-barley-growing { background: repeating-linear-gradient(135deg, #3a7d44 0 10px, #2e6a39 10px 20px); }
+.farm-barley-mature  { background: repeating-linear-gradient(135deg, #d3b56b 0 10px, #b7974f 10px 20px); }
+
+.farm-rye-growing    { background: repeating-linear-gradient(135deg, #2f6f4e 0 10px, #265a40 10px 20px); }
+.farm-rye-mature     { background: repeating-linear-gradient(135deg, #c8b36a 0 10px, #a8944c 10px 20px); }
+
+.farm-legumes-growing{ background: repeating-linear-gradient(135deg, #3f7d59 0 10px, #326446 10px 20px); }
+.farm-legumes-mature { background: repeating-linear-gradient(135deg, #7cc084 0 10px, #5ea265 10px 20px); }
+
+/* After harvest but before re-plant = fallow (drier dirt) */
+[class*="farm-"][class$="-fallow"] {
+  background: linear-gradient(135deg, #6a5240 0%, #4d3d31 100%);
+  box-shadow: inset 0 0 0 2px rgba(0,0,0,0.25);
+}
+
+/* Site look already defined; keep it darker with ring */
+.icon.site { filter: grayscale(.2) brightness(.7) contrast(1.1); }
+
+/* Badge */
+.need-crop{
+  position:absolute; bottom:-8px; left:8px;
+  font-size:10px; padding:2px 6px; border-radius:8px;
+  background:#7f1d1dcc; border:1px solid var(--bad); color:#fff;
+  box-shadow:0 6px 16px rgba(0,0,0,.45);
+  animation:pulse 2s infinite;
+}
+
