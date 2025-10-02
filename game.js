@@ -2515,36 +2515,54 @@ function renderGrid() {
     }
 
     // ✅ Farm: make clickable + “Set Crop” hint (INSIDE the loop, so `b`/`icon` exist)
+    // ✅ Farm: make clickable + visual states + BETTER TOOLTIPS
     if (b.type === 'farm' && b.done) {
+      const farmId = 'farm_' + b.id;
+      const cropData = S.farmCrops[farmId];
+      
+      // Remove all crop state classes
+      icon.classList.remove(
+        'farm-empty',
+        'farm-wheat-growing', 'farm-wheat-mature',
+        'farm-barley-growing', 'farm-barley-mature',
+        'farm-rye-growing', 'farm-rye-mature',
+        'farm-legumes-growing', 'farm-legumes-mature'
+      );
+
+      if (!cropData) {
+        // Empty farm
+        icon.classList.add('farm-empty');
+        icon.title = `Empty farm - Click to plant (Season: ${S.seasons[S.season]})`;
+      } else {
+        // Has crop - show growth stage
+        const stage = cropData.mature ? 'mature' : 'growing';
+        const cropName = cropData.crop;
+        icon.classList.add(`farm-${cropName}-${stage}`);
+        
+        const cropType = CROP_DATA[cropData.crop];
+        const progress = Math.round((cropData.daysGrowing / cropType.growthDays) * 100);
+        
+        // ✅ DETAILED TOOLTIP
+        if (cropData.mature) {
+          icon.title = `${cropType.name} - READY TO HARVEST!\nClick to change crop`;
+        } else {
+          icon.title = `${cropType.name} - Growing (${progress}%)\n${cropData.daysGrowing}/${cropType.growthDays} days\nClick to replant`;
+        }
+      }
+      
+      // Make clickable
       icon.style.cursor = 'pointer';
       icon.onclick = (e) => {
         e.stopPropagation();
         openCropMenu(b.id);
       };
 
-      const farmId = 'farm_' + b.id;
-      const cropData = S.farmCrops[farmId];
-      icon.classList.remove(
-        'farm-empty',
-        'farm-wheat-growing','farm-wheat-mature',
-        'farm-barley-growing','farm-barley-mature',
-        'farm-rye-growing','farm-rye-mature',
-        'farm-legumes-growing','farm-legumes-mature'
-      );
-
-      if (!cropData) {
-        icon.classList.add('farm-empty');
-      } else {
-        const stage = cropData.mature ? 'mature' : 'growing';
-        const name = cropData.crop; // 'wheat' | 'barley' | 'rye' | 'legumes'
-        icon.classList.add(`farm-${name}-${stage}`);
-      }
-
+      // Show "Set Crop" badge ONLY on empty farms
       if (!S.farmCrops[farmId]) {
         if (!icon.querySelector('.need-crop')) {
           const tag = document.createElement('div');
           tag.className = 'need-crop';
-          tag.textContent = 'Set Crop';
+          tag.textContent = 'Click to Plant';
           icon.appendChild(tag);
         }
       } else {
@@ -2789,17 +2807,44 @@ function selectCropForFarm(farmId, cropKey, setDefaultAlso) {
     harvested: false
   };
 
-  // Optional: set as default for new/unassigned farms
+  // Optional: set as default
   if (setDefaultAlso) {
-    S.cropType = cropKey; // keep as global default
+    S.cropType = cropKey;
     toast(`Default crop set to ${cd.name}.`);
   }
 
   toast(`🌱 Planted ${cd.name} on this farm. Harvest in ~${cd.growthDays} days.`);
   playSound('click');
   hideModal('cropModal');
-  updateUI();
-  renderGrid();
+  
+  // ✅ CRITICAL: Force immediate visual update
+  renderGrid(); // Update the farm's visual class
+  
+  // ✅ Show tooltip on the farm tile
+  const farmIcon = document.querySelector(`[data-id*="${farmId.replace('farm_', '')}"]`);
+  if (farmIcon) {
+    const tooltip = document.createElement('div');
+    tooltip.style.cssText = `
+      position: absolute;
+      bottom: -35px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #0b1224ee;
+      border: 1px solid var(--accent);
+      padding: 6px 10px;
+      border-radius: 8px;
+      font-size: 11px;
+      white-space: nowrap;
+      z-index: 1000;
+      animation: fadeIn 0.3s;
+      pointer-events: none;
+    `;
+    tooltip.textContent = `${cd.name} planted! 0/${cd.growthDays} days`;
+    farmIcon.appendChild(tooltip);
+    
+    // Remove after 3 seconds
+    setTimeout(() => tooltip.remove(), 3000);
+  }
 }
 
 function attachGridDnD() {

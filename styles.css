@@ -1482,3 +1482,53 @@ input[type="range"] {
 
 /* Optional: fallow look with higher specificity too */
 .icon.farm[class$="-fallow"]   { background: linear-gradient(135deg, #6a5240 0%, #4d3d31 100%); box-shadow: inset 0 0 0 2px rgba(0,0,0,0.25); }
+
+/* Add shimmer effect for mature crops */
+@keyframes shimmer {
+  0%, 100% { 
+    filter: brightness(1); 
+  }
+  50% { 
+    filter: brightness(1.2);
+    box-shadow: 0 0 15px rgba(233, 196, 106, 0.4);
+  }
+}
+
+.icon.farm.farm-wheat-mature,
+.icon.farm.farm-barley-mature,
+.icon.farm.farm-rye-mature,
+.icon.farm.farm-legumes-mature {
+  animation: shimmer 2s ease-in-out infinite;
+}
+
+/* Growth progress indicator */
+.icon.farm[class*="-growing"]::after {
+  content: '';
+  position: absolute;
+  bottom: 4px;
+  right: 4px;
+  width: 12px;
+  height: 12px;
+  background: var(--warn);
+  border-radius: 50%;
+  border: 2px solid rgba(0,0,0,0.3);
+  animation: pulse 2s infinite;
+}
+
+.icon.farm[class*="-mature"]::after {
+  content: '✓';
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  width: 16px;
+  height: 16px;
+  background: var(--good);
+  border-radius: 50%;
+  border: 2px solid rgba(0,0,0,0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  color: white;
+  font-weight: bold;
+}
