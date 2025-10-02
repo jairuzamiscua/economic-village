@@ -386,9 +386,7 @@ h2 {
   z-index: 6;
 }
 
-.icon.farm {
-  background: repeating-linear-gradient(45deg, #166534 0 7px, #0e9f6e 7px 14px);
-}
+.icon.farm { background: transparent; }
 
 .icon.house {
   background: linear-gradient(#d1d5db, #6b7280);
