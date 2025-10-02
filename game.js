@@ -2523,6 +2523,23 @@ function renderGrid() {
       };
 
       const farmId = 'farm_' + b.id;
+      const cropData = S.farmCrops[farmId];
+      icon.classList.remove(
+        'farm-empty',
+        'farm-wheat-growing','farm-wheat-mature',
+        'farm-barley-growing','farm-barley-mature',
+        'farm-rye-growing','farm-rye-mature',
+        'farm-legumes-growing','farm-legumes-mature'
+      );
+
+      if (!cropData) {
+        icon.classList.add('farm-empty');
+      } else {
+        const stage = cropData.mature ? 'mature' : 'growing';
+        const name = cropData.crop; // 'wheat' | 'barley' | 'rye' | 'legumes'
+        icon.classList.add(`farm-${name}-${stage}`);
+      }
+
       if (!S.farmCrops[farmId]) {
         if (!icon.querySelector('.need-crop')) {
           const tag = document.createElement('div');
