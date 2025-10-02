@@ -103,6 +103,10 @@ const S = {
   cap: 150,
   totalDeaths: 0,
 
+  // Crop lifecycle tracking
+  farmCrops: {}, // { farmId: { crop: 'wheat', plantedDay: 15, plantedSeason: 2, plantedYear: 1, mature: false } }
+  lastPlantingWarning: -1,
+
   // Labor allocation
   farmers: 0.5,
   builders: 0.3,
@@ -404,9 +408,50 @@ const BUILDS = {
 };
 
 const CROP_DATA = {
-  wheat: { yield: 1.0, droughtMult: 0.6, soilDrain: 0.02 },
-  rye: { yield: 0.85, droughtMult: 0.9, soilDrain: 0.015 },
-  legumes: { yield: 0.7, droughtMult: 0.85, soilDrain: -0.01 }
+  wheat: { 
+    name: 'Winter Wheat',
+    yield: 1.0, 
+    droughtMult: 0.6, 
+    soilDrain: 0.02,
+    plantSeasons: [2], // Autumn only - historically accurate!
+    harvestSeasons: [1, 2], // Late summer/early autumn
+    growthDays: 270, // ~9 months
+    winterHardy: true, // Survives winter
+    baseFood: 3.0 // High calorie grain
+  },
+  rye: { 
+    name: 'Rye',
+    yield: 0.85, 
+    droughtMult: 0.95, // Very drought resistant
+    soilDrain: 0.015,
+    plantSeasons: [2, 3], // Autumn or winter
+    harvestSeasons: [1], // Summer
+    growthDays: 240,
+    winterHardy: true,
+    baseFood: 2.5
+  },
+  legumes: { 
+    name: 'Peas & Beans',
+    yield: 0.75, 
+    droughtMult: 0.85, 
+    soilDrain: -0.015, // FIXES nitrogen!
+    plantSeasons: [0], // Spring only
+    harvestSeasons: [2], // Autumn harvest
+    growthDays: 180, // 6 months
+    winterHardy: false, // Dies in winter
+    baseFood: 2.0
+  },
+  barley: {
+    name: 'Spring Barley',
+    yield: 0.9,
+    droughtMult: 0.8,
+    soilDrain: 0.018,
+    plantSeasons: [0], // Spring
+    harvestSeasons: [1], // Summer
+    growthDays: 120,
+    winterHardy: false,
+    baseFood: 2.3
+  }
 };
 
 const EVENTS = [
@@ -578,39 +623,50 @@ const EVENTS = [
 // Current (too subtle)
 const seasonalYield = [1.0, 1.2, 0.8, 0.3];
 
-// Better (creates real crisis)
 const SEASON_DATA = {
-  0: { 
+  0: { // SPRING - planting season, low output
     name: 'Spring',
-    mult: 0.7,
+    mult: 0.2, // Only existing mature crops produce
     color: '#86efac',
     icon: '🌱',
-    desc: 'Planting season - reduced yields',
-    warning: null // ADD THIS
+    desc: 'Planting season - sow spring crops NOW',
+    warning: 'Plant legumes and barley before summer!',
+    skyGradient: 'radial-gradient(1400px 900px at 70% -10%, #7dd3fc 0%, #38bdf8 40%, #0284c7 100%)',
+    groundGradient: 'linear-gradient(180deg, rgba(34, 197, 94, 0.4) 0%, rgba(21, 128, 61, 0.6) 100%)',
+    skyOpacity: 0.85
   },
-  1: { 
+  1: { // SUMMER - growing season, some harvest
     name: 'Summer', 
-    mult: 1.0,
-    color: '#fcd34d',
+    mult: 0.6, // Early crops (barley, rye) harvest
+    color: '#fbbf24',
     icon: '☀️',
-    desc: 'Growing season - good yields',
-    warning: null // ADD THIS
+    desc: 'Growing season - early grain harvest',
+    warning: 'Rye and barley ready - wheat still growing',
+    skyGradient: 'radial-gradient(1400px 900px at 70% -10%, #fef08a 0%, #fbbf24 40%, #f59e0b 100%)',
+    groundGradient: 'linear-gradient(180deg, rgba(34, 197, 94, 0.5) 0%, rgba(74, 158, 37, 0.7) 100%)',
+    skyOpacity: 1.0 // Brightest
   },
-  2: { 
+  2: { // AUTUMN - main harvest BUT only if planted correctly
     name: 'Autumn',
-    mult: 1.5,
-    color: '#fb923c',
+    mult: 0.8, // Base mult - BONUS comes from mature crops
+    color: '#f97316',
     icon: '🌾',
-    desc: 'HARVEST! Store food for winter',
-    warning: 'Winter approaches - store 90+ days of food!' // ADD THIS
+    desc: 'HARVEST SEASON - reap what you sowed!',
+    warning: 'Plant winter wheat NOW for next year!',
+    skyGradient: 'radial-gradient(1400px 900px at 70% -10%, #fb923c 0%, #ea580c 40%, #c2410c 100%)',
+    groundGradient: 'linear-gradient(180deg, rgba(120, 53, 15, 0.6) 0%, rgba(69, 26, 3, 0.8) 100%)',
+    skyOpacity: 0.9
   },
-  3: { 
+  3: { // WINTER - survival mode
     name: 'Winter',
-    mult: 0.1,
+    mult: 0.05, // Almost nothing grows
     color: '#93c5fd',
     icon: '❄️',
-    desc: 'SURVIVAL MODE - live on stores',
-    warning: 'Ration carefully - spring comes soon' // ADD THIS
+    desc: 'SURVIVAL - eat stored food, tend animals',
+    warning: 'Protect winter wheat - spring will come',
+    skyGradient: 'radial-gradient(1400px 900px at 70% -10%, #cbd5e1 0%, #94a3b8 40%, #64748b 100%)',
+    groundGradient: 'linear-gradient(180deg, rgba(248, 250, 252, 0.95) 0%, rgba(226, 232, 240, 0.98) 100%)',
+    skyOpacity: 0.7
   }
 };
 
@@ -803,7 +859,7 @@ function tick() {
       
       // Audio feedback at milestones
       if (Math.floor(oldProgress / (b.dur / 4)) < Math.floor(b.progress / (b.dur / 4))) {
-        playSound('click'); // Quarter completion sound
+        playSound('click');
       }
       
       if (b.progress >= b.dur) {
@@ -813,7 +869,7 @@ function tick() {
     }
   });
 
-  // Resource regeneration check
+  // Resource regeneration check (every year on day 1)
   if (S.day === 1) {
     for (let i = S.nodeRegenQueue.length - 1; i >= 0; i--) {
       const regen = S.nodeRegenQueue[i];
@@ -831,121 +887,43 @@ function tick() {
     }
   }
 
-  function checkMilestones() {
-  // First winter survival
-    if (!S.milestones.firstWinter.complete && S.year === 2 && S.season === 0) {
-      S.milestones.firstWinter.complete = true;
-      S.materials += 15;
-      showMilestone('Survived First Winter!', 'Gained 15 materials bonus', '+15 Materials');
-      playSound('complete');
-    }
-    
-    // Population milestone
-    if (!S.milestones.population100.complete && S.pop >= 100) {
-      S.milestones.population100.complete = true;
-      S.tfp *= 1.1;
-      showMilestone('Village Expansion!', 'Population reached 100', '+10% Productivity');
-      playSound('complete');
-    }
-    
-    // First mill (capital accumulation)
-    const mills = S.builds.filter(b => b.type === 'mill' && b.done).length;
-    if (!S.milestones.firstMill.complete && mills >= 1) {
-      S.milestones.firstMill.complete = true;
-      S.morale = Math.min(1, S.morale + 0.2);
-      showMilestone('Industrial Revolution Begins!', 'First windmill operational', '+20% Morale');
-      playSound('complete');
-    }
-    
-    // Market economy
-    const hasMarket = S.builds.some(b => b.type === 'market' && b.done);
-    if (!S.milestones.marketBuilt.complete && hasMarket) {
-      S.milestones.marketBuilt.complete = true;
-      S.materialsPerYear = 2; // Passive income
-      showMilestone('Market Economy Unlocked!', 'Trade generates passive materials', '+2 Materials/Year');
-      playSound('complete');
-    }
-    
-    // Sustained prosperity
-    if (!S.milestones.sustained_wage.complete && S.wageAbove13Years >= 1) {
-      S.milestones.sustained_wage.complete = true;
-      S.victoryProgress += 25;
-      showMilestone('Prosperity Sustained!', 'High wages for 1 full year', 'Victory: 25%');
-      playSound('complete');
-    }
-  }
+  // Check milestones
+  checkMilestones();
 
-  function showMilestone(title, desc, reward) {
-    const popup = document.createElement('div');
-    popup.style.cssText = `
-      position: fixed;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      background: linear-gradient(135deg, var(--accent)22, var(--panel));
-      border: 3px solid var(--accent);
-      border-radius: 16px;
-      padding: 30px 40px;
-      z-index: 10000;
-      box-shadow: 0 20px 60px rgba(0,0,0,0.7);
-      text-align: center;
-      min-width: 350px;
-      animation: scaleIn 0.5s;
-    `;
-    
-    popup.innerHTML = `
-      <div style="font-size: 48px; margin-bottom: 16px;">🏆</div>
-      <div style="font-size: 22px; font-weight: 800; margin-bottom: 8px; color: var(--accent);">
-        ${title}
-      </div>
-      <div style="font-size: 14px; margin-bottom: 16px; color: var(--muted);">
-        ${desc}
-      </div>
-      <div style="font-size: 18px; font-weight: 700; color: var(--good); background: #0b1224aa; padding: 12px; border-radius: 8px;">
-        ${reward}
-      </div>
-    `;
-    
-    document.body.appendChild(popup);
-    
-    setTimeout(() => {
-      popup.style.animation = 'fadeOut 0.5s';
-      setTimeout(() => popup.remove(), 500);
-    }, 3500);
-  }
-
-  // Food production
-  const farms = S.builds.filter(b => b.type === 'farm' && b.done).length;
-  const mills = S.builds.filter(b => b.type === 'mill' && b.done).length;
+  // Get population allocations
   const farmerPop = Math.floor(S.pop * S.farmers);
   const herderPop = Math.floor(S.pop * S.herders);
   const gathererPop = Math.floor(S.pop * S.gatherers);
   
+  // Get building counts
+  const farms = S.builds.filter(b => b.type === 'farm' && b.done);
+  const mills = S.builds.filter(b => b.type === 'mill' && b.done).length;
+
+  // Status logging every 30 days
   if (S.day % 30 === 0 && autoStarted) {
     const gameLog = el('gameLog');
-    if (gameLog && farms > 0) {
-      const foodPerFarm = S.lastFoodProduction / Math.max(1, farms);
+    if (gameLog && farms.length > 0) {
+      const foodPerFarm = S.lastFoodProduction / Math.max(1, farms.length);
       gameLog.innerHTML = `
         <span style="color:var(--accent)">
-          📊 ${farms} farms producing ${foodPerFarm.toFixed(1)} food/farm/day
+          📊 ${farms.length} farms producing ${foodPerFarm.toFixed(1)} food/farm/day
           ${mills > 0 ? `| ${mills} mills = +${Math.round(mills * 12)}% TFP` : ''}
         </span>
       `;
     }
   }
 
+  // Gathering jobs progress
   if (S.gatherJobs && S.gatherJobs.length > 0) {
-    const job = S.gatherJobs[0]; // Work first in queue
+    const job = S.gatherJobs[0];
     job.progress += gathererPop * 0.05 * S.workIntensity;
     
     if (job.progress >= job.required) {
-      // Job complete
       const gain = job.type === 'tree' ? 4 : 5;
       S.materials += gain;
       playSound('harvest');
       toast(`Gathered +${gain} materials from ${job.type}`);
       
-      // Remove node
       const node = S.nodes.find(n => n.id === job.nodeId);
       if (node) {
         S.nodeRegenQueue.push({
@@ -955,72 +933,67 @@ function tick() {
         S.nodes = S.nodes.filter(n => n.id !== job.nodeId);
       }
       
-      // Remove job
       S.gatherJobs.shift();
     }
   }
 
-  // ===== CONTINUOUS SEASONAL LABOR FEEDBACK =====
-  // Check every 10 days if allocation is suboptimal
-  if (S.day % 10 === 0 && autoStarted) {
-    const seasonName = S.seasons[S.season].toLowerCase();
-    const recommended = S.seasonalPressure[seasonName];
+  // ===== CROP LIFECYCLE SYSTEM =====
+  // Auto-plant on newly built farms or update existing crops
+  farms.forEach((farm) => {
+    const farmId = 'farm_' + farm.id;
     
-    // Calculate how far off they are
-    const farmerGap = recommended.farmers - S.farmers;
-    const builderGap = recommended.builders - S.builders;
-    
-    // Autumn: Penalize low farmers during harvest
-    if (S.season === 2 && S.farmers < 0.55) {
-      const penalty = Math.abs(farmerGap) * 0.15; // Up to 15% production loss
-      farmFood *= (1 - penalty);
+    if (!S.farmCrops[farmId]) {
+      // New farm - plant if season is right
+      const crop = CROP_DATA[S.cropType];
+      if (crop && crop.plantSeasons.includes(S.season)) {
+        S.farmCrops[farmId] = {
+          crop: S.cropType,
+          plantedDay: S.day,
+          plantedSeason: S.season,
+          plantedYear: S.year,
+          mature: false,
+          daysGrowing: 0
+        };
+      }
+    } else {
+      // Existing crop - update growth
+      const cropData = S.farmCrops[farmId];
+      cropData.daysGrowing++;
       
-      if (S.day % 30 === 0 && S.lastLaborWarning !== S.day) {
-        S.lastLaborWarning = S.day;
-        toast(`⚠️ Harvest suffers! Only ${Math.round(S.farmers * 100)}% farmers = ${Math.round(penalty * 100)}% food loss`, 5000);
-        highlightSlider('farmer', 8000);
+      const cropType = CROP_DATA[cropData.crop];
+      if (cropType && cropData.daysGrowing >= cropType.growthDays) {
+        cropData.mature = true;
       }
     }
+  });
+
+  // Count mature harvestable crops
+  let matureFarms = 0;
+  let totalFarms = farms.length;
+  
+  farms.forEach(farm => {
+    const farmId = 'farm_' + farm.id;
+    const cropData = S.farmCrops[farmId];
     
-    // Winter: Reward high builders (they have nothing else to do)
-    if (S.season === 3 && S.builders > 0.35) {
-      const bonus = (S.builders - 0.3) * 0.5; // Up to 10% construction bonus
-      S.builds.forEach(b => {
-        if (!b.done) {
-          b.progress += builderPop * 0.01 * bonus; // Extra construction
-        }
-      });
-      
-      if (S.day === 30 && S.lastLaborWarning !== S.day) {
-        S.lastLaborWarning = S.day;
-        toast(`❄️ Winter efficiency! High builders = +${Math.round(bonus * 100)}% construction`, 4000);
+    if (cropData && cropData.mature) {
+      const cropType = CROP_DATA[cropData.crop];
+      if (cropType && cropType.harvestSeasons.includes(S.season)) {
+        matureFarms++;
       }
     }
-    
-    // Spring: Penalize low farmers (crops need planting)
-    if (S.season === 0 && S.farmers < 0.5) {
-      const penalty = Math.abs(farmerGap) * 0.12;
-      farmFood *= (1 - penalty);
-      
-      if (S.day === 40 && S.lastLaborWarning !== S.day) {
-        S.lastLaborWarning = S.day;
-        toast(`🌱 Planting delayed! Low farmers = ${Math.round(penalty * 100)}% yield loss`, 5000);
-        highlightSlider('farmer', 8000);
-      }
-    }
-    
-    // Summer: Balanced - warn if too extreme either way
-    if (S.season === 1 && (S.farmers < 0.4 || S.farmers > 0.7)) {
-      if (S.day === 45 && S.lastLaborWarning !== S.day) {
-        S.lastLaborWarning = S.day;
-        if (S.farmers < 0.4) {
-          toast(`☀️ Summer shortage! Crops need more attention`, 4000);
-          highlightSlider('farmer', 6000);
-        } else {
-          toast(`☀️ Overfarming! You could expand infrastructure`, 4000);
-          highlightSlider('builder', 6000);
-        }
-      }
+  });
+
+  // Calculate harvest multiplier based on crop maturity
+  let harvestMult = 1.0;
+  if (matureFarms > 0 && totalFarms > 0) {
+    harvestMult = 0.5 + (matureFarms / totalFarms); // 0.5x to 1.5x
+  } else if (S.season === 2 && totalFarms > 0) {
+    // Autumn with no mature crops = disaster
+    harvestMult = 0.3;
+    if (S.day === 1 && S.lastPlantingWarning !== S.year) {
+      S.lastPlantingWarning = S.year;
+      toast('⚠️ HARVEST FAILURE! No mature crops ready. Plant in correct seasons!', 6000);
+      playSound('bad');
     }
   }
 
@@ -1029,23 +1002,24 @@ function tick() {
   const seasonMult = seasonData.mult;
 
   // Diminishing returns to land (Ricardian)
-  const landPerFarm = S.totalLand / Math.max(1, farms);
+  const landPerFarm = S.totalLand / Math.max(1, totalFarms);
   const diminishingReturns = Math.pow(landPerFarm / 10, 0.6);
 
   // Crop-specific multipliers
   const crop = CROP_DATA[S.cropType];
-  const baseFoodPerFarm = 2.5 * crop.yield;
+  const baseFoodPerFarm = crop ? 2.5 * crop.yield : 2.5;
 
-  // Farm production with SEASONAL multiplier
+  // Farm production calculation
   let farmFood =
-    farms *
+    totalFarms *
     baseFoodPerFarm *
     S.tfp *
     S.landQuality *
     diminishingReturns *
     (farmerPop / Math.max(1, S.pop)) *
     S.workIntensity *
-    seasonMult; // SEASONAL MULTIPLIER APPLIED
+    seasonMult * // Seasonal base multiplier
+    harvestMult; // Crop maturity multiplier
 
   // Weather effects
   const w = weatherEffect(S.weatherNow);
@@ -1058,21 +1032,6 @@ function tick() {
   // Enclosure bonus
   if (S.landPolicy === 'enclosed') {
     farmFood *= 1.15;
-  }
-
-  // ===== AUTUMN HARVEST RUSH BONUS =====
-  if (S.season === 2 && S.farmers > 0.6) {
-    farmFood *= 1.3; // 30% bonus for dedicating workers
-    
-    if (S.day === 1 && !S.harvestBonusShown) {
-      S.harvestBonusShown = true;
-      toast('HARVEST RUSH ACTIVE: 60%+ farmers = +30% bonus!', 5000);
-    }
-  }
-
-  // Reset harvest flag each spring
-  if (S.day === 1 && S.season === 0) {
-    S.harvestBonusShown = false;
   }
 
   // Livestock production
@@ -1089,30 +1048,26 @@ function tick() {
     farmFood *= 1 + mills * 0.12;
   }
 
-  // Total food
+  // Total food with spoilage
   const totalFood = farmFood + livestockFood;
   const spoilage = totalFood * w.spoil;
-  
-  // Year 1 villages have poor storage unless Granary tech is unlocked
   const extraYearOneSpoil = (!S.tech.granary && S.year === 1) ? totalFood * 0.10 : 0;
   const netFood = totalFood - spoilage - extraYearOneSpoil;
 
-  // Store for UI display
   S.lastFoodProduction = netFood;
-
   S.foodStock += netFood;
 
   // Consumption
   const needPerDay = S.pop * 0.10;
   S.foodStock -= needPerDay;
 
-  // Early survival warning in first Spring
+  // Early survival warning
   if (S.year === 1 && S.season === 0 && S.day === 20) {
-   const daysOfFoodNow = S.foodStock / needPerDay;
+    const daysOfFoodNow = S.foodStock / needPerDay;
     if (daysOfFoodNow < 30) {
-     toast('⚠️ Your stores won’t last winter. Shift labor to farming and build another farm.', 6000);
-     const log = el('gameLog');
-     if (log) log.innerHTML = `<span style="color:var(--warn)">Early warning: You need ~90 days stored by end of Autumn.</span>`;
+      toast('⚠️ Your stores won\'t last winter. Shift labor to farming and build another farm.', 6000);
+      const log = el('gameLog');
+      if (log) log.innerHTML = `<span style="color:var(--warn)">Early warning: You need ~90 days stored by end of Autumn.</span>`;
     }
   }
 
@@ -1120,20 +1075,17 @@ function tick() {
   S.realWage = (S.foodStock / Math.max(1, S.pop)) / 0.2;
 
   // ===== WINTER SURVIVAL MECHANICS =====
-  if (S.season === 3) { // Winter
+  if (S.season === 3) {
     const daysOfFood = S.foodStock / needPerDay;
     
-    // Health deteriorates faster without wells
     if (!S.tech.well) {
       S.health = Math.max(0.2, S.health - 0.005);
     }
     
-    // Morale crisis if food insecure
     if (daysOfFood < 30) {
       S.morale = Math.max(0.1, S.morale - 0.015);
     }
     
-    // Increased disease risk in winter starvation
     if (S.foodStock < 0) {
       if (Math.random() < w.disease * 2) {
         const deaths = Math.max(2, Math.floor(S.pop * 0.04));
@@ -1146,7 +1098,6 @@ function tick() {
       }
     }
 
-    // FIRST WINTER CHECK: if you didn't stockpile, people die
     if (S.year === 1 && daysOfFood < 60) {
       const deaths = Math.max(4, Math.floor(S.pop * 0.10));
       S.pop = Math.max(10, S.pop - deaths);
@@ -1158,46 +1109,25 @@ function tick() {
     }
   }
 
+  // Seasonal labor guidance
   if (S.day === 1 && autoStarted) {
     const seasonIdx = S.season;
-    const seasonName = S.seasons[seasonIdx].toLowerCase();
-    const recommended = S.seasonalPressure[seasonName];
-    
-    // Check if player's allocation is way off
-    const farmerDiff = Math.abs(S.farmers - recommended.farmers);
-    const builderDiff = Math.abs(S.builders - recommended.builders);
-    
-    if (farmerDiff > 0.2) {
-      toast(`⚠️ ${S.seasons[seasonIdx]}: Consider ${recommended.farmers * 100}% farmers (currently ${Math.round(S.farmers * 100)}%)`, 6000);
-    }
     
     if (seasonIdx === 2 && S.farmers < 0.6) {
       showSeasonalGuide('autumn');
+      highlightSlider('farmer', 8000);
+    }
+    
+    if (seasonIdx === 3 && S.builders < 0.3) {
+      showSeasonalGuide('winter');
+      highlightSlider('builder', 8000);
+    }
+    
+    if (seasonIdx === 0 && S.farmers < 0.5) {
+      showSeasonalGuide('spring');
+      highlightSlider('farmer', 8000);
     }
   }
-
-  // In tick(), after season change:
-  if (S.day === 1 && autoStarted) {
-  const seasonIdx = S.season;
-  
-  // Critical autumn warning
-  if (seasonIdx === 2 && S.farmers < 0.6) {
-    showSeasonalGuide('autumn');
-    highlightSlider('farmer', 8000);
-  }
-  
-  // Winter construction opportunity
-  if (seasonIdx === 3 && S.builders < 0.3) {
-    showSeasonalGuide('winter');
-    highlightSlider('builder', 8000);
-  }
-  
-  // Spring planting
-  if (seasonIdx === 0 && S.farmers < 0.5) {
-    showSeasonalGuide('spring');
-    highlightSlider('farmer', 8000);
-  }
-}
 
   // Morale dynamics
   const intensityPenalty = (S.workIntensity - 1.0) * 0.3;
@@ -1237,6 +1167,7 @@ function tick() {
   const fertilityRate = S.year < 3 
     ? (S.realWage > 1.2 ? 0.08 : S.realWage > 0.9 ? 0.05 : 0.02)
     : (S.realWage > 1.2 ? 0.15 : S.realWage > 0.9 ? 0.1 : 0.05);
+    
   if (S.foodStock > needPerDay * 10 && S.pop < S.cap && Math.random() < fertilityRate) {
     S.pop++;
     playSound('complete');
@@ -1250,16 +1181,16 @@ function tick() {
   }
 
   // Soil quality dynamics
-  if (!S.tech.threeField && farms > 0) {
-    S.landQuality = Math.max(0.5, S.landQuality - crop.soilDrain);
+  if (!S.tech.threeField && totalFarms > 0) {
+    const cropSoilDrain = crop ? crop.soilDrain : 0.02;
+    S.landQuality = Math.max(0.5, S.landQuality - cropSoilDrain);
   } else if (S.tech.threeField) {
     S.landQuality = Math.min(1.0, S.landQuality + 0.005);
   }
 
-  // ===== SEASON WARNINGS =====
+  // Season warnings
   const daysOfFood = S.foodStock / needPerDay;
 
-  // Winter warning at day 75 of Autumn
   if (S.season === 2 && S.day === 75 && S.lastSeasonWarning !== 2) {
     S.lastSeasonWarning = 2;
     if (daysOfFood < 90) {
@@ -1267,12 +1198,11 @@ function tick() {
     }
   }
 
-  // Critical warning at day 85 of Autumn
   if (S.season === 2 && S.day === 85 && daysOfFood < 60) {
     showWinterWarning(5, daysOfFood);
   }
 
-  // Time progression
+  // ===== TIME PROGRESSION =====
   S.day++;
   if (S.day > 90) {
     S.day = 1;
@@ -1280,9 +1210,30 @@ function tick() {
     const oldSeason = S.season;
     S.season = (S.season + 1) % 4;
     
+    // WINTER KILLS NON-HARDY CROPS
+    if (S.season === 3) {
+      let cropsDied = 0;
+      Object.keys(S.farmCrops).forEach(farmId => {
+        const cropData = S.farmCrops[farmId];
+        if (cropData) {
+          const cropType = CROP_DATA[cropData.crop];
+          if (cropType && !cropType.winterHardy) {
+            delete S.farmCrops[farmId];
+            cropsDied++;
+          }
+        }
+      });
+      
+      if (cropsDied > 0) {
+        toast(`❄️ Winter killed ${cropsDied} non-hardy crops! Plant winter wheat in autumn.`, 5000);
+        playSound('bad');
+      }
+    }
+    
     // Announce season change
     if (autoStarted) {
       announceSeasonChange(oldSeason, S.season);
+      updateSeasonalVisuals();
     }
     
     // Track sustained high wages
@@ -1292,7 +1243,6 @@ function tick() {
       S.wageAbove13Years = 0;
     }
     
-    // Reset season warning flag
     S.lastSeasonWarning = -1;
   }
 
@@ -1316,27 +1266,7 @@ function tick() {
     });
   }
 
-  // Age progression
-  if (S.age === 1 && S.year >= 3 && S.pop >= 100 && !S.ageGoals[1].complete) {
-    S.ageGoals[1].complete = true;
-    S.age = 2;
-    S.tfp *= 1.1;
-    toast('🎉 BRONZE AGE UNLOCKED! +10% TFP. New technologies available.', 6000);
-    playSound('complete');
-  }
-  if (S.age === 2 && S.pop >= 125 && mills >= 2 && !S.ageGoals[2].complete) {
-    S.ageGoals[2].complete = true;
-    S.age = 3;
-    toast('🎉 IRON AGE UNLOCKED! Markets now generate trade income.', 6000);
-    playSound('complete');
-  }
-
-  // Check win condition
-  checkVictory();
-
-  // Check Milestones
-  checkMilestones();
-
+  // Passive materials from markets
   if (S.milestones.marketBuilt.complete && S.day === 1) {
     S.materials += S.materialsPerYear || 0;
   }
@@ -1345,9 +1275,12 @@ function tick() {
   checkCriticalAlerts();
 
   // Check for contextual events
-  checkContextualEvents()
+  checkContextualEvents();
 
-  // Update UI
+  // Victory check
+  checkVictory();
+
+  // UI update
   updateUI();
   updateTheoryStatus();
 }
@@ -2194,6 +2127,69 @@ function updateUI() {
   renderGrid();
 }
 
+function updateSeasonalVisuals() {
+  const seasonData = SEASON_DATA[S.season];
+  
+  // Update body background
+  document.body.style.background = seasonData.skyGradient;
+  document.body.style.opacity = seasonData.skyOpacity;
+  
+  // Update ground gradient
+  const ground = el('ground');
+  if (ground) {
+    ground.style.background = seasonData.groundGradient;
+  }
+  
+  // Subtle weather particle effects (optional enhancement)
+  if (S.season === 3) { // Winter snow
+    addSnowEffect();
+  } else {
+    removeWeatherEffects();
+  }
+}
+
+function addSnowEffect() {
+  // Simple CSS animation for falling snow
+  let snowContainer = document.getElementById('snowContainer');
+  if (!snowContainer) {
+    snowContainer = document.createElement('div');
+    snowContainer.id = 'snowContainer';
+    snowContainer.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 1;
+    `;
+    document.body.appendChild(snowContainer);
+    
+    // Create 50 snowflakes
+    for (let i = 0; i < 50; i++) {
+      const snowflake = document.createElement('div');
+      snowflake.className = 'snowflake';
+      snowflake.style.cssText = `
+        position: absolute;
+        width: 4px;
+        height: 4px;
+        background: white;
+        border-radius: 50%;
+        opacity: ${Math.random() * 0.6 + 0.2};
+        left: ${Math.random() * 100}%;
+        animation: snowfall ${Math.random() * 3 + 2}s linear infinite;
+        animation-delay: ${Math.random() * 3}s;
+      `;
+      snowContainer.appendChild(snowflake);
+    }
+  }
+}
+
+function removeWeatherEffects() {
+  const container = document.getElementById('snowContainer');
+  if (container) container.remove();
+}
+
 function updateMeter(fillId, lblId, statusId, pct, statusText = '', fillClass = '') {
   const fill = el(fillId);
   if (fill) {
@@ -2752,10 +2748,38 @@ function setupEventListeners() {
   // Crop selection
   document.querySelectorAll('.crop-btn').forEach(btn => {
     btn.addEventListener('click', () => {
+      const newCrop = btn.dataset.crop;
+      const cropType = CROP_DATA[newCrop];
+      
+      // Check if plantable this season
+      if (!cropType.plantSeasons.includes(S.season)) {
+        const seasonNames = cropType.plantSeasons.map(s => S.seasons[s]).join(' or ');
+        toast(`⚠️ ${cropType.name} can only be planted in ${seasonNames}!`, 4500);
+        playSound('bad');
+        return;
+      }
+      
       document.querySelectorAll('.crop-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
-      S.cropType = btn.dataset.crop;
-      toast(`Now planting ${S.cropType}`);
+      S.cropType = newCrop;
+      
+      // Replant existing farms with new crop
+      let replanted = 0;
+      S.builds.filter(b => b.type === 'farm' && b.done).forEach(farm => {
+        const farmId = 'farm_' + farm.id;
+        S.farmCrops[farmId] = {
+          crop: newCrop,
+          plantedDay: S.day,
+          plantedSeason: S.season,
+          plantedYear: S.year,
+          mature: false,
+          daysGrowing: 0
+        };
+        replanted++;
+      });
+      
+      toast(`Planted ${cropType.name} on ${replanted} farms. Harvest in ${cropType.growthDays} days.`, 4000);
+      playSound('click');
     });
   });
 
