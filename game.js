@@ -1307,14 +1307,26 @@ function tick() {
   if (herderPop > 0 && S.livestock < herderPop * 3 && Math.random() < breedRate) {
     S.livestock++;
   }
-
-  // Soil quality dynamics
-  if (!S.tech.threeField && totalFarms > 0) {
-    const cropSoilDrain = crop ? crop.soilDrain : 0.02;
-    S.landQuality = Math.max(0.5, S.landQuality - cropSoilDrain);
-  } else if (S.tech.threeField) {
-    S.landQuality = Math.min(1.0, S.landQuality + 0.005);
+  
+  // Soil quality dynamics (use actual planted crops)
+  if (totalFarms > 0) {
+    if (!S.tech.threeField) {
+      const farmsWithCrops = Object.values(S.farmCrops);
+      let avgDrain = 0.02; // default drain if nothing planted
+      if (farmsWithCrops.length > 0) {
+        const sum = farmsWithCrops.reduce((acc, fc) => {
+          const ct = CROP_DATA[fc.crop];
+          return acc + (ct ? ct.soilDrain : 0.02);
+        }, 0);
+        avgDrain = sum / farmsWithCrops.length;
+      }
+      S.landQuality = Math.max(0.5, S.landQuality - avgDrain);
+    } else {
+      // three-field slowly restores soil
+      S.landQuality = Math.min(1.0, S.landQuality + 0.005);
+    }
   }
+
 
   // Season warnings
   const daysOfFood = S.foodStock / needPerDay;
@@ -2488,14 +2500,15 @@ function renderGrid() {
   const grid = el('grid');
   const ground = el('ground');
   if (!grid || !ground) return;
-  
-  // Check both grid and ground for existing icons
+
+  // collect existing icons from both layers
   const existing = [
     ...grid.querySelectorAll('.icon'),
     ...ground.querySelectorAll('.icon')
   ];
 
   S.builds.forEach(b => {
+    // find or create icon for this build
     let icon = existing.find(e => e.dataset.id == b.id);
     if (!icon) {
       icon = document.createElement('div');
@@ -2503,9 +2516,10 @@ function renderGrid() {
       icon.dataset.id = b.id;
       icon.style.left = b.x + 'px';
       icon.style.top = b.y + 'px';
-      ground.appendChild(icon); // CHANGED: append to ground instead of grid
+      ground.appendChild(icon);
     }
 
+    // construction ring / finished state
     if (!b.done) {
       icon.className = 'icon ' + BUILDS[b.type].icon + ' site';
       let ring = icon.querySelector('.ring');
@@ -2521,37 +2535,38 @@ function renderGrid() {
       const ring = icon.querySelector('.ring');
       if (ring) ring.remove();
     }
+
+    // ✅ Farm: make clickable + “Set Crop” hint (INSIDE the loop, so `b`/`icon` exist)
+    if (b.type === 'farm' && b.done) {
+      icon.style.cursor = 'pointer';
+      icon.onclick = (e) => {
+        e.stopPropagation();
+        openCropMenu(b.id);
+      };
+
+      const farmId = 'farm_' + b.id;
+      if (!S.farmCrops[farmId]) {
+        if (!icon.querySelector('.need-crop')) {
+          const tag = document.createElement('div');
+          tag.className = 'need-crop';
+          tag.textContent = 'Set Crop';
+          icon.appendChild(tag);
+        }
+      } else {
+        const tag = icon.querySelector('.need-crop');
+        if (tag) tag.remove();
+      }
+    }
   });
 
-  // Add after icon class/position updates inside renderGrid()
-  if (b.type === 'farm' && b.done) {
-    icon.style.cursor = 'pointer';
-    icon.onclick = (e) => {
-      e.stopPropagation();
-      openCropMenu(b.id);
-    };
-
-    // Show "Set Crop" tag if unassigned
-    const farmId = 'farm_' + b.id;
-    if (!S.farmCrops[farmId]) {
-      if (!icon.querySelector('.need-crop')) {
-        const tag = document.createElement('div');
-        tag.className = 'need-crop';
-        tag.textContent = 'Set Crop';
-        icon.appendChild(tag);
-      }
-    } else {
-      const tag = icon.querySelector('.need-crop');
-      if (tag) tag.remove();
-    }
-  }
-
+  // remove icons whose builds no longer exist
   existing.forEach(e => {
     if (!S.builds.find(b => b.id == e.dataset.id)) e.remove();
   });
 
   drawNodes();
 }
+
 
 function spawnNodes() {
   const ground = el('ground');
