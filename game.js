@@ -726,11 +726,13 @@ function init() {
   rollWeather();
 }
 
+
 function autoStart() {
   if (!autoStarted) {
     autoStarted = true;
     startTick();
-    toast('Time flows! Make decisions to grow your village.');
+    toast('Time flows! Make decisions to grow your village.', 3000);
+    console.log('Game started, autoStarted =', autoStarted); // DEBUG
   }
 }
 
@@ -834,6 +836,16 @@ function initializeGameState() {
   document.addEventListener('input', autoStart, { once: true });
 
   toast('Welcome, Chief! Time will begin when you interact.');
+  // Force interaction listeners
+  const forceStart = () => {
+    if (!autoStarted) {
+      autoStart();
+    }
+  };
+  
+  document.addEventListener('click', forceStart, { once: true });
+  document.addEventListener('input', forceStart, { once: true });
+  document.addEventListener('change', forceStart, { once: true });
 }
 
 // ============================================
@@ -939,8 +951,9 @@ function tick() {
 
   // ===== CROP LIFECYCLE SYSTEM =====
   // Auto-plant on newly built farms or update existing crops
-  farms.forEach((farm) => {
-    const farmId = 'farm_' + farm.id;
+    farms.forEach((farm) => {
+      // SAFETY: Skip farms under construction
+      if (!farm.done) return;
     
     if (!S.farmCrops[farmId]) {
       // New farm - plant if season is right
@@ -1630,6 +1643,84 @@ function rollWeather() {
   S.weatherNow = seasonWeighted(S.season);
   S.weatherNext = seasonWeighted(S.season);
 }
+
+
+function checkMilestones() {
+  // First winter survival
+  if (!S.milestones.firstWinter.complete && S.year === 2 && S.season === 0) {
+    S.milestones.firstWinter.complete = true;
+    S.materials += 15;
+    showMilestone('Survived First Winter!', 'Gained 15 materials bonus', '+15 Materials');
+    playSound('complete');
+  }
+  
+  // Population milestone
+  if (!S.milestones.population100.complete && S.pop >= 100) {
+    S.milestones.population100.complete = true;
+    S.tfp *= 1.1;
+    showMilestone('Village Expansion!', 'Population reached 100', '+10% Productivity');
+    playSound('complete');
+  }
+  
+  // First mill
+  const mills = S.builds.filter(b => b.type === 'mill' && b.done).length;
+  if (!S.milestones.firstMill.complete && mills >= 1) {
+    S.milestones.firstMill.complete = true;
+    S.morale = Math.min(1, S.morale + 0.2);
+    showMilestone('Industrial Revolution Begins!', 'First windmill operational', '+20% Morale');
+    playSound('complete');
+  }
+  
+  // Market economy
+  const hasMarket = S.builds.some(b => b.type === 'market' && b.done);
+  if (!S.milestones.marketBuilt.complete && hasMarket) {
+    S.milestones.marketBuilt.complete = true;
+    S.materialsPerYear = 2;
+    showMilestone('Market Economy Unlocked!', 'Trade generates passive materials', '+2 Materials/Year');
+    playSound('complete');
+  }
+  
+  // Sustained prosperity
+  if (!S.milestones.sustained_wage.complete && S.wageAbove13Years >= 1) {
+    S.milestones.sustained_wage.complete = true;
+    S.victoryProgress += 25;
+    showMilestone('Prosperity Sustained!', 'High wages for 1 full year', 'Victory: 25%');
+    playSound('complete');
+  }
+}
+
+function showMilestone(title, desc, reward) {
+  const popup = document.createElement('div');
+  popup.style.cssText = `
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: linear-gradient(135deg, var(--accent)22, var(--panel));
+    border: 3px solid var(--accent);
+    border-radius: 16px;
+    padding: 30px 40px;
+    z-index: 10000;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.7);
+    text-align: center;
+    min-width: 350px;
+    animation: scaleIn 0.5s;
+  `;
+  
+  popup.innerHTML = `
+    <div style="font-size: 48px; margin-bottom: 16px;">🏆</div>
+    <div style="font-size: 22px; font-weight: 800; margin-bottom: 8px; color: var(--accent);">
+      ${title}
+    </div>
+    <div style="font-size: 14px; margin-bottom: 16px; color: var(--muted);">
+      ${desc}
+    </div>
+    <div style="font-size: 18px; font-weight: 700; color: var(--good); background: #0b1224aa; padding: 12px; border-radius: 8px;">
+      ${reward}
+    </div>
+  `;
+  
+  docume
 
 // ============================================
 // SEASON ANNOUNCEMENT
