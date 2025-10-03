@@ -64,7 +64,6 @@ const S = {
   season: 0,
   seasons: ['Spring', 'Summer', 'Autumn', 'Winter'],
 
-<<<<<<< HEAD
   // NEW: Enclosure system
   enclosedLandPct: 0.0, // Starts at 0%, gradually increases
   enclosureRate: 0.0, // Rate of enclosure per year
@@ -90,8 +89,6 @@ const S = {
   },
   laborReallocationCost: 0,
 
-=======
->>>>>>> abdd4a4de248d35903429f4ab718f9bc2c39c42f
   // Feudal system
   lordTithePct: 0.40,
   churchTithePct: 0.10,
@@ -155,10 +152,7 @@ const S = {
     marketBuilt: { complete: false, reward: 'materials_income', amount: 2 },
     sustained_wage: { complete: false, reward: 'victory_progress', amount: 25 }
   }
-<<<<<<< HEAD
   
-=======
->>>>>>> abdd4a4de248d35903429f4ab718f9bc2c39c42f
 };
 
 // ============================================
@@ -865,9 +859,7 @@ function tick() {
   const intensityPenalty = (S.workIntensity - 1.0) * 0.3;
   if (S.foodStock > needPerDay * 7) {
     S.morale = Math.min(1, S.morale + 0.01 - intensityPenalty);
-  } else if (S.foodStock < needPerDay
-    // Continuing from morale dynamics...
-  * 3) {
+    } else if (S.foodStock < needPerDay * 3) {
     S.morale = Math.max(0, S.morale - 0.02 - intensityPenalty);
   } else {
     S.morale = Math.max(0, S.morale - intensityPenalty * 0.5);
@@ -998,7 +990,6 @@ function tick() {
   if (S.day % 15 === 0 && Math.random() < 0.2) {
     checkContextualEvents();
   }
-<<<<<<< HEAD
 
   const enclosureEffects = updateEnclosureSystem();
 
@@ -1011,8 +1002,6 @@ function tick() {
   farmFood *= skillPenalty;
 
   updateTradeSystem();
-=======
->>>>>>> abdd4a4de248d35903429f4ab718f9bc2c39c42f
 
   // Victory check
   checkVictory();
@@ -1955,7 +1944,6 @@ function setupEventListeners() {
     btnPolicy.addEventListener('click', () => {
       if (S.landPolicy === 'commons') {
         S.landPolicy = 'enclosed';
-<<<<<<< HEAD
         S.enclosureRate = 0.02; // 2% per year
         S.morale = Math.max(0, S.morale - 0.10);
         btnPolicy.innerHTML = `Enclosing Land (${Math.round(S.enclosedLandPct * 100)}%)`;
@@ -1970,16 +1958,6 @@ function setupEventListeners() {
         S.morale = Math.min(1, S.morale + 0.05);
         btnPolicy.innerHTML = 'Commons (Equal Access)';
         toast('Returning land to commons - slow process');
-=======
-        S.morale = Math.max(0, S.morale - 0.15);
-        btnPolicy.textContent = 'Enclosed (+15% efficiency)';
-        toast('Land enclosed! Efficiency up, morale down');
-      } else {
-        S.landPolicy = 'commons';
-        S.morale = Math.min(1, S.morale + 0.1);
-        btnPolicy.textContent = 'Commons (Equal Access)';
-        toast('Commons restored! Equality improved');
->>>>>>> abdd4a4de248d35903429f4ab718f9bc2c39c42f
       }
       playSound('click');
       updateUI();
@@ -2030,7 +2008,6 @@ function normalizeLabor() {
   if (bs) bs.value = S.builders * 100;
   if (hs) hs.value = S.herders * 100;
   if (gs) gs.value = S.gatherers * 100;
-<<<<<<< HEAD
 }
 
 // Labor friction - skills decay when reallocating
@@ -2202,8 +2179,6 @@ function updateUrbanSystem() {
   // Urban growth slightly reduces rural labor supply
   const urbanAbsorption = S.urbanPopPct * 0.1;
   return { laborReduction: urbanAbsorption, demandMultiplier: S.urbanDemand };
-=======
->>>>>>> abdd4a4de248d35903429f4ab718f9bc2c39c42f
 }
 
 // ============================================
