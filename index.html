@@ -3,449 +3,462 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>EconoVille - Phase 1: Agrarian Economy Simulator</title>
+<title>EconoVille - Agrarian Economy Simulator</title>
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 
-<!-- Landing Screen -->
-<div id="landing" class="landing">
-  <div class="landing-content">
-    <h1>EconoVille: Phase 1</h1>
-    <h2>Agrarian Economy (800-1500 AD)</h2>
-    <p>Simulate the economic development of a pre-industrial village. Master the transition from subsistence farming to sustainable growth.</p>
-    
-    <div class="learn-box">
-      <h3>Economic Concepts:</h3>
-      <ul>
-        <li><strong>Malthusian Trap</strong> - Population growth vs food supply dynamics</li>
-        <li><strong>Diminishing Returns</strong> - How land scarcity constrains growth</li>
-        <li><strong>Smithian Growth</strong> - Productivity gains from specialization</li>
-        <li><strong>Institutional Effects</strong> - Commons vs enclosure trade-offs</li>
-        <li><strong>Capital Accumulation</strong> - Tools and infrastructure investment</li>
-      </ul>
+<!-- Top Bar - Strategic Overview -->
+<div class="top-bar">
+  <div class="game-title">EconoVille: Agrarian Era</div>
+  
+  <div class="resource-bar">
+    <div class="resource-item">
+      <span class="resource-icon">👥</span>
+      <span class="resource-value" id="topPop">80</span>/<span id="topCap">100</span>
     </div>
-    
-    <div class="button-row">
-      <button class="btn-large primary" id="btnStart">Start Game</button>
-      <button class="btn-large" id="btnHowTo">How To Play</button>
+    <div class="resource-item">
+      <span class="resource-icon">🌾</span>
+      <span class="resource-value" id="topFood">20</span>
     </div>
-    
-    <div class="credits">
-      <p>Built with economic development theory | <a href="https://github.com/yourusername/econoville" target="_blank">View on GitHub</a></p>
+    <div class="resource-item">
+      <span class="resource-icon">🪵</span>
+      <span class="resource-value" id="topMat">30</span>
     </div>
+    <div class="resource-item">
+      <span class="resource-icon">📅</span>
+      <span class="resource-value"><span id="topSeason">Spring</span> <span id="topYear">1</span></span>
+    </div>
+  </div>
+  
+  <div class="game-controls">
+    <button class="btn-icon" id="btnPause">⏸</button>
+    <select class="btn-icon" id="speedSelect">
+      <option value="2000">1x</option>
+      <option value="1000">2x</option>
+      <option value="500">4x</option>
+    </select>
+    <button class="btn-icon" id="btnSave">Save</button>
+    <button class="btn-icon" id="btnMenu">Menu</button>
   </div>
 </div>
 
-<!-- Main Game -->
-<div id="gameContainer" class="shell" style="display:none">
-<header>
-  <div>
-    <h1>EconoVille — Phase 1: Agrarian Economy</h1>
-    <div class="header-stats">
-      <span>Day <span id="day">1</span> • Year <span id="year">1</span> • <span id="season">Spring</span></span>
-      <button class="btn-icon" id="btnPause" title="Pause/Resume">⏸</button>
-      <select class="speed-select" id="speedSelect">
-        <option value="4000">0.5x</option>
-        <option value="2000" selected>1x</option>
-        <option value="1000">2x</option>
-        <option value="500">4x</option>
-      </select>
-    </div>
-  </div>
-  <div class="header-buttons">
-    <button class="btn" id="btnTech">Tech Tree</button>
-    <button class="btn" id="btnTheory">Theory</button>
-    <button class="btn" id="btnProgress">Progress</button>
-    <button class="btn" id="btnExport">Export Data</button>
-    <button class="btn" id="btnSave">Save</button>
-    <button class="btn" id="btnReset">Reset</button>
-  </div>
-</header>
-
-<div class="main">
-  <!-- Left Panel -->
-  <aside class="panel left">
-    <h2>Labor Allocation</h2>
-    <div class="labor">
-      <div class="slider-row">
-        <div class="slider-label">
-          <span class="tooltip-trigger">Farmers<span class="tooltip-icon">?</span>
-            <span class="tooltip">Work farms to produce food. More farmers = more food but fewer builders.</span>
-          </span>
-          <span id="farmerPct">50%</span>
-        </div>
-        <input type="range" min="0" max="100" value="50" id="farmerSlider"/>
+<!-- Main 3-Column Layout -->
+<div class="main-container">
+  
+  <!-- LEFT PANEL - Production & Labor -->
+  <aside class="panel panel-left">
+    
+    <!-- Labor Allocation -->
+    <div class="section">
+      <div class="section-header" data-section="labor">
+        <span class="section-title">⚒ Labor Allocation</span>
+        <span class="section-toggle">▼</span>
       </div>
-      <div class="slider-row">
-        <div class="slider-label">
-          <span class="tooltip-trigger">Builders<span class="tooltip-icon">?</span>
-            <span class="tooltip">Construct buildings faster. Balance with food production needs.</span>
-          </span>
-          <span id="builderPct">30%</span>
+      <div class="section-content expanded" id="labor-content">
+        <div class="slider-row">
+          <div class="slider-label">
+            <span>Farmers</span>
+            <span class="slider-value" id="farmerPct">50%</span>
+          </div>
+          <input type="range" min="0" max="100" value="50" id="farmerSlider"/>
+          <div class="stat-detail">Base food production</div>
         </div>
-        <input type="range" min="0" max="100" value="30" id="builderSlider"/>
-      </div>
-      <div class="slider-row">
-        <div class="slider-label">
-          <span class="tooltip-trigger">Gatherers<span class="tooltip-icon">?</span>
-            <span class="tooltip">Harvest trees and rocks for materials. More gatherers = faster harvesting.</span>
-          </span>
-          <span id="gathererPct">10%</span>
+        
+        <div class="slider-row">
+          <div class="slider-label">
+            <span>Builders</span>
+            <span class="slider-value" id="builderPct">30%</span>
+          </div>
+          <input type="range" min="0" max="100" value="30" id="builderSlider"/>
+          <div class="stat-detail">Construction speed</div>
         </div>
-        <input type="range" min="0" max="100" value="10" id="gathererSlider"/>
-      </div>
-      <div class="slider-row">
-        <div class="slider-label">
-          <span class="tooltip-trigger">Herders<span class="tooltip-icon">?</span>
-            <span class="tooltip">Tend livestock for food and manure. Requires Livestock tech.</span>
-          </span>
-          <span id="herderPct">10%</span>
+        
+        <div class="slider-row">
+          <div class="slider-label">
+            <span>Gatherers</span>
+            <span class="slider-value" id="gathererPct">10%</span>
+          </div>
+          <input type="range" min="0" max="100" value="10" id="gathererSlider"/>
+          <div class="stat-detail">Resource harvesting</div>
         </div>
-        <input type="range" min="0" max="100" value="10" id="herderSlider"/>
-      </div>
-      <div class="slider-row">
-        <div class="slider-label">
-          <span class="tooltip-trigger">Work Intensity<span class="tooltip-icon">?</span>
-            <span class="tooltip">Higher intensity = more output but lower morale. Based on "Industrious Revolution" theory.</span>
-          </span>
-          <span id="intensityPct">100%</span>
+        
+        <div class="slider-row">
+          <div class="slider-label">
+            <span>Herders</span>
+            <span class="slider-value" id="herderPct">10%</span>
+          </div>
+          <input type="range" min="0" max="100" value="10" id="herderSlider"/>
+          <div class="stat-detail">Livestock management</div>
         </div>
-        <input type="range" min="50" max="150" value="100" id="intensitySlider"/>
-      </div>
-      <div class="stat">Pop: <b id="popTotal">80</b> • Idle: <b id="idlePct">10%</b></div>
-    </div>
-
-    <h2>Crop Selection</h2>
-    <div class="info-box">
-      <div class="crop-select">
-        <div class="crop-btn active" data-crop="wheat">
-          <div class="crop-name">Wheat</div>
-          <small>High yield<br>Drought risk</small>
+        
+        <div class="divider"></div>
+        
+        <div class="slider-row">
+          <div class="slider-label">
+            <span>Work Intensity</span>
+            <span class="slider-value" id="intensityPct">100%</span>
+          </div>
+          <input type="range" min="50" max="150" value="100" id="intensitySlider"/>
+          <div class="stat-detail">⚠ Higher = lower morale</div>
         </div>
-        <div class="crop-btn" data-crop="rye">
-          <div class="crop-name">Rye</div>
-          <small>Hardy<br>Lower yield</small>
-        </div>
-        <div class="crop-btn" data-crop="legumes">
-          <div class="crop-name">Legumes</div>
-          <small>Soil restore<br>Nitrogen fix</small>
+        
+        <div class="info-row">
+          <span class="info-label">Idle Workers:</span>
+          <span class="info-value" id="idlePct">0%</span>
         </div>
       </div>
     </div>
-
-    <h2>Land Policy</h2>
-    <div class="policy">
-      <div class="stat">
-        Current: <b id="landPolicy">Commons</b>
-        <span class="tooltip-trigger"><span class="tooltip-icon">?</span>
-          <span class="tooltip">Commons = equal access, lower efficiency. Enclosure = +15% productivity but inequality rises.</span>
-        </span>
+    
+    <!-- Agricultural Management -->
+    <div class="section">
+      <div class="section-header" data-section="agriculture">
+        <span class="section-title">🌾 Agriculture</span>
+        <span class="section-toggle">▼</span>
       </div>
-      <button class="btn policy-btn" id="btnEnclosure">Enclose Land</button>
+      <div class="section-content expanded" id="agriculture-content">
+        <div class="info-row">
+          <span class="info-label">Soil Quality:</span>
+          <span class="info-value" id="soilQuality">100%</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Active Farms:</span>
+          <span class="info-value" id="activeFarms">0</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Food/Day:</span>
+          <span class="info-value" id="foodProduction">0.0</span>
+        </div>
+        
+        <div class="subsection-title">Default Crop</div>
+        <div class="crop-grid">
+          <div class="crop-option active" data-crop="wheat">
+            <div class="crop-name">Wheat</div>
+            <div class="crop-stats">High yield</div>
+          </div>
+          <div class="crop-option" data-crop="rye">
+            <div class="crop-name">Rye</div>
+            <div class="crop-stats">Hardy</div>
+          </div>
+          <div class="crop-option" data-crop="barley">
+            <div class="crop-name">Barley</div>
+            <div class="crop-stats">Fast</div>
+          </div>
+          <div class="crop-option" data-crop="legumes">
+            <div class="crop-name">Legumes</div>
+            <div class="crop-stats">Soil+</div>
+          </div>
+        </div>
+        
+        <div class="subsection-title">Land Policy</div>
+        <button class="btn-policy" id="btnPolicy">Commons (Equal Access)</button>
+        <div class="stat-detail">Enclosure = +15% efficiency, -15% morale</div>
+      </div>
     </div>
-
-    <h2>Buildings (Drag to Map)</h2>
-    <div class="build-palette" id="buildPalette"></div>
-
-    <div class="info-box" id="constructionQueue" style="display:none;">
-      <h2 style="margin:0 0 8px">Under Construction</h2>
-      <div id="queueList" style="font-size: 11px;"></div>
+    
+    <!-- Construction -->
+    <div class="section">
+      <div class="section-header" data-section="buildings">
+        <span class="section-title">🏗 Construction</span>
+        <span class="section-toggle">▼</span>
+      </div>
+      <div class="section-content expanded" id="buildings-content">
+        <div class="build-palette" id="buildPalette"></div>
+        
+        <div class="construction-queue" id="constructionQueue" style="display:none">
+          <div class="subsection-title">Under Construction</div>
+          <div id="queueList"></div>
+        </div>
+      </div>
     </div>
-
-    <div class="info-box">
-      <h2 style="margin:0 0 8px">Land Health</h2>
-      <div class="stat">Soil Quality: <b id="landQual">100%</b></div>
-      <div class="stat-small">Degrades without crop rotation</div>
+    
+    <!-- Technology -->
+    <div class="section">
+      <div class="section-header" data-section="tech">
+        <span class="section-title">⚗ Technology</span>
+        <span class="section-toggle">▼</span>
+      </div>
+      <div class="section-content" id="tech-content">
+        <button class="btn-primary" id="btnTechTree">Open Tech Tree</button>
+        <div class="info-row" style="margin-top: 8px">
+          <span class="info-label">Unlocked:</span>
+          <span class="info-value" id="techCount">1</span>
+        </div>
+      </div>
     </div>
+    
   </aside>
-
-  <!-- Center Map -->
-  <section class="panel center">
-    <div class="view">
-      <div class="hud">
-        <div class="badge">Pop: <span id="pop">80</span>/<span id="cap">100</span></div>
-        <div class="badge" id="wagebadge">
-          <span class="tooltip-trigger">Wage: <span id="realWage">1.0</span>
-            <span class="tooltip">Real Wage = Food per capita / Subsistence. Below 1.0 = crisis!</span>
-          </span>
+  
+  <!-- CENTER PANEL - Map View -->
+  <section class="map-container">
+    <div class="map-hud">
+      <div class="hud-badge">
+        <span id="weatherIcon">☀️</span>
+        <span id="weatherNow">Sunny</span>
+      </div>
+      <div class="hud-badge">
+        Real Wage: <strong id="hudWage">1.0</strong>
+      </div>
+    </div>
+    
+    <!-- Season Banner -->
+    <div class="season-banner" id="seasonBanner">
+      <div class="season-icon" id="seasonIcon">🌱</div>
+      <div class="season-info">
+        <div class="season-name" id="seasonName">Spring</div>
+        <div class="season-desc" id="seasonDesc">Planting season</div>
+        <div class="season-progress">Day <span id="seasonDay">1</span>/90</div>
+      </div>
+    </div>
+    
+    <div class="ground" id="ground"></div>
+    
+    <div class="minimap">
+      <div style="padding: 8px; font-size: 10px; color: #5a6578;">
+        Minimap (placeholder)
+      </div>
+    </div>
+  </section>
+  
+  <!-- RIGHT PANEL - Statistics & Indicators -->
+  <aside class="panel panel-right">
+    
+    <!-- Tabs -->
+    <div class="tabs">
+      <div class="tab active" data-tab="economy">Economy</div>
+      <div class="tab" data-tab="society">Society</div>
+      <div class="tab" data-tab="stats">Statistics</div>
+    </div>
+    
+    <!-- Economy Tab -->
+    <div class="tab-content active" id="economy-tab">
+      
+      <div class="section">
+        <div class="section-header" data-section="indicators">
+          <span class="section-title">📊 Economic Indicators</span>
+          <span class="section-toggle">▼</span>
         </div>
-        <div class="badge" id="weatherBadge">
-          <span id="weatherIcon">🌤️</span> <span id="weatherNow">Sunny</span> → <span id="weatherNext">Rain</span>
+        <div class="section-content expanded" id="indicators-content">
+          
+          <div class="meter-box">
+            <div class="meter-header">
+              <span>Real Wage</span>
+              <span class="meter-value" id="wageValue">1.0</span>
+            </div>
+            <div class="meter-bar">
+              <div class="meter-fill" id="wageFill" style="width: 50%"></div>
+            </div>
+            <div class="meter-desc">Malthusian indicator</div>
+          </div>
+          
+          <div class="meter-box">
+            <div class="meter-header">
+              <span>Food Security</span>
+              <span class="meter-value" id="foodDays">0d</span>
+            </div>
+            <div class="meter-bar">
+              <div class="meter-fill" id="foodFill" style="width: 0%"></div>
+            </div>
+            <div class="meter-desc">Days of food stored</div>
+          </div>
+          
+          <div class="meter-box">
+            <div class="meter-header">
+              <span>Health</span>
+              <span class="meter-value" id="healthValue">60%</span>
+            </div>
+            <div class="meter-bar">
+              <div class="meter-fill green" id="healthFill" style="width: 60%"></div>
+            </div>
+            <div class="meter-desc">Disease risk: <span id="diseaseRisk">1%</span></div>
+          </div>
+          
+          <div class="meter-box">
+            <div class="meter-header">
+              <span>Morale</span>
+              <span class="meter-value" id="moraleValue">60%</span>
+            </div>
+            <div class="meter-bar">
+              <div class="meter-fill" id="moraleFill" style="width: 60%"></div>
+            </div>
+            <div class="meter-desc">Affects productivity</div>
+          </div>
+          
         </div>
-        <div class="badge">Materials: <span id="mat">30</span></div>
-        <div class="badge">Food: <span id="foodStock">20</span></div>
-        <div class="badge">Animals: <span id="livestock">0</span></div>
       </div>
       
-      <!-- Season Banner -->
-      <div class="season-banner" id="seasonBanner">
-        <div class="season-icon" id="seasonIcon">🌱</div>
-        <div class="season-info">
-          <div class="season-name" id="seasonName">Spring</div>
-          <div class="season-desc" id="seasonDesc">Planting season</div>
-          <div class="season-progress">
-            Day <span id="seasonDay">1</span>/90
+      <div class="section">
+        <div class="section-header" data-section="resources">
+          <span class="section-title">💰 Resources</span>
+          <span class="section-toggle">▼</span>
+        </div>
+        <div class="section-content expanded" id="resources-content">
+          <div class="info-row">
+            <span class="info-label">Food Stock:</span>
+            <span class="info-value" id="foodStock">20</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Materials:</span>
+            <span class="info-value" id="materials">30</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Livestock:</span>
+            <span class="info-value" id="livestock">0</span>
           </div>
         </div>
       </div>
       
-      <div class="grid" id="grid"></div>
-      <div class="ground" id="ground"></div>
-    </div>
-  </section>
-
-  <!-- Right Panel -->
-  <aside class="panel right">
-    <h2>Economic Indicators</h2>
-    
-    <div class="meter">
-      <header>
-        <h4 class="tooltip-trigger">Real Wage<span class="tooltip-icon">?</span>
-          <span class="tooltip">Malthusian indicator: when population grows faster than food, wages fall to subsistence (1.0). Crises reset the cycle.</span>
-        </h4>
-        <span id="wageLbl">100%</span>
-      </header>
-      <div class="bar"><div class="fill" id="fillWage"></div></div>
-      <div class="stat"><span id="wageStatus">Subsistence = 1.0</span></div>
-    </div>
-
-    <div class="meter">
-      <header><h4>Food Security</h4><span id="foodLbl">0%</span></header>
-      <div class="bar"><div class="fill" id="fillFood"></div></div>
-      <div class="stat">Daily need: <span id="foodNeed">16</span></div>
-      <div class="stat">Production: <span id="foodProduction">0</span>/day</div>
     </div>
     
-    <div class="info-box">
-      <h2 style="margin:0 0 8px">Food Buffer</h2>
-      <div class="stat">
-        Stored: <b id="foodDays" style="color:var(--accent)">0</b> days
-      </div>
-      <div class="food-buffer-bar">
-        <div class="buffer-fill" id="bufferFill"></div>
-        <div class="buffer-marker winter">
-          <span>90d</span>
+    <!-- Society Tab -->
+    <div class="tab-content" id="society-tab">
+      
+      <div class="section">
+        <div class="section-header" data-section="population">
+          <span class="section-title">👥 Population</span>
+          <span class="section-toggle">▼</span>
+        </div>
+        <div class="section-content expanded" id="population-content">
+          <div class="info-row">
+            <span class="info-label">Total Population:</span>
+            <span class="info-value" id="population">80</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Capacity:</span>
+            <span class="info-value" id="capacity">100</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Total Deaths:</span>
+            <span class="info-value" id="totalDeaths">0</span>
+          </div>
         </div>
       </div>
-      <div class="stat-small" id="bufferWarning">Winter requires 90 days of stored food</div>
-    </div>
-
-    <div class="meter">
-      <header><h4>Health</h4><span id="healthLbl">60%</span></header>
-      <div class="bar"><div class="fill" id="fillHealth"></div></div>
-      <div class="stat">Disease risk: <span id="diseaseRisk">1.0%</span></div>
-    </div>
-
-    <div class="meter">
-      <header><h4>Morale</h4><span id="moraleLbl">60%</span></header>
-      <div class="bar"><div class="fill" id="fillMorale"></div></div>
-      <div class="stat">Affects productivity ±10%</div>
-    </div>
-
-    <div class="info-box">
-      <h2 style="margin:0 0 8px">Victory Progress</h2>
-      <div style="position: relative; height: 24px; background: #0b1224; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; margin-bottom: 8px;">
-        <div id="victoryProgressBar" style="height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent2)); width: 0%; transition: width 0.5s; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: #000;">0%</div>
+      
+      <div class="section">
+        <div class="section-header" data-section="social">
+          <span class="section-title">⚖ Social Structure</span>
+          <span class="section-toggle">▼</span>
+        </div>
+        <div class="section-content expanded" id="social-content">
+          <div class="info-row">
+            <span class="info-label">Freeholders:</span>
+            <span class="info-value">20%</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Villeins:</span>
+            <span class="info-value">60%</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Cottars:</span>
+            <span class="info-value">20%</span>
+          </div>
+          <div class="divider"></div>
+          <div class="info-row">
+            <span class="info-label">Lord's Tithe:</span>
+            <span class="info-value" id="lordTithe">40%</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Church Tithe:</span>
+            <span class="info-value">10%</span>
+          </div>
+        </div>
       </div>
-      <div class="stat-small">Complete milestones to unlock Phase 2</div>
+      
     </div>
-
-    <div class="info-box">
-      <h2 style="margin:0 0 8px">Theory Active</h2>
-      <div class="stat" id="theoryStatus">Malthusian Trap</div>
+    
+    <!-- Stats Tab -->
+    <div class="tab-content" id="stats-tab">
+      
+      <div class="section">
+        <div class="section-header" data-section="theory">
+          <span class="section-title">📚 Economic Theory</span>
+          <span class="section-toggle">▼</span>
+        </div>
+        <div class="section-content expanded" id="theory-content">
+          <div class="theory-status" id="theoryStatus">Malthusian Trap</div>
+          <div class="stat-detail" id="theoryDesc">Population pressure keeps wages at subsistence</div>
+        </div>
+      </div>
+      
+      <div class="section">
+        <div class="section-header" data-section="victory">
+          <span class="section-title">🏆 Victory Progress</span>
+          <span class="section-toggle">▼</span>
+        </div>
+        <div class="section-content expanded" id="victory-content">
+          <div class="progress-bar">
+            <div class="progress-fill" id="victoryFill" style="width: 0%"></div>
+          </div>
+          <div class="stat-detail" style="margin-top: 8px">Complete milestones to advance</div>
+        </div>
+      </div>
+      
+      <div class="section">
+        <div class="section-header" data-section="log">
+          <span class="section-title">📜 Game Log</span>
+          <span class="section-toggle">▼</span>
+        </div>
+        <div class="section-content expanded" id="log-content">
+          <div class="game-log" id="gameLog">Time flows when you interact...</div>
+        </div>
+      </div>
+      
     </div>
-
-    <div class="info-box">
-      <h2 style="margin:0 0 8px">Game Log</h2>
-      <div class="stat" id="gameLog">Time will start when you interact...</div>
-    </div>
+    
   </aside>
-</div>
-</div>
-
-<!-- How To Play Modal -->
-<div class="modal" id="howToModal">
-  <div class="modal-content">
-    <button class="modal-close" id="howToClose">×</button>
-    <h3>How To Play</h3>
-    <div class="how-to-content">
-      <h4>Goal</h4>
-      <p>Develop your village from subsistence farming to a thriving agrarian economy. Unlock Phase 2 by meeting all win conditions.</p>
-      
-      <h4>Controls</h4>
-      <ul>
-        <li><strong>Labor Sliders</strong> - Allocate population to farming, building, and herding</li>
-        <li><strong>Work Intensity</strong> - Higher output but lowers morale</li>
-        <li><strong>Drag Buildings</strong> - Drag from palette onto the map to construct</li>
-        <li><strong>Click Resources</strong> - Trees and rocks provide materials</li>
-        <li><strong>Crop Selection</strong> - Choose wheat (high yield), rye (hardy), or legumes (soil+)</li>
-        <li><strong>Tech Tree</strong> - Unlock improvements with materials</li>
-      </ul>
-      
-      <h4>Key Mechanics</h4>
-      <ul>
-        <li><strong>Real Wage</strong> - Below 1.0 = crisis, above 1.5 = prosperity</li>
-        <li><strong>Soil Quality</strong> - Degrades without crop rotation</li>
-        <li><strong>Event Cards</strong> - Make decisions when cards appear</li>
-        <li><strong>Malthusian Cycles</strong> - Population pressure causes wage collapse, famines reset the cycle</li>
-      </ul>
-      
-      <h4>Win Conditions</h4>
-      <p>Meet all requirements to unlock Phase 2:</p>
-      <ul>
-        <li>Population > 150</li>
-        <li>Real Wage > 1.3 for 1 full year</li>
-        <li>Market infrastructure built</li>
-        <li>3+ capital goods (mills/workshops)</li>
-      </ul>
-    </div>
-  </div>
+  
 </div>
 
-<!-- Crop Picker Modal -->
-<div class="modal" id="cropModal">
-  <div class="modal-content" style="max-width:720px">
-    <button class="modal-close" id="cropClose">×</button>
-    <h3 id="cropModalTitle">Choose crop for this farm</h3>
-
-    <div class="stat-small" style="margin-bottom:10px; opacity:.85">
-      Tip: Planting windows matter. Non-hardy crops die in winter; legumes enrich soil.
-    </div>
-
-    <div id="cropGrid" class="crop-grid"></div>
-
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-top:12px; gap:12px;">
-      <label class="stat-small" style="display:flex; gap:8px; align-items:center;">
-        <input type="checkbox" id="setDefaultCrop">
-        Set as default for new/unassigned farms
-      </label>
-      <button class="btn" id="cropCancel">Cancel</button>
-    </div>
-  </div>
-</div>
-
-
-<!-- Event Card -->
-<div class="event-card" id="eventCard">
-  <div class="event-content">
-    <h3 id="eventTitle">Event</h3>
-    <p id="eventDesc">Description</p>
-    <div class="event-effect" id="eventEffect"></div>
-    <div class="event-buttons">
-      <button class="btn primary" id="eventAccept">Accept</button>
-      <button class="btn" id="eventDecline">Decline</button>
-    </div>
-  </div>
-</div>
+<!-- MODALS -->
 
 <!-- Tech Tree Modal -->
 <div class="modal" id="techModal">
-  <div class="modal-content large">
-    <button class="modal-close" id="techClose">×</button>
-    <h3>Technology Tree - Agrarian Phase</h3>
-    <div class="tech-grid" id="techGrid"></div>
+  <div class="modal-overlay"></div>
+  <div class="modal-content tech-modal">
+    <div class="modal-header">
+      <h2>Technology Tree - Agrarian Era</h2>
+      <button class="modal-close" id="techClose">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="tech-tree-container" id="techTreeContainer"></div>
+    </div>
   </div>
 </div>
 
-<!-- Theory Modal -->
-<div class="modal" id="theoryModal">
+<!-- Crop Selection Modal -->
+<div class="modal" id="cropModal">
+  <div class="modal-overlay"></div>
   <div class="modal-content">
-    <button class="modal-close" id="theoryClose">×</button>
-    <h3>Economic Theory Explained</h3>
-    <div class="theory-content">
-      <div class="theory-section">
-        <h4>Malthusian Trap</h4>
-        <p>Thomas Malthus (1798) observed that population grows geometrically while food supply grows arithmetically. Result: wages fall to subsistence, checking population growth through "positive checks" (famine, disease).</p>
-        <p><strong>In-game:</strong> Watch Real Wage. When it falls below 1.0, you're in crisis. Famines kill population, temporarily raising wages for survivors.</p>
-      </div>
-
-      <div class="theory-section">
-        <h4>Diminishing Returns to Land</h4>
-        <p>David Ricardo's core insight: as more farmers work fixed land, marginal productivity falls. Each additional farm produces less than the previous one.</p>
-        <p><strong>In-game:</strong> First farm produces lots of food. Tenth farm produces much less per farmer. Land quality also degrades without rotation.</p>
-      </div>
-
-      <div class="theory-section">
-        <h4>Smithian Growth</h4>
-        <p>Adam Smith (1776): productivity gains from division of labor and specialization. "Extent of market" determines how much specialization is possible.</p>
-        <p><strong>In-game:</strong> Tech upgrades (Tools, Heavy Plough, Seed Selection) represent TFP growth. Market Road enables surplus trade.</p>
-      </div>
-
-      <div class="theory-section">
-        <h4>Enclosure Movement</h4>
-        <p>Historical shift from common land to private ownership. Increased agricultural efficiency but displaced peasants, creating inequality.</p>
-        <p><strong>In-game:</strong> Enclosure gives +15% food but drops morale. Commons are egalitarian but less efficient.</p>
-      </div>
-
-      <div class="theory-section">
-        <h4>Industrious Revolution</h4>
-        <p>Jan de Vries: pre-industrial families worked harder (not smarter) to afford new market goods. Labor intensity increased before productivity.</p>
-        <p><strong>In-game:</strong> Work Intensity slider. Higher = more output but morale penalty. Represents working longer hours.</p>
-      </div>
-
-      <div class="theory-section">
-        <h4>Capital Accumulation</h4>
-        <p>Tools, mills, infrastructure = capital goods that boost productivity. But they depreciate and require maintenance.</p>
-        <p><strong>In-game:</strong> Windmills add +12% TFP but can break down. Represents capital deepening in pre-industrial economy.</p>
+    <div class="modal-header">
+      <h2 id="cropModalTitle">Select Crop for Farm</h2>
+      <button class="modal-close" id="cropClose">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="crop-modal-grid" id="cropGrid"></div>
+      <div style="margin-top: 16px; display: flex; justify-content: space-between; align-items: center;">
+        <label style="font-size: 11px; display: flex; gap: 8px; align-items: center;">
+          <input type="checkbox" id="setDefaultCrop">
+          Set as default for new farms
+        </label>
+        <button class="btn-secondary" id="cropCancel">Cancel</button>
       </div>
     </div>
   </div>
 </div>
 
-<!-- Progress Modal -->
-<div class="modal" id="progressModal">
-  <div class="modal-content">
-    <button class="modal-close" id="progressClose">×</button>
-    <h3>Phase 2 Unlock Progress</h3>
-    <div class="progress-content">
-      <div class="progress-bar-container">
-        <div class="progress-bar-fill" id="progressFill"></div>
-        <span class="progress-percent" id="progressPercent">0%</span>
-      </div>
-      
-      <h4>Requirements:</h4>
-      <ul class="requirements-list">
-        <li id="req1"><span class="req-icon">○</span> Population > 150</li>
-        <li id="req2"><span class="req-icon">○</span> Real Wage > 1.3 for 1 year</li>
-        <li id="req3"><span class="req-icon">○</span> Market infrastructure built</li>
-        <li id="req4"><span class="req-icon">○</span> 3+ capital goods (mills)</li>
-      </ul>
-
-      <div class="stats-summary">
-        <h4>Current Stats:</h4>
-        <p>Population: <span id="statPop">80</span> / 150</p>
-        <p>Real Wage: <span id="statWage">1.0</span> (sustained: <span id="statWageYears">0</span> years)</p>
-        <p>Market: <span id="statMarket">Not built</span></p>
-        <p>Capital Goods: <span id="statCapital">0</span> / 3</p>
-      </div>
+<!-- Event Card -->
+<div class="modal" id="eventModal">
+  <div class="modal-overlay"></div>
+  <div class="modal-content event-modal">
+    <div class="modal-header">
+      <h2 id="eventTitle">Event</h2>
     </div>
-  </div>
-</div>
-
-<!-- Victory Modal -->
-<div class="modal" id="victoryModal">
-  <div class="modal-content">
-    <h3>🎉 Agrarian Phase Complete!</h3>
-    <div class="victory-content">
-      <p>Your village has successfully transitioned from subsistence farming to a thriving agrarian economy!</p>
-      
-      <div class="victory-stats">
-        <h4>Final Statistics:</h4>
-        <p>Time: <span id="vicYears">0</span> years, <span id="vicDays">0</span> days</p>
-        <p>Final Population: <span id="vicPop">0</span></p>
-        <p>Total Deaths: <span id="vicDeaths">0</span></p>
-        <p>Efficiency Grade: <span id="vicGrade">B+</span></p>
-      </div>
-
-      <div class="phase2-teaser">
-        <h4>Phase 2: Early Industry</h4>
-        <p>Coming soon: Introduce coin economy, specialized craftsmen, proto-factories, and urban-rural dynamics.</p>
-      </div>
-
-      <div class="button-row">
-        <button class="btn primary" id="btnPlayAgain">Play Again</button>
-        <button class="btn" id="btnExportVictory">Export Data</button>
+    <div class="modal-body">
+      <p id="eventDesc" class="event-desc"></p>
+      <div class="event-effect" id="eventEffect"></div>
+      <div class="event-buttons">
+        <button class="btn-primary" id="eventAccept">Accept</button>
+        <button class="btn-secondary" id="eventDecline">Decline</button>
       </div>
     </div>
   </div>
