@@ -107,6 +107,14 @@
           <span class="info-label">Idle Workers:</span>
           <span class="info-value" id="idlePct">0%</span>
         </div>
+        
+        <div class="divider"></div>
+        
+        <div class="info-row">
+          <span class="info-label">Labor Efficiency:</span>
+          <span class="info-value" id="laborEfficiency">100%</span>
+        </div>
+        <div class="stat-detail">Skills adjust slowly when reallocating</div>
       </div>
     </div>
     
@@ -152,7 +160,11 @@
         
         <div class="subsection-title">Land Policy</div>
         <button class="btn-policy" id="btnPolicy">Commons (Equal Access)</button>
-        <div class="stat-detail">Enclosure = +15% efficiency, -15% morale</div>
+        <div class="stat-detail">Enclosure = gradual consolidation</div>
+        
+        <div class="divider"></div>
+        
+        <div id="enclosureInfo"></div>
       </div>
     </div>
     
@@ -308,6 +320,18 @@
         </div>
       </div>
       
+      <div class="section">
+        <div class="section-header" data-section="trade">
+          <span class="section-title">🏪 Trade</span>
+          <span class="section-toggle">▼</span>
+        </div>
+        <div class="section-content" id="trade-content">
+          <div id="tradeInfo">
+            <div class="stat-detail">Build a market to enable trade</div>
+          </div>
+        </div>
+      </div>
+      
     </div>
     
     <!-- Society Tab -->
@@ -364,6 +388,16 @@
         </div>
       </div>
       
+      <div class="section">
+        <div class="section-header" data-section="urban">
+          <span class="section-title">🏛 Urbanization</span>
+          <span class="section-toggle">▼</span>
+        </div>
+        <div class="section-content" id="urban-content">
+          <div id="urbanInfo"></div>
+        </div>
+      </div>
+      
     </div>
     
     <!-- Stats Tab -->
@@ -387,7 +421,7 @@
         </div>
         <div class="section-content expanded" id="victory-content">
           <div class="progress-bar">
-            <div class="progress-fill" id="victoryFill" style="width: 0%"></div>
+            <div class="progress-fill" id="victoryFill" style="width: 0%">0%</div>
           </div>
           <div class="stat-detail" style="margin-top: 8px">Complete milestones to advance</div>
         </div>

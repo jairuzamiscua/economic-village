@@ -1,10 +1,10 @@
 /* ============================================
-   ECONOVILLE PHASE 1 - GAME LOGIC.
-   A+ Production-Ready Version (JS-only)
+   ECONOVILLE - GRAND STRATEGY EDITION
+   Enhanced gameplay with deeper tech tree
    ============================================ */
 
 // ============================================
-// CORE STATE & CONSTANT
+// UTILITY FUNCTIONS
 // ============================================
 
 const el = id => document.getElementById(id);
@@ -30,66 +30,32 @@ function playSound(type) {
   oscillator.connect(gainNode);
   gainNode.connect(audioCtx.destination);
   
-  switch(type) {
-    case 'click':
-      oscillator.frequency.value = 800;
-      gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
-      oscillator.start(audioCtx.currentTime);
-      oscillator.stop(audioCtx.currentTime + 0.1);
-      break;
-      
-    case 'build':
-      oscillator.frequency.value = 400;
-      gainNode.gain.setValueAtTime(0.15, audioCtx.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
-      oscillator.start(audioCtx.currentTime);
-      oscillator.stop(audioCtx.currentTime + 0.3);
-      break;
-      
-    case 'harvest':
-      oscillator.frequency.value = 600;
-      oscillator.type = 'square';
-      gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
-      oscillator.start(audioCtx.currentTime);
-      oscillator.stop(audioCtx.currentTime + 0.15);
-      break;
-      
-    case 'complete':
-      oscillator.frequency.value = 523.25; // C5
-      gainNode.gain.setValueAtTime(0.2, audioCtx.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
-      oscillator.start(audioCtx.currentTime);
-      oscillator.frequency.setValueAtTime(659.25, audioCtx.currentTime + 0.1); // E5
-      oscillator.stop(audioCtx.currentTime + 0.4);
-      break;
-      
-    case 'tech':
-      oscillator.frequency.value = 880;
-      oscillator.type = 'sine';
-      gainNode.gain.setValueAtTime(0.15, audioCtx.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
-      oscillator.start(audioCtx.currentTime);
-      oscillator.stop(audioCtx.currentTime + 0.5);
-      break;
-      
-    case 'bad':
-      oscillator.frequency.value = 200;
-      oscillator.type = 'sawtooth';
-      gainNode.gain.setValueAtTime(0.2, audioCtx.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
-      oscillator.start(audioCtx.currentTime);
-      oscillator.stop(audioCtx.currentTime + 0.3);
-      break;
-  }
+  const sounds = {
+    click: { freq: 800, gain: 0.1, dur: 0.1 },
+    build: { freq: 400, gain: 0.15, dur: 0.3 },
+    harvest: { freq: 600, gain: 0.1, dur: 0.15, type: 'square' },
+    complete: { freq: 523.25, gain: 0.2, dur: 0.4 },
+    tech: { freq: 880, gain: 0.15, dur: 0.5 },
+    bad: { freq: 200, gain: 0.2, dur: 0.3, type: 'sawtooth' }
+  };
+  
+  const sound = sounds[type] || sounds.click;
+  oscillator.frequency.value = sound.freq;
+  oscillator.type = sound.type || 'sine';
+  gainNode.gain.setValueAtTime(sound.gain, audioCtx.currentTime);
+  gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + sound.dur);
+  oscillator.start(audioCtx.currentTime);
+  oscillator.stop(audioCtx.currentTime + sound.dur);
 }
+
+// ============================================
+// GAME STATE
+// ============================================
 
 let autoStarted = false;
 let tickInterval = null;
 let draggedType = null;
 let isPaused = false;
-let eventTimeout = null;
 
 const S = {
   // Time
@@ -98,26 +64,49 @@ const S = {
   season: 0,
   seasons: ['Spring', 'Summer', 'Autumn', 'Winter'],
 
-  // Feudal obligations
-  lordTithePct: 0.40, // Lord takes 40% of harvest
-  churchTithePct: 0.10, // Church takes 10%
-  laborDays: 0, // Days owed to lord's demesne
+  // NEW: Enclosure system
+  enclosedLandPct: 0.0, // Starts at 0%, gradually increases
+  enclosureRate: 0.0, // Rate of enclosure per year
+  landlessLaborers: 0, // Displaced peasants
+  woolProduction: 0,
   
-  // Social stratification
-  freeholderPct: 0.2, // % who own land (pay less tithe)
-  villeinPct: 0.6, // Unfree peasants (full obligations)
-  cottarPct: 0.2, // Landless laborers
+  // NEW: Trade system
+  foodSurplus: 0,
+  marketPrice: 1.0, // Base price multiplier
+  grainSold: 0,
+  tradeIncome: 0,
+  
+  // NEW: Urban system
+  urbanPopPct: 0.05, // Starts at 5%
+  urbanDemand: 1.0, // Multiplier for food prices
+  
+  // NEW: Labor friction
+  laborSkills: {
+    farmers: 0.5,
+    builders: 0.3,
+    herders: 0.1,
+    gatherers: 0.1
+  },
+  laborReallocationCost: 0,
+
+  // Feudal system
+  lordTithePct: 0.40,
+  churchTithePct: 0.10,
+  laborDays: 0,
+  freeholderPct: 0.2,
+  villeinPct: 0.6,
+  cottarPct: 0.2,
 
   // Population
   pop: 80,
-  cap: 150,
+  cap: 100,
   totalDeaths: 0,
 
-  // Crop lifecycle tracking
-  farmCrops: {}, // { farmId: { crop: 'wheat', plantedDay: 15, plantedSeason: 2, plantedYear: 1, mature: false } }
+  // Crop tracking
+  farmCrops: {},
   lastPlantingWarning: -1,
 
-  // Labor allocation
+  // Labor
   farmers: 0.5,
   builders: 0.3,
   herders: 0.1,
@@ -125,11 +114,11 @@ const S = {
   workIntensity: 1.0,
 
   // Resources
-  materials: 20,
-  foodStock: 5,
+  materials: 30,
+  foodStock: 20,
   livestock: 0,
 
-  // Economic indicators
+  // Economy
   health: 0.6,
   morale: 0.6,
   tfp: 1.0,
@@ -145,24 +134,16 @@ const S = {
   weatherNow: 'sunny',
   weatherNext: 'rain',
 
-  // Progress tracking
+  // Progress
   tech: {},
   builds: [],
   nodes: [],
-
-  // Win condition tracking
   wageAbove13Years: 0,
-
-  tutorialStep: 0,
-  tutorialCompleted: false,
-
-  // Data export
   history: [],
-
-  // Seasonality
-  lastSeasonWarning: -1,
-  harvestBonusShown: false,
-  seasonTransitionShown: false,
+  lastFoodProduction: 0,
+  victoryProgress: 0,
+  gatherJobs: [],
+  nodeRegenQueue: [],
 
   milestones: {
     firstWinter: { complete: false, reward: 'materials', amount: 15 },
@@ -170,249 +151,224 @@ const S = {
     firstMill: { complete: false, reward: 'morale', amount: 0.2 },
     marketBuilt: { complete: false, reward: 'materials_income', amount: 2 },
     sustained_wage: { complete: false, reward: 'victory_progress', amount: 25 }
-  },
-  victoryProgress: 0,
-
-  // Add to State object
-  seasonalPressure: {
-    spring: { farmers: 0.6, builders: 0.2, gatherers: 0.1, herders: 0.1 },
-    summer: { farmers: 0.5, builders: 0.3, gatherers: 0.1, herders: 0.1 },
-    autumn: { farmers: 0.7, builders: 0.1, gatherers: 0.1, herders: 0.1 },
-    winter: { farmers: 0.3, builders: 0.4, gatherers: 0.2, herders: 0.1 }
-  },
-
-  age: 1,
-  ageGoals: {
-    1: { name: 'Survival', pop: 100, year: 3, complete: false },
-    2: { name: 'Expansion', pop: 125, mills: 2, complete: false },
-    3: { name: 'Prosperity', pop: 150, mills: 3, wage: true, complete: false }
-  },
-  gatherers: 0, // For gatherer system if you implement it
-  lastFoodProduction: 0, // Track food production for display
-
-  lastLaborWarning: -1, // Prevent spam
-
-  // Material Generation System
-  nodeRegenQueue: []
+  }
+  
 };
 
+// ============================================
+// ENHANCED TECH TREE - 3 TIERS
+// ============================================
 
-// Tutorial Overlay
-const TUTORIAL_STEPS = [
-  {
-    target: 'buildPalette',
-    title: 'Build Your Economy',
-    text: 'Drag farms and houses onto the green area. Farms produce food, houses increase population cap.',
-    highlight: true
-  },
-  {
-    target: 'farmerSlider',
-    title: 'Allocate Labor',
-    text: '50% farmers grow food. 30% builders construct faster. Balance these carefully.',
-    highlight: true
-  },
-  {
-    target: 'realWage',
-    title: 'Watch Real Wages',
-    text: 'This is your survival meter. Below 1.0 = crisis. Population grows when wages are high.',
-    highlight: true
-  },
-  {
-    target: 'ground',
-    title: 'Gather Resources',
-    text: 'Click trees and rocks to gather materials for buildings and technology.',
-    highlight: true
-  },
-  {
-    target: 'btnTech',
-    title: 'Unlock Technologies',
-    text: 'Spend materials here to improve farming, reduce disease, and grow faster.',
-    highlight: true
-  }
-];
-
-function showTutorial() {
-  console.log('showTutorial called, step:', S.tutorialStep); // DEBUG
-  
-  if (S.tutorialCompleted) {
-    console.log('Tutorial already completed');
-    return;
-  }
-  
-  const step = TUTORIAL_STEPS[S.tutorialStep];
-  if (!step) {
-    S.tutorialCompleted = true;
-    toast('Tutorial complete! Now survive and grow.', 5000);
-    return;
-  }
-  
-  console.log('Showing step:', step.title); // DEBUG
-  
-  // Remove any existing overlay
-  const existingOverlay = document.getElementById('tutorialOverlay');
-  if (existingOverlay) {
-    console.log('Removing existing overlay');
-    existingOverlay.remove();
-  }
-  
-  // Create overlay
-  const overlay = document.createElement('div');
-  overlay.id = 'tutorialOverlay';
-  overlay.style.position = 'fixed';
-  overlay.style.top = '0';
-  overlay.style.left = '0';
-  overlay.style.width = '100vw';
-  overlay.style.height = '100vh';
-  overlay.style.background = 'rgba(0,0,0,0.9)';
-  overlay.style.zIndex = '99999'; // SUPER HIGH
-  overlay.style.display = 'flex';
-  overlay.style.alignItems = 'center';
-  overlay.style.justifyContent = 'center';
-  
-  const box = document.createElement('div');
-  box.style.background = 'linear-gradient(180deg, #111827, #0b1224)';
-  box.style.border = '2px solid #22d3ee';
-  box.style.borderRadius = '16px';
-  box.style.padding = '32px';
-  box.style.maxWidth = '500px';
-  box.style.width = '90%';
-  box.style.boxShadow = '0 20px 60px rgba(0,0,0,0.7)';
-  
-  box.innerHTML = `
-    <h3 style="color: #22d3ee; margin-bottom: 16px; font-size: 20px;">${step.title}</h3>
-    <p style="margin-bottom: 24px; line-height: 1.6; font-size: 15px; color: #e5e7eb;">${step.text}</p>
-    <button id="tutorialNext" style="width: 100%; padding: 12px; font-size: 14px; background: linear-gradient(135deg, #22d3ee, #a78bfa); border: none; border-radius: 8px; color: #000; font-weight: 600; cursor: pointer;">
-      Got it (${S.tutorialStep + 1}/${TUTORIAL_STEPS.length})
-    </button>
-  `;
-  
-  overlay.appendChild(box);
-  document.body.appendChild(overlay);
-  
-  console.log('Overlay appended to body'); // DEBUG
-  
-  // Attach click handler
-  const btn = document.getElementById('tutorialNext');
-  if (btn) {
-    console.log('Button found, attaching handler');
-    btn.onclick = () => {
-      console.log('Button clicked');
-      overlay.remove();
-      S.tutorialStep++;
-      
-      if (S.tutorialStep < TUTORIAL_STEPS.length) {
-        setTimeout(() => showTutorial(), 400);
-      } else {
-        S.tutorialCompleted = true;
-        toast('Tutorial complete! Good luck, Chief.', 4000);
-      }
-    };
-  } else {
-    console.error('Tutorial button not found!');
-  }
-}
-
-// Tech Tree
 const TECH_TREE = {
+  // ===== TIER 1: EARLY AGRARIAN (Foundation) =====
   basicFarming: {
     name: 'Basic Farming',
+    category: 'Agriculture',
+    tier: 1,
     cost: 0,
     req: [],
-    effect: 'Enables farms',
+    effect: 'Enables farm construction',
     desc: 'Cultivate crops for food production'
   },
+  
   livestock: {
     name: 'Livestock Domestication',
+    category: 'Agriculture',
+    tier: 1,
     cost: 15,
     req: ['basicFarming'],
-    effect: 'Animals for food & draft power',
+    effect: 'Enables livestock pens, +0.5 food/animal',
     desc: 'Domesticate animals for steady food supply'
   },
+  
   threeField: {
     name: 'Three-Field Rotation',
+    category: 'Agriculture',
+    tier: 1,
     cost: 20,
     req: ['basicFarming'],
-    effect: '+15% yield, prevent soil loss',
+    effect: '+15% yield, prevent soil degradation',
     desc: 'Rotate crops to maintain soil fertility'
   },
+  
+  well: {
+    name: 'Well & Sanitation',
+    category: 'Infrastructure',
+    tier: 1,
+    cost: 20,
+    req: [],
+    effect: '+20% health, -50% disease risk',
+    desc: 'Clean water reduces mortality'
+  },
+  
+  granary: {
+    name: 'Granary Storage',
+    category: 'Infrastructure',
+    tier: 1,
+    cost: 25,
+    req: ['basicFarming'],
+    effect: 'Food spoilage: 25% → 10%',
+    desc: 'Preserve surplus grain safely'
+  },
+  
+  marketAccess: {
+    name: 'Market Road',
+    category: 'Economic',
+    tier: 1,
+    cost: 20,
+    req: ['basicFarming'],
+    effect: 'Enable surplus trade routes',
+    desc: 'Connect to regional markets'
+  },
+
+  // ===== TIER 2: MIDDLE AGRARIAN (Optimization) =====
+  
   heavyPlough: {
     name: 'Heavy Plough',
-    cost: 25,
-    req: ['livestock'],
-    effect: '+20% farm TFP',
-    desc: 'Animal-powered deep tilling'
+    category: 'Agriculture',
+    tier: 2,
+    cost: 30,
+    req: ['livestock', 'threeField'],
+    effect: '+25% farm TFP',
+    desc: 'Animal-powered deep tilling increases yields'
   },
+  
   manure: {
     name: 'Manure Fertilization',
-    cost: 15,
+    category: 'Agriculture',
+    tier: 2,
+    cost: 18,
     req: ['livestock'],
     effect: '+10% yield per livestock unit',
     desc: 'Enrich soil with animal waste'
   },
-  irrigation: {
-    name: 'Irrigation Canals',
-    cost: 30,
-    req: ['basicFarming'],
-    effect: 'Drought penalty -30% → -10%',
-    desc: 'Water distribution systems'
-  },
-  granary: {
-    name: 'Granary Storage',
-    cost: 25,
-    req: ['basicFarming'],
-    effect: 'Spoilage 25% → 10%',
-    desc: 'Preserve surplus grain safely'
-  },
-  well: {
-    name: 'Well & Sanitation',
-    cost: 20,
-    req: [],
-    effect: '+20% health, lower disease',
-    desc: 'Clean water source'
-  },
-  marketAccess: {
-    name: 'Market Road',
-    cost: 20,
-    req: ['basicFarming'],
-    effect: 'Enable surplus trade',
-    desc: 'Roads connecting to regional markets'
-  },
+  
   seedSelection: {
     name: 'Seed Selection',
-    cost: 18,
+    category: 'Agriculture',
+    tier: 2,
+    cost: 22,
     req: ['threeField'],
-    effect: '+8% crop yields',
+    effect: '+10% crop yields',
     desc: 'Choose best seeds for planting'
   },
+  
+  irrigation: {
+    name: 'Irrigation Canals',
+    category: 'Infrastructure',
+    tier: 2,
+    cost: 35,
+    req: ['well'],
+    effect: 'Drought penalty: -40% → -10%',
+    desc: 'Water distribution systems'
+  },
+  
   animalBreeding: {
     name: 'Selective Breeding',
-    cost: 22,
-    req: ['livestock'],
-    effect: 'Livestock growth +50%',
+    category: 'Agriculture',
+    tier: 2,
+    cost: 25,
+    req: ['livestock', 'manure'],
+    effect: '+50% livestock growth rate',
     desc: 'Breed stronger, more productive animals'
   },
-  mill: {
-    name: 'Windmill Technology',
-    cost: 35,
-    req: ['basicFarming'],
-    effect: '+12% TFP (capital good)',
-    desc: 'Mechanical grain milling'
-  },
-  charteredRights: {
-    name: 'Town Charter',
-    cost: 50,
-    req: ['market'],
-    effect: 'Reduce lord tithe 40% → 25%',
-    desc: 'Negotiate reduced feudal obligations'
-  },
+  
   market: {
     name: 'Market Charter',
-    cost: 25,
+    category: 'Economic',
+    tier: 2,
+    cost: 30,
     req: ['marketAccess'],
-    effect: 'Allows Market build',
+    effect: 'Enables Market building, +2 materials/year',
     desc: 'Institutional framework for trade'
+  },
+  
+  woodworking: {
+    name: 'Advanced Woodworking',
+    category: 'Infrastructure',
+    tier: 2,
+    cost: 25,
+    req: ['granary'],
+    effect: '-20% building material costs',
+    desc: 'Efficient use of timber resources'
+  },
+
+  // ===== TIER 3: LATE AGRARIAN (Pre-Industrial) =====
+  
+  mill: {
+    name: 'Windmill Technology',
+    category: 'Infrastructure',
+    tier: 3,
+    cost: 40,
+    req: ['heavyPlough', 'woodworking'],
+    effect: '+15% TFP per mill (capital good)',
+    desc: 'Mechanical grain milling'
+  },
+  
+  charteredRights: {
+    name: 'Town Charter',
+    category: 'Social',
+    tier: 3,
+    cost: 50,
+    req: ['market'],
+    effect: 'Reduce lord tithe: 40% → 25%',
+    desc: 'Negotiate reduced feudal obligations'
+  },
+  
+  cropRotation: {
+    name: 'Advanced Crop Rotation',
+    category: 'Agriculture',
+    tier: 3,
+    cost: 35,
+    req: ['seedSelection', 'manure'],
+    effect: '+20% soil quality recovery rate',
+    desc: 'Scientific approach to field management'
+  },
+  
+  storage: {
+    name: 'Bulk Storage',
+    category: 'Infrastructure',
+    tier: 3,
+    cost: 30,
+    req: ['granary', 'market'],
+    effect: 'Spoilage: 10% → 5%, +20% food capacity',
+    desc: 'Large-scale preservation techniques'
+  },
+  
+  guildSystem: {
+    name: 'Craft Guilds',
+    category: 'Social',
+    tier: 3,
+    cost: 40,
+    req: ['market', 'woodworking'],
+    effect: '+10% TFP, +15% morale',
+    desc: 'Organized skilled labor increases quality'
+  },
+  
+  accounting: {
+    name: 'Double-Entry Bookkeeping',
+    category: 'Economic',
+    tier: 3,
+    cost: 35,
+    req: ['market'],
+    effect: '+1 material/year per 10 population',
+    desc: 'Financial systems enable growth'
+  },
+  
+  fertilizer: {
+    name: 'Compost Science',
+    category: 'Agriculture',
+    tier: 3,
+    cost: 30,
+    req: ['manure', 'cropRotation'],
+    effect: '+15% all crop yields',
+    desc: 'Advanced soil enrichment techniques'
   }
 };
+
+// ============================================
+// BUILDINGS
+// ============================================
 
 const BUILDS = {
   farm: { name: 'Farm', mat: 8, dur: 5, icon: 'farm' },
@@ -420,9 +376,13 @@ const BUILDS = {
   well: { name: 'Well', mat: 15, dur: 6, icon: 'well', reqTech: 'well' },
   granary: { name: 'Granary', mat: 20, dur: 7, icon: 'granary', reqTech: 'granary' },
   livestock: { name: 'Livestock Pen', mat: 12, dur: 5, icon: 'livestock', reqTech: 'livestock' },
-  market: { name: 'Market', mat: 25, dur: 6, icon: 'market', reqTech: 'market' },
-  mill: { name: 'Windmill', mat: 35, dur: 8, icon: 'mill', reqTech: 'mill' }
+  market: { name: 'Market', mat: 30, dur: 6, icon: 'market', reqTech: 'market' },
+  mill: { name: 'Windmill', mat: 40, dur: 8, icon: 'mill', reqTech: 'mill' }
 };
+
+// ============================================
+// CROP DATA
+// ============================================
 
 const CROP_DATA = {
   wheat: { 
@@ -430,19 +390,19 @@ const CROP_DATA = {
     yield: 1.0, 
     droughtMult: 0.6, 
     soilDrain: 0.02,
-    plantSeasons: [2], // Autumn only - historically accurate!
-    harvestSeasons: [1, 2], // Late summer/early autumn
-    growthDays: 270, // ~9 months
-    winterHardy: true, // Survives winter
-    baseFood: 3.0 // High calorie grain
+    plantSeasons: [2],
+    harvestSeasons: [1, 2],
+    growthDays: 270,
+    winterHardy: true,
+    baseFood: 3.0
   },
   rye: { 
     name: 'Rye',
     yield: 0.85, 
-    droughtMult: 0.95, // Very drought resistant
+    droughtMult: 0.95,
     soilDrain: 0.015,
-    plantSeasons: [2, 3], // Autumn or winter
-    harvestSeasons: [1], // Summer
+    plantSeasons: [2, 3],
+    harvestSeasons: [1],
     growthDays: 240,
     winterHardy: true,
     baseFood: 2.5
@@ -451,11 +411,11 @@ const CROP_DATA = {
     name: 'Peas & Beans',
     yield: 0.75, 
     droughtMult: 0.85, 
-    soilDrain: -0.015, // FIXES nitrogen!
-    plantSeasons: [0], // Spring only
-    harvestSeasons: [2], // Autumn harvest
-    growthDays: 180, // 6 months
-    winterHardy: false, // Dies in winter
+    soilDrain: -0.015,
+    plantSeasons: [0],
+    harvestSeasons: [2],
+    growthDays: 180,
+    winterHardy: false,
     baseFood: 2.0
   },
   barley: {
@@ -463,13 +423,60 @@ const CROP_DATA = {
     yield: 0.9,
     droughtMult: 0.8,
     soilDrain: 0.018,
-    plantSeasons: [0], // Spring
-    harvestSeasons: [1], // Summer
+    plantSeasons: [0],
+    harvestSeasons: [1],
     growthDays: 120,
     winterHardy: false,
     baseFood: 2.3
   }
 };
+
+// ============================================
+// SEASON DATA
+// ============================================
+
+const SEASON_DATA = {
+  0: {
+    name: 'Spring',
+    mult: 0.2,
+    color: '#86efac',
+    icon: '🌱',
+    desc: 'Planting season - sow spring crops',
+    skyGradient: 'radial-gradient(1400px 900px at 70% -10%, #7dd3fc 0%, #38bdf8 40%, #0284c7 100%)',
+    groundGradient: 'linear-gradient(180deg, rgba(34, 197, 94, 0.4) 0%, rgba(21, 128, 61, 0.6) 100%)',
+  },
+  1: {
+    name: 'Summer',
+    mult: 0.6,
+    color: '#fbbf24',
+    icon: '☀️',
+    desc: 'Growing season - early harvest',
+    skyGradient: 'radial-gradient(1400px 900px at 70% -10%, #fef08a 0%, #fbbf24 40%, #f59e0b 100%)',
+    groundGradient: 'linear-gradient(180deg, rgba(34, 197, 94, 0.5) 0%, rgba(74, 158, 37, 0.7) 100%)',
+  },
+  2: {
+    name: 'Autumn',
+    mult: 0.8,
+    color: '#f97316',
+    icon: '🌾',
+    desc: 'HARVEST SEASON - reap crops',
+    skyGradient: 'radial-gradient(1400px 900px at 70% -10%, #fb923c 0%, #ea580c 40%, #c2410c 100%)',
+    groundGradient: 'linear-gradient(180deg, rgba(120, 53, 15, 0.6) 0%, rgba(69, 26, 3, 0.8) 100%)',
+  },
+  3: {
+    name: 'Winter',
+    mult: 0.05,
+    color: '#93c5fd',
+    icon: '❄️',
+    desc: 'SURVIVAL - eat stored food',
+    skyGradient: 'radial-gradient(1400px 900px at 70% -10%, #cbd5e1 0%, #94a3b8 40%, #64748b 100%)',
+    groundGradient: 'linear-gradient(180deg, rgba(248, 250, 252, 0.95) 0%, rgba(226, 232, 240, 0.98) 100%)',
+  }
+};
+
+// ============================================
+// EVENTS
+// ============================================
 
 const EVENTS = [
   {
@@ -482,7 +489,7 @@ const EVENTS = [
       if (S.materials >= 20) {
         S.materials -= 20;
         S.tfp *= 1.15;
-        toast('Purchased iron tools! +15% farm productivity');
+        toast('Purchased iron tools! +15% productivity');
         return true;
       }
       toast('Not enough materials!');
@@ -492,13 +499,13 @@ const EVENTS = [
   {
     id: 'harsh_winter',
     title: 'Harsh Winter Forecast',
-    desc: 'Scouts report a brutal winter approaching. Slaughter livestock now for guaranteed food, or risk keeping them?',
-    effect: 'Accept: +15 food now, -3 livestock | Decline: Keep livestock, risk losses',
+    desc: 'Scouts report a brutal winter. Slaughter livestock now or risk losses?',
+    effect: 'Accept: +15 food, -3 livestock | Decline: Risk winter losses',
     action: () => {
       if (S.livestock >= 3) {
         S.foodStock += 15;
         S.livestock -= 3;
-        toast('Livestock slaughtered. +15 food, -3 animals');
+        toast('Livestock slaughtered for winter food');
         return true;
       }
       toast('Not enough livestock!');
@@ -508,13 +515,13 @@ const EVENTS = [
   {
     id: 'neighbor_aid',
     title: 'Neighboring Village Requests Aid',
-    desc: 'A nearby village suffered crop failure. They request food aid and promise future alliance.',
+    desc: 'A nearby village suffered crop failure. Send food aid?',
     effect: 'Accept: -15 food, +20% morale | Decline: Keep food',
     action: () => {
       if (S.foodStock >= 15) {
         S.foodStock -= 15;
         S.morale = Math.min(1, S.morale + 0.2);
-        toast('Aid sent! +20% morale from goodwill');
+        toast('Aid sent! Morale boosted by goodwill');
         return true;
       }
       toast('Not enough food to share!');
@@ -522,273 +529,42 @@ const EVENTS = [
     }
   },
   {
-    id: 'scholar',
-    title: 'Wandering Scholar',
-    desc: 'A scholar offers to teach advanced farming techniques for a modest payment.',
-    effect: 'Cost: 15 materials | Gain: +10% TFP',
-    cost: 15,
-    action: () => {
-      if (S.materials >= 15) {
-        S.materials -= 15;
-        S.tfp *= 1.1;
-        toast('Knowledge acquired! +10% TFP');
-        return true;
-      }
-      toast("Cannot afford the scholar's fee!");
-      return false;
-    }
-  },
-  {
-    id: 'bandits',
-    title: 'Bandit Threat',
-    desc: 'Bandits demand tribute. Pay them off or risk a raid that damages morale.',
-    effect: 'Accept: -10 materials | Decline: -20% morale',
-    action: () => {
-      if (S.materials >= 10) {
-        S.materials -= 10;
-        toast('Tribute paid. Bandits leave peacefully.');
-        return true;
-      }
-      toast('Cannot pay! Bandits raid nearby.');
-      return false;
-    },
-    decline: () => {
-      S.morale = Math.max(0, S.morale - 0.2);
-      toast('Bandits raid outskirts! -20% morale');
-    }
-  },
-  {
-    id: 'rain_blessing',
-    title: 'Rain Blessing Predicted',
-    desc: 'Elders predict abundant rain. Plant extra fields now to maximize harvest?',
-    effect: 'Accept: -5 materials (seeds) | Next week: +30% farm output',
-    action: () => {
-      if (S.materials >= 5) {
-        S.materials -= 5;
-        S.tfp *= 1.3;
-        setTimeout(() => {
-          S.tfp /= 1.3;
-        }, 14000); // about one sim-week depending on tick speed
-        toast('Extra planting! +30% output for one week');
-        return true;
-      }
-      toast('Not enough materials for extra seeds!');
-      return false;
-    }
-  },
-  {
     id: 'festival',
-    title: 'Harvest Festival Request',
-    desc: 'Villagers want a harvest festival. Costs food but greatly boosts morale.',
+    title: 'Harvest Festival',
+    desc: 'Villagers want to celebrate the harvest with a festival.',
     effect: 'Cost: 10 food | Gain: +25% morale',
     action: () => {
       if (S.foodStock >= 10) {
         S.foodStock -= 10;
         S.morale = Math.min(1, S.morale + 0.25);
-        toast('Festival celebrated! +25% morale');
+        toast('Festival celebrated! Community spirit restored');
         return true;
       }
-      toast('Not enough food for a festival!');
+      toast('Not enough food for festivities');
       return false;
-    }
-  },
-  {
-    id: 'tool_repair',
-    title: 'Tool Maintenance',
-    desc: 'Farm tools need repair. Invest now or risk productivity decline?',
-    effect: 'Accept: -8 materials | Prevent -10% TFP loss',
-    action: () => {
-      if (S.materials >= 8) {
-        S.materials -= 8;
-        toast('Tools repaired and maintained.');
-        return true;
-      }
-      toast('Cannot afford repairs!');
-      return false;
-    },
-    decline: () => {
-      S.tfp *= 0.9;
-      toast('Tools degrade! -10% TFP');
-    }
-  },
-  {
-   id: 'bad_harvest',
-    title: 'Bad Harvest',
-    desc: 'Blight hits the fields. Yields fall unexpectedly.',
-    effect: '−30% farm output for 20 days',
-    action: () => {
-      S.tfp *= 0.7;
-      setTimeout(() => (S.tfp /= 0.7), 20000);
-      toast('Bad harvest! Output down temporarily.');
-      return true;
-    }
-  },
-  {
-    id: 'rats_granary',
-    title: 'Rats in the Granary',
-    desc: 'Pests spoil your stores overnight.',
-    effect: 'Lose 25% of stored food',
-    action: () => {
-      const loss = Math.max(0, Math.floor(S.foodStock * 0.25));
-      S.foodStock = Math.max(0, S.foodStock - loss);
-      toast(`Rats! Lost ${loss} food from stores.`);
-      return true;
     }
   }
 ];
 
-// Current (too subtle)
-const seasonalYield = [1.0, 1.2, 0.8, 0.3];
-
-const SEASON_DATA = {
-  0: { // SPRING - planting season, low output
-    name: 'Spring',
-    mult: 0.2, // Only existing mature crops produce
-    color: '#86efac',
-    icon: '🌱',
-    desc: 'Planting season - sow spring crops NOW',
-    warning: 'Plant legumes and barley before summer!',
-    skyGradient: 'radial-gradient(1400px 900px at 70% -10%, #7dd3fc 0%, #38bdf8 40%, #0284c7 100%)',
-    groundGradient: 'linear-gradient(180deg, rgba(34, 197, 94, 0.4) 0%, rgba(21, 128, 61, 0.6) 100%)',
-    skyOpacity: 0.85
-  },
-  1: { // SUMMER - growing season, some harvest
-    name: 'Summer', 
-    mult: 0.6, // Early crops (barley, rye) harvest
-    color: '#fbbf24',
-    icon: '☀️',
-    desc: 'Growing season - early grain harvest',
-    warning: 'Rye and barley ready - wheat still growing',
-    skyGradient: 'radial-gradient(1400px 900px at 70% -10%, #fef08a 0%, #fbbf24 40%, #f59e0b 100%)',
-    groundGradient: 'linear-gradient(180deg, rgba(34, 197, 94, 0.5) 0%, rgba(74, 158, 37, 0.7) 100%)',
-    skyOpacity: 1.0 // Brightest
-  },
-  2: { // AUTUMN - main harvest BUT only if planted correctly
-    name: 'Autumn',
-    mult: 0.8, // Base mult - BONUS comes from mature crops
-    color: '#f97316',
-    icon: '🌾',
-    desc: 'HARVEST SEASON - reap what you sowed!',
-    warning: 'Plant winter wheat NOW for next year!',
-    skyGradient: 'radial-gradient(1400px 900px at 70% -10%, #fb923c 0%, #ea580c 40%, #c2410c 100%)',
-    groundGradient: 'linear-gradient(180deg, rgba(120, 53, 15, 0.6) 0%, rgba(69, 26, 3, 0.8) 100%)',
-    skyOpacity: 0.9
-  },
-  3: { // WINTER - survival mode
-    name: 'Winter',
-    mult: 0.05, // Almost nothing grows
-    color: '#93c5fd',
-    icon: '❄️',
-    desc: 'SURVIVAL - eat stored food, tend animals',
-    warning: 'Protect winter wheat - spring will come',
-    skyGradient: 'radial-gradient(1400px 900px at 70% -10%, #cbd5e1 0%, #94a3b8 40%, #64748b 100%)',
-    groundGradient: 'linear-gradient(180deg, rgba(248, 250, 252, 0.95) 0%, rgba(226, 232, 240, 0.98) 100%)',
-    skyOpacity: 0.7
-  }
-};
-
-function checkCriticalAlerts() {
-  const needPerDay = S.pop * 0.10;
-  const daysOfFood = S.foodStock / needPerDay;
-  
-  // Food crisis warning
-  if (daysOfFood < 10 && daysOfFood > 0) {
-    const warning = el('gameLog');
-    if (warning) {
-      warning.innerHTML = `<span style="color:var(--warn);">⚠ LOW FOOD: ${Math.floor(daysOfFood)} days remaining!</span>`;
-    }
-  } else if (S.foodStock < 0) {
-    const warning = el('gameLog');
-    if (warning) {
-      warning.innerHTML = `<span style="color:var(--bad);">🚨 STARVATION: Build more farms NOW!</span>`;
-    }
-  }
-  
-  // Material shortage
-  if (S.materials < 10 && S.nodes.length === 0) {
-    const warning = el('gameLog');
-    if (warning) {
-      warning.innerHTML = `<span style="color:var(--warn);">⚠ Material shortage: Wait for resources to respawn</span>`;
-    }
-  }
-  
-  // Wage crisis
-  if (S.realWage < 0.8) {
-    const warning = el('gameLog');
-    if (warning) {
-      warning.innerHTML = `<span style="color:var(--bad);">🚨 WAGE CRISIS: Famine imminent!</span>`;
-    }
-  }
-}
-
-
 // ============================================
-// INITIALIZATION & LANDING SCREEN
+// INITIALIZATION
 // ============================================
 
 function init() {
-  // Buttons present on landing
-  const btnStart = el('btnStart');
-  const btnHowTo = el('btnHowTo');
-  const howToClose = el('howToClose');
-
-  if (btnStart) btnStart.addEventListener('click', startGame);
-  if (btnHowTo) btnHowTo.addEventListener('click', () => showModal('howToModal'));
-  if (howToClose) howToClose.addEventListener('click', () => hideModal('howToModal'));
-
+  console.log('EconoVille Grand Strategy Edition - Initializing...');
+  
   // Start with basic farming unlocked
   S.tech.basicFarming = true;
-
+  
   // Initialize weather
   rollWeather();
-}
-
-
-function autoStart() {
-  if (!autoStarted) {
-    autoStarted = true;
-    startTick();
-    toast('Time flows! Make decisions to grow your village.', 3000);
-    console.log('Game started, autoStarted =', autoStarted); // DEBUG
-  }
-}
-
-function startGame() {
-  const landing = el('landing');
-  const gameContainer = el('gameContainer');
   
-  if (landing && gameContainer) {
-    // Fade out landing
-    landing.style.transition = 'opacity 0.3s';
-    landing.style.opacity = '0';
-    
-    setTimeout(() => {
-      landing.style.display = 'none';
-      gameContainer.style.display = 'grid';
-      gameContainer.style.opacity = '0'; // ADD: Start invisible
-      
-      // Initialize game state
-      initializeGameState();
-      
-      // Show tutorial FIRST, before revealing game
-      //showTutorial();
-      
-      // THEN fade in game behind the overlay
-      setTimeout(() => {
-        gameContainer.style.transition = 'opacity 0.3s';
-        gameContainer.style.opacity = '1';
-      }, 100);
-    }, 300);
-  }
-}
-
-function initializeGameState() {
-  // Pre-build starting infrastructure (3 finished farms)
+  // Pre-build starting infrastructure
   for (let i = 0; i < 3; i++) {
     S.builds.push({
       id: 'start_farm_' + i,
       type: 'farm',
-      x: 150 + i * 120,
+      x: 150 + i * 80,
       y: 100,
       done: true,
       progress: BUILDS.farm.dur,
@@ -796,52 +572,86 @@ function initializeGameState() {
     });
   }
   
-  // ...and 2 finished houses
   for (let i = 0; i < 2; i++) {
     S.builds.push({
       id: 'start_house_' + i,
       type: 'house',
-      x: 200 + i * 120,
-      y: 30,
+      x: 200 + i * 80,
+      y: 40,
       done: true,
       progress: BUILDS.house.dur,
       dur: BUILDS.house.dur
     });
   }
-
-  // NOTE: Removed the duplicate/half-built "Leaner start" block that
-  // re-added start_farm_1, start_farm_2, and start_house_1.
-  // That was causing the middle farm to look like it was "loading".
-
-  // Tighter early buffer & worried village
-  S.foodStock = 15;
-  S.morale = 0.45;
-
-  // Boot world & UI
+  
+  // Spawn initial resources
   spawnNodes();
+  
+  // Setup UI
   setupEventListeners();
-  renderPalette();
+  setupCollapsibleSections();
+  setupTabs();
+  renderBuildPalette();
+  renderTechTree();
   updateUI();
-
-  // Start ticking on first interaction
+  
+  // Auto-start on interaction
   document.addEventListener('click', autoStart, { once: true });
   document.addEventListener('input', autoStart, { once: true });
-
-  toast('Welcome, Chief! Time will begin when you interact.');
-
-  // Force interaction listeners (extra guard)
-  const forceStart = () => {
-    if (!autoStarted) {
-      autoStart();
-    }
-  };
-  document.addEventListener('click',  forceStart, { once: true });
-  document.addEventListener('input',  forceStart, { once: true });
-  document.addEventListener('change', forceStart, { once: true });
+  
+  toast('Grand strategy awaits. Make your decisions wisely.', 4000);
 }
 
-  
+function autoStart() {
+  if (!autoStarted) {
+    autoStarted = true;
+    startTick();
+    toast('Time flows. The age begins.', 3000);
+  }
+}
 
+// ============================================
+// COLLAPSIBLE SECTIONS
+// ============================================
+
+function setupCollapsibleSections() {
+  document.querySelectorAll('.section-header').forEach(header => {
+    header.addEventListener('click', () => {
+      const section = header.getAttribute('data-section');
+      const content = document.getElementById(section + '-content');
+      const toggle = header.querySelector('.section-toggle');
+      
+      if (content) {
+        const isExpanded = content.classList.contains('expanded');
+        content.classList.toggle('expanded');
+        toggle.textContent = isExpanded ? '▼' : '▶';
+        header.setAttribute('data-expanded', !isExpanded);
+      }
+    });
+  });
+}
+
+// ============================================
+// TABS
+// ============================================
+
+function setupTabs() {
+  document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      const tabName = tab.getAttribute('data-tab');
+      
+      // Remove active from all tabs
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(tc => tc.classList.remove('active'));
+      
+      // Activate clicked tab
+      tab.classList.add('active');
+      document.getElementById(tabName + '-tab').classList.add('active');
+      
+      playSound('click');
+    });
+  });
+}
 
 // ============================================
 // GAME LOOP
@@ -849,7 +659,7 @@ function initializeGameState() {
 
 function startTick() {
   const speedSel = el('speedSelect');
-  const speed = speedSel ? parseInt(speedSel.value) : 250;
+  const speed = speedSel ? parseInt(speedSel.value) : 2000;
   if (tickInterval) clearInterval(tickInterval);
   tickInterval = setInterval(tick, speed);
 }
@@ -861,14 +671,7 @@ function tick() {
   const builderPop = Math.floor(S.pop * S.builders);
   S.builds.forEach(b => {
     if (!b.done) {
-      const oldProgress = b.progress;
       b.progress += builderPop * 0.02 * S.workIntensity;
-      
-      // Audio feedback at milestones
-      if (Math.floor(oldProgress / (b.dur / 4)) < Math.floor(b.progress / (b.dur / 4))) {
-        playSound('click');
-      }
-      
       if (b.progress >= b.dur) {
         b.done = true;
         onBuildComplete(b);
@@ -876,7 +679,7 @@ function tick() {
     }
   });
 
-  // Resource regeneration check (every year on day 1)
+  // Resource regeneration
   if (S.day === 1) {
     for (let i = S.nodeRegenQueue.length - 1; i >= 0; i--) {
       const regen = S.nodeRegenQueue[i];
@@ -889,7 +692,7 @@ function tick() {
           hp: regen.type === 'tree' ? 3 : 2
         });
         S.nodeRegenQueue.splice(i, 1);
-        toast(`A ${regen.type} has regrown!`);
+        toast(`A ${regen.type} has regrown`);
       }
     }
   }
@@ -897,30 +700,16 @@ function tick() {
   // Check milestones
   checkMilestones();
 
-  // Get population allocations
+  // Get allocations
   const farmerPop = Math.floor(S.pop * S.farmers);
   const herderPop = Math.floor(S.pop * S.herders);
   const gathererPop = Math.floor(S.pop * S.gatherers);
   
-  // Get building counts
+  // Get buildings
   const farms = S.builds.filter(b => b.type === 'farm' && b.done);
   const mills = S.builds.filter(b => b.type === 'mill' && b.done).length;
 
-  // Status logging every 30 days
-  if (S.day % 30 === 0 && autoStarted) {
-    const gameLog = el('gameLog');
-    if (gameLog && farms.length > 0) {
-      const foodPerFarm = S.lastFoodProduction / Math.max(1, farms.length);
-      gameLog.innerHTML = `
-        <span style="color:var(--accent)">
-          📊 ${farms.length} farms producing ${foodPerFarm.toFixed(1)} food/farm/day
-          ${mills > 0 ? `| ${mills} mills = +${Math.round(mills * 12)}% TFP` : ''}
-        </span>
-      `;
-    }
-  }
-
-  // Gathering jobs progress
+  // Gathering jobs
   if (S.gatherJobs && S.gatherJobs.length > 0) {
     const job = S.gatherJobs[0];
     job.progress += gathererPop * 0.05 * S.workIntensity;
@@ -929,7 +718,7 @@ function tick() {
       const gain = job.type === 'tree' ? 4 : 5;
       S.materials += gain;
       playSound('harvest');
-      toast(`Gathered +${gain} materials from ${job.type}`);
+      toast(`+${gain} materials from ${job.type}`);
       
       const node = S.nodes.find(n => n.id === job.nodeId);
       if (node) {
@@ -944,16 +733,12 @@ function tick() {
     }
   }
 
-  // ===== CROP LIFECYCLE SYSTEM =====
-  // Auto-plant on newly built farms or update existing crops
-    farms.forEach((farm) => {
-      // SAFETY: Skip farms under construction
-      if (!farm.done) return;
-
-      const farmId = 'farm_' + farm.id;
+  // Crop lifecycle
+  farms.forEach((farm) => {
+    if (!farm.done) return;
+    const farmId = 'farm_' + farm.id;
     
     if (!S.farmCrops[farmId]) {
-      // New farm - plant if season is right
       const crop = CROP_DATA[S.cropType];
       if (crop && crop.plantSeasons.includes(S.season)) {
         S.farmCrops[farmId] = {
@@ -966,7 +751,6 @@ function tick() {
         };
       }
     } else {
-      // Existing crop - update growth
       const cropData = S.farmCrops[farmId];
       cropData.daysGrowing++;
       
@@ -977,61 +761,7 @@ function tick() {
     }
   });
 
-  // Count mature harvestable crops
-  let matureFarms = 0;
-  let totalFarms = farms.length;
-  
-  farms.forEach(farm => {
-    const farmId = 'farm_' + farm.id;
-    const cropData = S.farmCrops[farmId];
-    
-    if (cropData && cropData.mature) {
-      const cropType = CROP_DATA[cropData.crop];
-      if (cropType && cropType.harvestSeasons.includes(S.season)) {
-        matureFarms++;
-      }
-    }
-  });
-
-  // Calculate harvest multiplier based on crop maturity
-  let harvestMult = 1.0;
-  if (matureFarms > 0 && totalFarms > 0) {
-    harvestMult = 0.5 + (matureFarms / totalFarms); // 0.5x to 1.5x
-  } else if (S.season === 2 && totalFarms > 0) {
-    // Autumn with no mature crops = disaster
-    harvestMult = 0.3;
-    if (S.day === 1 && S.lastPlantingWarning !== S.year) {
-      S.lastPlantingWarning = S.year;
-      toast('⚠️ HARVEST FAILURE! No mature crops ready. Plant in correct seasons!', 6000);
-      playSound('bad');
-    }
-  }
-
-  // ===== SEASONAL FOOD PRODUCTION =====
-  const seasonData = SEASON_DATA[S.season];
-  let seasonMult = seasonData.mult;
-
-  // WINTER: Kill unharvested non-hardy crops
-  if (S.season === 3 && S.day === 1) {
-    let cropsDied = 0;
-    Object.keys(S.farmCrops).forEach(farmId => {
-      const cropData = S.farmCrops[farmId];
-      if (cropData && !cropData.harvested) {
-        const cropType = CROP_DATA[cropData.crop];
-        if (cropType && !cropType.winterHardy) {
-          delete S.farmCrops[farmId];
-          cropsDied++;
-        }
-      }
-    });
-    
-    if (cropsDied > 0) {
-      toast(`❄️ Winter killed ${cropsDied} unharvested crops!`, 5000);
-      playSound('bad');
-    }
-  }
-
-  // Calculate harvestable farms THIS season
+  // Count harvestable farms
   let harvestableFarms = 0;
   farms.forEach(farm => {
     const farmId = 'farm_' + farm.id;
@@ -1039,127 +769,68 @@ function tick() {
     
     if (cropData && cropData.mature && !cropData.harvested) {
       const cropType = CROP_DATA[cropData.crop];
-      // Can harvest if: crop is mature AND it's the right season
       if (cropType && cropType.harvestSeasons.includes(S.season)) {
         harvestableFarms++;
       }
     }
   });
 
-  // Diminishing returns to land (Ricardian)
-  const landPerFarm = S.totalLand / Math.max(1, totalFarms);
+  // Calculate food production
+  const seasonData = SEASON_DATA[S.season];
+  const landPerFarm = S.totalLand / Math.max(1, farms.length);
   const diminishingReturns = Math.pow(landPerFarm / 10, 0.6);
 
-  // REALISTIC: Farms only produce during harvest season
   let farmFood = 0;
   if (harvestableFarms > 0) {
-    // Daily harvest work during the harvest window
     const crop = CROP_DATA[S.cropType];
-    const harvestPerDay = harvestableFarms * 
-      2.0 * // Base daily harvest rate
+    farmFood = harvestableFarms * 
+      2.0 *
       (crop ? crop.yield : 1.0) *
       S.tfp *
       S.landQuality *
       diminishingReturns *
-      (farmerPop / Math.max(1, S.pop)) * // Labor intensity matters!
+      (farmerPop / Math.max(1, S.pop)) *
       S.workIntensity;
-    
-    farmFood = harvestPerDay;
-    
-    // Mark farms as harvested after they've been worked for a while
-    if (S.day % 10 === 0 && farmerPop > totalFarms * 0.3) {
-      // Every 10 days, mark some farms harvested if enough farmers
-      let toHarvest = Math.floor(harvestableFarms * 0.3);
-      let harvested = 0;
-      
-      farms.forEach(farm => {
-        if (harvested >= toHarvest) return;
-        const farmId = 'farm_' + farm.id;
-        const cropData = S.farmCrops[farmId];
-        
-        if (cropData && cropData.mature && !cropData.harvested) {
-          const cropType = CROP_DATA[cropData.crop];
-          if (cropType && cropType.harvestSeasons.includes(S.season)) {
-            cropData.harvested = true;
-            harvested++;
-          }
-        }
-      });
-      
-      if (harvested > 0) {
-        toast(`Completed harvest on ${harvested} farms`, 2500);
-      }
-    }
-  } else if (totalFarms > 0 && S.season === 2) {
-    // Autumn with no harvestable crops = penalty warning
-    farmFood = 0;
-    if (S.day === 1 && S.lastPlantingWarning !== S.year) {
-      S.lastPlantingWarning = S.year;
-      toast('⚠️ NO CROPS TO HARVEST! Plant in correct seasons!', 6000);
-      playSound('bad');
-    }
   }
 
-  // Weather effects
+  // Weather & morale effects
   const w = weatherEffect(S.weatherNow);
   farmFood *= w.mult;
-
-  // Morale bonus
   const moraleBonus = 1 + (S.morale - 0.5) * 0.2;
   farmFood *= moraleBonus;
 
-  // Enclosure bonus
+  // Policy effects
   if (S.landPolicy === 'enclosed') {
     farmFood *= 1.15;
   }
 
-  // Livestock production (year-round)
+  // Livestock & foraging
   let livestockFood = S.livestock * 0.5 * (herderPop / Math.max(1, S.pop));
-
-  // Foraging (spring/summer/autumn only)
-  let foragedFood = 0;
-  if (S.season !== 3) {
-    foragedFood = gathererPop * 0.3 * S.workIntensity;
-  }
+  let foragedFood = S.season !== 3 ? gathererPop * 0.3 * S.workIntensity : 0;
 
   // Tech bonuses
-  if (S.tech.manure) {
-    farmFood *= 1 + Math.min(S.livestock * 0.1, 0.5);
-  }
-  if (S.tech.seedSelection) {
-    farmFood *= 1.08;
-  }
-  if (mills > 0) {
-    farmFood *= 1 + mills * 0.12;
-  }
+  if (S.tech.manure) farmFood *= 1 + Math.min(S.livestock * 0.1, 0.5);
+  if (S.tech.seedSelection) farmFood *= 1.10;
+  if (S.tech.fertilizer) farmFood *= 1.15;
+  if (S.tech.cropRotation) S.landQuality = Math.min(1.0, S.landQuality + 0.008);
+  if (mills > 0) farmFood *= 1 + mills * 0.15;
 
-  // Total food with spoilage
+  // Total food
   const totalFood = farmFood + livestockFood + foragedFood;
   const spoilage = totalFood * w.spoil;
   const netFood = totalFood - spoilage;
 
-  // FEUDAL EXTRACTION
+  // Feudal extraction
   let foodAfterTithe = netFood;
-  
   if (S.landPolicy === 'commons') {
-    // Commons = collective obligations
     const lordTake = netFood * S.lordTithePct;
     const churchTake = netFood * S.churchTithePct;
     foodAfterTithe = netFood - lordTake - churchTake;
-    
-    if (S.day === 1 && autoStarted) {
-      toast(`Lord's tithe: ${lordTake.toFixed(1)} food (${Math.round(S.lordTithePct * 100)}%)`, 3000);
-    }
-  } else if (S.landPolicy === 'enclosed') {
-    // Enclosure = private rents higher but fewer obligations
-    const rentTake = netFood * 0.50; // Landlord takes 50%!
+  } else {
+    const rentTake = netFood * 0.50;
     foodAfterTithe = netFood - rentTake;
-    
-    if (S.day === 1 && autoStarted) {
-      toast(`Rent to landlord: ${rentTake.toFixed(1)} food (50%)`, 3000);
-    }
   }
-  
+
   S.lastFoodProduction = foodAfterTithe;
   S.foodStock += foodAfterTithe;
 
@@ -1167,71 +838,20 @@ function tick() {
   const needPerDay = S.pop * 0.10;
   S.foodStock -= needPerDay;
 
-  // Early survival warning
-  if (S.year === 1 && S.season === 0 && S.day === 20) {
-    const daysOfFoodNow = S.foodStock / needPerDay;
-    if (daysOfFoodNow < 30) {
-      toast('⚠️ Your stores won\'t last winter. Shift labor to farming and build another farm.', 6000);
-      const log = el('gameLog');
-      if (log) log.innerHTML = `<span style="color:var(--warn)">Early warning: You need ~90 days stored by end of Autumn.</span>`;
-    }
-  }
-
-  // Real wage calculation (Malthusian indicator)
+  // Real wage
   S.realWage = (S.foodStock / Math.max(1, S.pop)) / 0.2;
 
-  // ===== WINTER SURVIVAL MECHANICS =====
+  // Winter mechanics
   if (S.season === 3) {
-    const daysOfFood = S.foodStock / needPerDay;
+    if (!S.tech.well) S.health = Math.max(0.2, S.health - 0.005);
+    if (S.foodStock < needPerDay * 30) S.morale = Math.max(0.1, S.morale - 0.015);
     
-    if (!S.tech.well) {
-      S.health = Math.max(0.2, S.health - 0.005);
-    }
-    
-    if (daysOfFood < 30) {
-      S.morale = Math.max(0.1, S.morale - 0.015);
-    }
-    
-    if (S.foodStock < 0) {
-      if (Math.random() < w.disease * 2) {
-        const deaths = Math.max(2, Math.floor(S.pop * 0.04));
-        S.pop = Math.max(10, S.pop - deaths);
-        S.totalDeaths += deaths;
-        const gameLog = el('gameLog');
-        if (gameLog) gameLog.innerHTML = `<span style="color:var(--bad)">Winter disease! Lost ${deaths} villagers.</span>`;
-        toast(`Winter takes its toll: -${deaths} population`, 4000);
-        playSound('bad');
-      }
-    }
-
-    if (S.year === 1 && daysOfFood < 60) {
-      const deaths = Math.max(4, Math.floor(S.pop * 0.10));
+    if (S.foodStock < 0 && Math.random() < w.disease * 2) {
+      const deaths = Math.max(2, Math.floor(S.pop * 0.04));
       S.pop = Math.max(10, S.pop - deaths);
       S.totalDeaths += deaths;
-      const gameLog = el('gameLog');
-      if (gameLog) gameLog.innerHTML = `<span style="color:var(--bad)">First winter bites! ${deaths} villagers perished.</span>`;
-      toast(`First winter was harsh: -${deaths} population`, 4500);
+      toast(`Winter disease! -${deaths} population`, 4000);
       playSound('bad');
-    }
-  }
-
-  // Seasonal labor guidance
-  if (S.day === 1 && autoStarted) {
-    const seasonIdx = S.season;
-    
-    if (seasonIdx === 2 && S.farmers < 0.6) {
-      showSeasonalGuide('autumn');
-      highlightSlider('farmer', 8000);
-    }
-    
-    if (seasonIdx === 3 && S.builders < 0.3) {
-      showSeasonalGuide('winter');
-      highlightSlider('builder', 8000);
-    }
-    
-    if (seasonIdx === 0 && S.farmers < 0.5) {
-      showSeasonalGuide('spring');
-      highlightSlider('farmer', 8000);
     }
   }
 
@@ -1239,7 +859,9 @@ function tick() {
   const intensityPenalty = (S.workIntensity - 1.0) * 0.3;
   if (S.foodStock > needPerDay * 7) {
     S.morale = Math.min(1, S.morale + 0.01 - intensityPenalty);
-  } else if (S.foodStock < needPerDay * 3) {
+  } else if (S.foodStock < needPerDay
+    // Continuing from morale dynamics...
+  * 3) {
     S.morale = Math.max(0, S.morale - 0.02 - intensityPenalty);
   } else {
     S.morale = Math.max(0, S.morale - intensityPenalty * 0.5);
@@ -1250,9 +872,8 @@ function tick() {
     const deaths = Math.max(1, Math.floor(S.pop * 0.02));
     S.pop = Math.max(10, S.pop - deaths);
     S.totalDeaths += deaths;
-    const gameLog = el('gameLog');
-    if (gameLog) gameLog.innerHTML = `<span style="color:var(--bad)">Disease outbreak! Lost ${deaths} villagers.</span>`;
-    toast(`Disease! -${deaths} population`, 4000);
+    toast(`Disease outbreak! -${deaths} population`, 4000);
+    playSound('bad');
   }
 
   // Famine (Malthusian crisis)
@@ -1261,9 +882,8 @@ function tick() {
     S.pop = Math.max(20, S.pop - famineDeaths);
     S.totalDeaths += famineDeaths;
     S.foodStock = needPerDay * 5;
-    const gameLog = el('gameLog');
-    if (gameLog) gameLog.innerHTML = `<span style="color:var(--bad)">FAMINE! ${famineDeaths} perished. Malthusian reset.</span>`;
-    toast(`<strong>FAMINE!</strong> Population crash. Wages will rise for survivors.`, 5000);
+    toast(`FAMINE! ${famineDeaths} perished. Malthusian reset.`, 5000);
+    playSound('bad');
   }
 
   // Population growth
@@ -1277,7 +897,7 @@ function tick() {
   if (S.foodStock > needPerDay * 10 && S.pop < S.cap && Math.random() < fertilityRate) {
     S.pop++;
     playSound('complete');
-    toast('👶 Population +1! Village growing.', 2000);
+    toast('Population +1', 2000);
   }
 
   // Livestock breeding
@@ -1286,11 +906,11 @@ function tick() {
     S.livestock++;
   }
 
-  // Soil quality dynamics (use actual planted crops)
-  if (totalFarms > 0) {
+  // Soil quality
+  if (farms.length > 0) {
     if (!S.tech.threeField) {
       const farmsWithCrops = Object.values(S.farmCrops);
-      let avgDrain = 0.02; // default drain if nothing planted
+      let avgDrain = 0.02;
       if (farmsWithCrops.length > 0) {
         const sum = farmsWithCrops.reduce((acc, fc) => {
           const ct = CROP_DATA[fc.crop];
@@ -1299,36 +919,17 @@ function tick() {
         avgDrain = sum / farmsWithCrops.length;
       }
       S.landQuality = Math.max(0.5, S.landQuality - avgDrain);
-    } else {
-      // three-field slowly restores soil
-      S.landQuality = Math.min(1.0, S.landQuality + 0.005);
     }
   }
 
-
-  // Season warnings
-  const daysOfFood = S.foodStock / needPerDay;
-
-  if (S.season === 2 && S.day === 75 && S.lastSeasonWarning !== 2) {
-    S.lastSeasonWarning = 2;
-    if (daysOfFood < 90) {
-      showWinterWarning(15, daysOfFood);
-    }
-  }
-
-  if (S.season === 2 && S.day === 85 && daysOfFood < 60) {
-    showWinterWarning(5, daysOfFood);
-  }
-
-  // ===== TIME PROGRESSION =====
+  // Time progression
   S.day++;
   if (S.day > 90) {
     S.day = 1;
     S.year++;
-    const oldSeason = S.season;
     S.season = (S.season + 1) % 4;
     
-    // WINTER KILLS NON-HARDY CROPS
+    // Winter kills non-hardy crops
     if (S.season === 3) {
       let cropsDied = 0;
       Object.keys(S.farmCrops).forEach(farmId => {
@@ -1343,25 +944,17 @@ function tick() {
       });
       
       if (cropsDied > 0) {
-        toast(`❄️ Winter killed ${cropsDied} non-hardy crops! Plant winter wheat in autumn.`, 5000);
+        toast(`Winter killed ${cropsDied} non-hardy crops!`, 5000);
         playSound('bad');
       }
     }
     
-    // Announce season change
-    if (autoStarted) {
-      announceSeasonChange(oldSeason, S.season);
-      updateSeasonalVisuals();
-    }
-    
-    // Track sustained high wages
+    // Track sustained wages
     if (S.realWage > 1.3) {
       S.wageAbove13Years++;
     } else {
       S.wageAbove13Years = 0;
     }
-    
-    S.lastSeasonWarning = -1;
   }
 
   // Weather update
@@ -1384,319 +977,76 @@ function tick() {
     });
   }
 
-  // Passive materials from markets
-  if (S.milestones.marketBuilt.complete && S.day === 1) {
-    S.materials += S.materialsPerYear || 0;
+  // Passive income from tech
+  if (S.day === 1) {
+    if (S.tech.accounting) {
+      const bonus = Math.floor(S.pop / 10);
+      S.materials += bonus;
+    }
+    if (S.milestones.marketBuilt.complete) {
+      S.materials += 2;
+    }
   }
 
-  // Check critical alerts
-  checkCriticalAlerts();
-
   // Check for contextual events
-  checkContextualEvents();
+  if (S.day % 15 === 0 && Math.random() < 0.2) {
+    checkContextualEvents();
+  }
+
+  const enclosureEffects = updateEnclosureSystem();
+
+  const skillPenalty = updateLaborSkills();
+
+  const urbanEffects = updateUrbanSystem();
+
+  farmFood *= enclosureEffects.efficiency;
+
+  farmFood *= skillPenalty;
+
+  updateTradeSystem();
 
   // Victory check
   checkVictory();
 
   // UI update
   updateUI();
-  updateTheoryStatus();
 }
 
-// ===== SEASON ANNOUNCEMENT =====
-function announceSeasonChange(oldSeason, newSeason) {
-  const seasonData = SEASON_DATA[newSeason];
-  
-  // Full-screen overlay
-  const overlay = document.createElement('div');
-  overlay.style.cssText = `
-    position: fixed;
-    inset: 0;
-    background: linear-gradient(135deg, ${seasonData.color}22, #00000088);
-    z-index: 9999;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    animation: fadeIn 0.5s;
-  `;
-  
-  const box = document.createElement('div');
-  box.style.cssText = `
-    background: var(--panel);
-    border: 3px solid ${seasonData.color};
-    border-radius: 20px;
-    padding: 40px 60px;
-    text-align: center;
-    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
-    animation: scaleIn 0.5s;
-  `;
-  
-  box.innerHTML = `
-    <div style="font-size: 72px; margin-bottom: 20px;">${seasonData.icon}</div>
-    <div style="font-size: 32px; font-weight: 800; margin-bottom: 12px; color: ${seasonData.color};">
-      ${seasonData.name.toUpperCase()}
-    </div>
-    <div style="font-size: 16px; margin-bottom: 16px; color: var(--muted);">
-      ${seasonData.desc}
-    </div>
-    <div style="font-size: 20px; font-weight: 600; color: ${seasonData.mult > 1 ? 'var(--good)' : seasonData.mult < 0.5 ? 'var(--bad)' : 'var(--warn)'}">
-      Food Production: ${Math.round(seasonData.mult * 100)}%
-    </div>
-    ${seasonData.warning ? `
-      <div style="font-size: 14px; margin-top: 16px; padding: 12px; background: #7f1d1d44; border: 1px solid var(--bad); border-radius: 8px; color: var(--bad);">
-        ${seasonData.warning}
-      </div>
-    ` : ''}
-  `;
-  
-  overlay.appendChild(box);
-  document.body.appendChild(overlay);
-  
-  // Sound effects
-  if (newSeason === 3) { // Winter
-    playSound('bad');
-    setTimeout(() => playSound('bad'), 200);
-  } else if (newSeason === 2) { // Autumn harvest
-    playSound('complete');
-  } else {
-    playSound('click');
-  }
-  
-  // Auto-remove after 3 seconds
-  setTimeout(() => {
-    overlay.style.animation = 'fadeOut 0.5s';
-    setTimeout(() => overlay.remove(), 500);
-  }, 2500);
-}
+// ============================================
+// BUILDING COMPLETION
+// ============================================
 
-// ===== WINTER WARNING =====
-function showWinterWarning(daysLeft, daysOfFood) {
-  const warning = document.createElement('div');
-  warning.style.cssText = `
-    position: fixed;
-    top: 120px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: linear-gradient(135deg, #7f1d1dcc, #450a0acc);
-    border: 2px solid var(--bad);
-    border-radius: 12px;
-    padding: 20px 30px;
-    z-index: 8000;
-    max-width: 500px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.6);
-    animation: shake 0.5s, fadeIn 0.3s;
-  `;
-  
-  const deficit = Math.max(0, 90 - daysOfFood);
-  
-  warning.innerHTML = `
-    <div style="font-size: 32px; text-align: center; margin-bottom: 12px;">⚠️</div>
-    <div style="font-size: 18px; font-weight: 700; margin-bottom: 8px; color: var(--bad); text-align: center;">
-      WINTER APPROACHING
-    </div>
-    <div style="font-size: 14px; line-height: 1.6; text-align: center;">
-      Winter starts in <strong>${daysLeft} days</strong>. Food production drops to <strong>20%</strong>.
-      <br/><br/>
-      Current stores: <strong>${Math.floor(daysOfFood)} days</strong>
-      <br/>
-      <span style="color: ${deficit > 30 ? 'var(--bad)' : 'var(--warn)'}; font-weight: 600;">
-        ${deficit > 0 ? `You need ${Math.ceil(deficit)} more days of food!` : 'You are prepared for winter.'}
-      </span>
-      <br/><br/>
-      <span style="font-size: 12px; opacity: 0.8;">
-        ${deficit > 0 ? 'Build more farms and increase farmer allocation NOW!' : 'Well done! Maintain your stores.'}
-      </span>
-    </div>
-  `;
-  
-  document.body.appendChild(warning);
-  
-  playSound('bad');
-  
-  setTimeout(() => {
-    warning.style.animation = 'fadeOut 0.5s';
-    setTimeout(() => warning.remove(), 500);
-  }, 5500);
-}
-
-// In onBuildComplete() function, add:
 function onBuildComplete(b) {
   playSound('complete');
   
-  // Visual celebration effect
-  const icon = document.querySelector(`[data-id="${b.id}"]`);
-  if (icon) {
-    // Flash effect
-    icon.style.animation = 'scaleIn 0.5s, pulse 0.3s 3';
-    setTimeout(() => icon.style.animation = '', 2000);
-    
-    // Particle burst
-    for (let i = 0; i < 8; i++) {
-      const particle = document.createElement('div');
-      particle.style.cssText = `
-        position: absolute;
-        width: 6px;
-        height: 6px;
-        background: var(--accent);
-        border-radius: 50%;
-        left: ${icon.offsetLeft + 36}px;
-        top: ${icon.offsetTop + 36}px;
-        pointer-events: none;
-        z-index: 1000;
-      `;
-      document.getElementById('ground').appendChild(particle);
-      
-      const angle = (i / 8) * Math.PI * 2;
-      const distance = 40;
-      const tx = Math.cos(angle) * distance;
-      const ty = Math.sin(angle) * distance;
-      
-      particle.animate([
-        { transform: 'translate(0, 0)', opacity: 1 },
-        { transform: `translate(${tx}px, ${ty}px)`, opacity: 0 }
-      ], {
-        duration: 600,
-        easing: 'ease-out'
-      }).onfinish = () => particle.remove();
-    }
-  }
-  
-  // Immediate stat impact display
   const buildType = BUILDS[b.type];
-  let impactMsg = '';
-  let statChange = '';
+  toast(`${buildType.name} complete!`, 3000);
   
   if (b.type === 'farm') {
-    const oldProduction = S.lastFoodProduction;
-    // Recalculate to show new production
-    setTimeout(() => {
-      const newProduction = S.lastFoodProduction;
-      const gain = newProduction - oldProduction;
-      if (gain > 0) {
-        toast(`🌾 Farm complete! +${gain.toFixed(1)} food/day production`, 4000);
-      }
-    }, 100);
-    
-    if (S.farmers < 0.4) {
-      setTimeout(() => {
-        toast(`Tip: Increase farmers to ${Math.round(S.farmers * 100 + 10)}% to use this farm`, 3000);
-        highlightSlider('farmer', 5000);
-      }, 4500);
-    }
-    statChange = 'food production';
+    setTimeout(() => openCropMenu(b.id), 300);
   }
-
-  // ➕ Add this:
-  setTimeout(() => openCropMenu(b.id), 300);
   
   if (b.type === 'house') {
-    const oldCap = S.cap;
-    S.cap += 5; // Already happens but show it
-    toast(`🏠 House complete! Population cap: ${oldCap} → ${S.cap}`, 4000);
-    statChange = 'population capacity';
+    S.cap += 5;
   }
   
   if (b.type === 'well') {
-    const oldHealth = S.health;
     S.health = Math.min(1, S.health + 0.2);
-    const healthGain = Math.round((S.health - oldHealth) * 100);
-    toast(`💧 Well complete! Health: +${healthGain}%, disease risk halved`, 4000);
-    statChange = 'health';
-    
-    // Show visible meter change
-    setTimeout(() => updateUI(), 200);
-  }
-  
-  if (b.type === 'granary') {
-    toast(`🌾 Granary complete! Food spoilage: 25% → 10%`, 4000);
-    toast(`Each harvest now wastes 60% less food`, 3000);
-    statChange = 'food efficiency';
   }
   
   if (b.type === 'livestock') {
     S.livestock += 2;
-    toast(`🐑 Livestock Pen complete! +2 animals (now ${S.livestock} total)`, 4000);
-    if (S.herders < 0.1) {
-      setTimeout(() => {
-        toast(`Tip: Allocate 10%+ to herders to breed animals`, 3000);
-        highlightSlider('herder', 5000);
-      }, 4500);
-    }
-    statChange = 'livestock count';
   }
   
   if (b.type === 'market') {
-    toast(`🏛️ Market complete! Unlocked: +2 materials/year passive income`, 4000);
     S.materialsPerYear = 2;
-    statChange = 'trade income';
   }
   
   if (b.type === 'mill') {
-    const oldTFP = S.tfp;
-    S.tfp *= 1.12;
-    const tfpGain = Math.round((S.tfp - oldTFP) * 100);
-    toast(`⚙️ Windmill complete! Total Factor Productivity: +${tfpGain}%`, 4000);
-    
-    if (S.builders > 0.3) {
-      setTimeout(() => {
-        toast(`Consider reducing builders now that construction is done`, 3000);
-        highlightSlider('builder', 5000);
-      }, 4500);
-    }
-    statChange = 'productivity';
+    S.tfp *= 1.15;
   }
   
-  // Show before/after comparison popup
-  showBuildingImpact(buildType.name, statChange);
-}
-
-function showBuildingImpact(buildingName, statType) {
-  const popup = document.createElement('div');
-  popup.style.cssText = `
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    background: linear-gradient(135deg, var(--panel), var(--panel2));
-    border: 3px solid var(--accent);
-    border-radius: 16px;
-    padding: 24px 32px;
-    z-index: 10000;
-    box-shadow: 0 20px 60px rgba(0,0,0,0.7);
-    min-width: 300px;
-    text-align: center;
-    animation: scaleIn 0.4s;
-  `;
-  
-  const impacts = {
-    'food production': '🌾',
-    'population capacity': '🏠',
-    'health': '💧',
-    'food efficiency': '📦',
-    'livestock count': '🐑',
-    'trade income': '💰',
-    'productivity': '⚙️'
-  };
-  
-  popup.innerHTML = `
-    <div style="font-size: 48px; margin-bottom: 12px;">${impacts[statType] || '✨'}</div>
-    <div style="font-size: 20px; font-weight: 700; margin-bottom: 8px; color: var(--accent);">
-      ${buildingName} Complete!
-    </div>
-    <div style="font-size: 14px; color: var(--muted); margin-bottom: 16px;">
-      Impact: ${statType}
-    </div>
-    <div style="font-size: 13px; padding: 12px; background: #0b1224aa; border-radius: 8px; color: var(--good);">
-      Check your meters to see the improvement
-    </div>
-  `;
-  
-  document.body.appendChild(popup);
-  
-  setTimeout(() => {
-    popup.style.animation = 'fadeOut 0.4s';
-    setTimeout(() => popup.remove(), 400);
-  }, 2500);
+  updateUI();
 }
 
 // ============================================
@@ -1743,6 +1093,7 @@ function weatherEffect(w) {
 
   if (S.tech.well) disease = 0.005;
   if (S.tech.granary) spoil = 0.1;
+  if (S.tech.storage) spoil = 0.05;
 
   return { mult, spoil, disease };
 }
@@ -1752,231 +1103,87 @@ function rollWeather() {
   S.weatherNext = seasonWeighted(S.season);
 }
 
+// ============================================
+// MILESTONES
+// ============================================
 
 function checkMilestones() {
-  // First winter survival
   if (!S.milestones.firstWinter.complete && S.year === 2 && S.season === 0) {
     S.milestones.firstWinter.complete = true;
     S.materials += 15;
-    showMilestone('Survived First Winter!', 'Gained 15 materials bonus', '+15 Materials');
+    toast('Milestone: Survived First Winter! +15 materials', 4000);
     playSound('complete');
   }
   
-  // Population milestone
   if (!S.milestones.population100.complete && S.pop >= 100) {
     S.milestones.population100.complete = true;
     S.tfp *= 1.1;
-    showMilestone('Village Expansion!', 'Population reached 100', '+10% Productivity');
+    toast('Milestone: Population 100! +10% TFP', 4000);
     playSound('complete');
   }
   
-  // First mill
   const mills = S.builds.filter(b => b.type === 'mill' && b.done).length;
   if (!S.milestones.firstMill.complete && mills >= 1) {
     S.milestones.firstMill.complete = true;
     S.morale = Math.min(1, S.morale + 0.2);
-    showMilestone('Industrial Revolution Begins!', 'First windmill operational', '+20% Morale');
+    toast('Milestone: First Windmill! +20% morale', 4000);
     playSound('complete');
   }
   
-  // Market economy
   const hasMarket = S.builds.some(b => b.type === 'market' && b.done);
   if (!S.milestones.marketBuilt.complete && hasMarket) {
     S.milestones.marketBuilt.complete = true;
-    S.materialsPerYear = 2;
-    showMilestone('Market Economy Unlocked!', 'Trade generates passive materials', '+2 Materials/Year');
+    toast('Milestone: Market Economy! +2 materials/year', 4000);
     playSound('complete');
   }
   
-  // Sustained prosperity
   if (!S.milestones.sustained_wage.complete && S.wageAbove13Years >= 1) {
     S.milestones.sustained_wage.complete = true;
     S.victoryProgress += 25;
-    showMilestone('Prosperity Sustained!', 'High wages for 1 full year', 'Victory: 25%');
+    toast('Milestone: Prosperity Sustained! Victory +25%', 4000);
     playSound('complete');
   }
 }
 
-function showMilestone(title, desc, reward) {
-  const popup = document.createElement('div');
-  popup.style.cssText = `
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    background: linear-gradient(135deg, var(--accent)22, var(--panel));
-    border: 3px solid var(--accent);
-    border-radius: 16px;
-    padding: 30px 40px;
-    z-index: 10000;
-    box-shadow: 0 20px 60px rgba(0,0,0,0.7);
-    text-align: center;
-    min-width: 350px;
-    animation: scaleIn 0.5s;
-  `;
-  
-  popup.innerHTML = `
-    <div style="font-size: 48px; margin-bottom: 16px;">🏆</div>
-    <div style="font-size: 22px; font-weight: 800; margin-bottom: 8px; color: var(--accent);">
-      ${title}
-    </div>
-    <div style="font-size: 14px; margin-bottom: 16px; color: var(--muted);">
-      ${desc}
-    </div>
-    <div style="font-size: 18px; font-weight: 700; color: var(--good); background: #0b1224aa; padding: 12px; border-radius: 8px;">
-      ${reward}
-    </div>
-  `;
-  
-  document.body.appendChild(popup);
-  
-  setTimeout(() => {
-    popup.style.animation = 'fadeOut 0.5s';
-    setTimeout(() => popup.remove(), 500);
-  }, 3500);
-}
+// ============================================
+// VICTORY
+// ============================================
 
-// ============================================
-// SEASON ANNOUNCEMENT
-// ============================================
-// ===== SEASON ANNOUNCEMENT =====
-function announceSeasonChange(oldSeason, newSeason) {
-  const seasonData = SEASON_DATA[newSeason];
+function checkVictory() {
+  const pop150 = S.pop >= 150;
+  const wage13 = S.wageAbove13Years >= 1;
+  const hasMarket = S.builds.some(b => b.type === 'market' && b.done);
+  const mills = S.builds.filter(b => b.type === 'mill' && b.done).length;
+  const capitalGoods = mills >= 3;
   
-  // Full-screen overlay
-  const overlay = document.createElement('div');
-  overlay.style.cssText = `
-    position: fixed;
-    inset: 0;
-    background: linear-gradient(135deg, ${seasonData.color}22, #00000088);
-    z-index: 9999;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    animation: fadeIn 0.5s;
-  `;
+  S.victoryProgress = 0;
+  if (pop150) S.victoryProgress += 25;
+  if (wage13) S.victoryProgress += 25;
+  if (hasMarket) S.victoryProgress += 25;
+  if (capitalGoods) S.victoryProgress += 25;
   
-  const box = document.createElement('div');
-  box.style.cssText = `
-    background: var(--panel);
-    border: 3px solid ${seasonData.color};
-    border-radius: 20px;
-    padding: 40px 60px;
-    text-align: center;
-    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
-    animation: scaleIn 0.5s;
-  `;
-  
-  box.innerHTML = `
-    <div style="font-size: 72px; margin-bottom: 20px;">${seasonData.icon}</div>
-    <div style="font-size: 32px; font-weight: 800; margin-bottom: 12px; color: ${seasonData.color};">
-      ${seasonData.name.toUpperCase()}
-    </div>
-    <div style="font-size: 16px; margin-bottom: 16px; color: var(--muted);">
-      ${seasonData.desc}
-    </div>
-    <div style="font-size: 20px; font-weight: 600; color: ${seasonData.mult > 1 ? 'var(--good)' : seasonData.mult < 0.5 ? 'var(--bad)' : 'var(--warn)'}">
-      Food Production: ${Math.round(seasonData.mult * 100)}%
-    </div>
-    ${seasonData.warning ? `
-      <div style="font-size: 14px; margin-top: 16px; padding: 12px; background: #7f1d1d44; border: 1px solid var(--bad); border-radius: 8px; color: var(--bad);">
-        ${seasonData.warning}
-      </div>
-    ` : ''}
-  `;
-  
-  overlay.appendChild(box);
-  document.body.appendChild(overlay);
-  
-  // Sound effects
-  if (newSeason === 3) { // Winter
-    playSound('bad');
-    setTimeout(() => playSound('bad'), 200);
-  } else if (newSeason === 2) { // Autumn harvest
-    playSound('complete');
-  } else {
-    playSound('click');
+  if (S.victoryProgress >= 100 && autoStarted) {
+    showVictory();
   }
-  
-  // Auto-remove after 3 seconds
-  setTimeout(() => {
-    overlay.style.animation = 'fadeOut 0.5s';
-    setTimeout(() => overlay.remove(), 500);
-  }, 2500);
 }
 
-// ===== WINTER WARNING =====
-function showWinterWarning(daysLeft, daysOfFood) {
-  const warning = document.createElement('div');
-  warning.style.cssText = `
-    position: fixed;
-    top: 120px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: linear-gradient(135deg, #7f1d1dcc, #450a0acc);
-    border: 2px solid var(--bad);
-    border-radius: 12px;
-    padding: 20px 30px;
-    z-index: 8000;
-    max-width: 500px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.6);
-    animation: shake 0.5s, fadeIn 0.3s;
-  `;
-  
-  const deficit = Math.max(0, 90 - daysOfFood);
-  
-  warning.innerHTML = `
-    <div style="font-size: 32px; text-align: center; margin-bottom: 12px;">⚠️</div>
-    <div style="font-size: 18px; font-weight: 700; margin-bottom: 8px; color: var(--bad); text-align: center;">
-      WINTER APPROACHING
-    </div>
-    <div style="font-size: 14px; line-height: 1.6; text-align: center;">
-      Winter starts in <strong>${daysLeft} days</strong>. Food production drops to <strong>20%</strong>.
-      <br/><br/>
-      Current stores: <strong>${Math.floor(daysOfFood)} days</strong>
-      <br/>
-      <span style="color: ${deficit > 30 ? 'var(--bad)' : 'var(--warn)'}; font-weight: 600;">
-        ${deficit > 0 ? `You need ${Math.ceil(deficit)} more days of food!` : 'You are prepared for winter.'}
-      </span>
-      <br/><br/>
-      <span style="font-size: 12px; opacity: 0.8;">
-        ${deficit > 0 ? 'Build more farms and increase farmer allocation NOW!' : 'Well done! Maintain your stores.'}
-      </span>
-    </div>
-  `;
-  
-  document.body.appendChild(warning);
-  
-  playSound('bad');
-  
-  setTimeout(() => {
-    warning.style.animation = 'fadeOut 0.5s';
-    setTimeout(() => warning.remove(), 500);
-  }, 5500);
+function showVictory() {
+  isPaused = true;
+  alert(`VICTORY! Agrarian Phase Complete!\n\nTime: ${S.year} years\nPopulation: ${S.pop}\nDeaths: ${S.totalDeaths}\n\nYou have successfully transitioned from subsistence farming to a thriving agrarian economy!`);
 }
 
 // ============================================
-// EVENT SYSTEM
+// EVENTS
 // ============================================
 
 function checkContextualEvents() {
-  // Only check every 7 days to avoid spam
-  if (S.day % 7 !== 0) return;
-  
   const possibleEvents = [];
   
-  // Crisis events (only when struggling)
   if (S.realWage < 0.9 && S.foodStock < S.pop * 2) {
     const evt = EVENTS.find(e => e.id === 'neighbor_aid');
     if (evt) possibleEvents.push(evt);
   }
   
-  if (S.foodStock < 0 && S.livestock >= 3) {
-    const evt = EVENTS.find(e => e.id === 'harsh_winter');
-    if (evt) possibleEvents.push(evt);
-  }
-  
-  // Opportunity events (only when thriving)
   if (S.materials >= 20 && S.realWage > 1.2) {
     const evt = EVENTS.find(e => e.id === 'merchant_tools');
     if (evt) possibleEvents.push(evt);
@@ -1987,71 +1194,34 @@ function checkContextualEvents() {
     if (evt) possibleEvents.push(evt);
   }
   
-  // Tech opportunity (only if can actually afford and use it)
-  if (S.materials >= 15 && !S.tech.heavyPlough && S.tech.livestock) {
-    const evt = EVENTS.find(e => e.id === 'scholar');
-    if (evt) possibleEvents.push(evt);
-  }
-  
-  // Tool maintenance (only if you have TFP to lose)
-  if (S.tfp > 1.2 && S.materials < 20) {
-    const evt = EVENTS.find(e => e.id === 'tool_repair');
-    if (evt) possibleEvents.push(evt);
-  }
-  
-  // Bandit threat (only mid-game)
-  if (S.year >= 2 && S.materials >= 10 && Math.random() < 0.3) {
-    const evt = EVENTS.find(e => e.id === 'bandits');
-    if (evt) possibleEvents.push(evt);
-  }
-  
-  // Trigger one if conditions met (30% chance when eligible)
-  if (possibleEvents.length > 0 && Math.random() < 0.3) {
+  if (possibleEvents.length > 0 && Math.random() < 0.4) {
     const event = possibleEvents[Math.floor(Math.random() * possibleEvents.length)];
     showEventCard(event);
   }
 }
 
-function triggerRandomEvent() {
-  const event = EVENTS[Math.floor(Math.random() * EVENTS.length)];
-  showEventCard(event);
-}
-
 function showEventCard(event) {
   isPaused = true;
-
-  const title = el('eventTitle');
-  const desc = el('eventDesc');
-  const eff = el('eventEffect');
-  const card = el('eventCard');
-  const accept = el('eventAccept');
-  const decline = el('eventDecline');
-
-  if (!card || !accept || !decline) {
-    const ok = confirm(`${event.title}\n\n${event.desc}\n\n${event.effect}\n\nAccept?`);
-    if (ok) event.action();
-    else if (event.decline) event.decline();
-    isPaused = false;
-    return;
-  }
-
-  title.textContent = event.title;
-  desc.textContent = event.desc;
-  eff.textContent = event.effect;
-  card.classList.add('show');
-
-  accept.onclick = () => {
+  
+  el('eventTitle').textContent = event.title;
+  el('eventDesc').textContent = event.desc;
+  el('eventEffect').textContent = event.effect;
+  
+  const modal = el('eventModal');
+  modal.classList.add('show');
+  
+  el('eventAccept').onclick = () => {
     if (event.action()) {
-      card.classList.remove('show');
+      modal.classList.remove('show');
       isPaused = false;
     }
   };
-
-  decline.onclick = () => {
+  
+  el('eventDecline').onclick = () => {
     if (event.decline) event.decline();
-    card.classList.remove('show');
+    modal.classList.remove('show');
     isPaused = false;
-    toast('Event declined.');
+    toast('Event declined');
   };
 }
 
@@ -2060,264 +1230,168 @@ function showEventCard(event) {
 // ============================================
 
 function updateUI() {
-  // Time
-  const day = el('day');
-  const year = el('year');
-  const season = el('season');
-  if (day) day.textContent = S.day;
-  if (year) year.textContent = S.year;
-  if (season) season.textContent = S.seasons[S.season];
-
-  // HUD
-  const pop = el('pop');
-  const cap = el('cap');
-  const mat = el('mat');
-  const foodStock = el('foodStock');
-  const livestock = el('livestock');
-  const realWage = el('realWage');
-  if (pop) pop.textContent = S.pop;
-  if (cap) cap.textContent = S.cap;
-  if (mat) mat.textContent = Math.floor(S.materials);
-  if (foodStock) foodStock.textContent = Math.floor(S.foodStock);
-  if (livestock) livestock.textContent = S.livestock;
-  if (realWage) realWage.textContent = S.realWage.toFixed(2);
-
-  // Weather display
-  const weatherIcon = el('weatherIcon');
-  const weatherNowLbl = el('weatherNow');
-  const weatherNextLbl = el('weatherNext');
-  const weatherIcons = {
-    sunny: '☀️',
-    rain: '🌧️',
-    storm: '⛈️',
-    drought: '🌵'
-  };
-  if (weatherIcon) weatherIcon.textContent = weatherIcons[S.weatherNow] || '🌤️';
-  if (weatherNowLbl) weatherNowLbl.textContent = S.weatherNow;
-  if (weatherNextLbl) weatherNextLbl.textContent = S.weatherNext;
-
-  // ===== SEASON BANNER UPDATE =====
-  const seasonData = SEASON_DATA[S.season];
-  const banner = el('seasonBanner');
-  const seasonIcon = el('seasonIcon');
-  const seasonName = el('seasonName');
-  const seasonDesc = el('seasonDesc');
-  const seasonDay = el('seasonDay');
-
-  if (banner) {
-    banner.style.setProperty('--season-color', seasonData.color);
-    banner.className = 'season-banner';
-    if (S.season === 3) banner.classList.add('winter');
-    if (S.season === 2) banner.classList.add('autumn');
-  }
-  if (seasonIcon) seasonIcon.textContent = seasonData.icon;
-  if (seasonName) seasonName.textContent = seasonData.name;
-  if (seasonDesc) seasonDesc.textContent = seasonData.desc;
-  if (seasonDay) seasonDay.textContent = S.day;
-
-  // Labor & land UI
-  const popTotal = el('popTotal');
-  const landQual = el('landQual');
-  const landPolicy = el('landPolicy');
-  const intensityPct = el('intensityPct');
-  if (popTotal) popTotal.textContent = S.pop;
-  if (landQual) landQual.textContent = Math.round(S.landQuality * 100) + '%';
-  if (landPolicy) landPolicy.textContent = S.landPolicy === 'commons' ? 'Commons' : 'Enclosed';
-  if (intensityPct) intensityPct.textContent = Math.round(S.workIntensity * 100) + '%';
-
-  const laborHeader = document.querySelector('.labor').previousElementSibling; // The <h2>
-  if (laborHeader && autoStarted) {
-    let badge = laborHeader.querySelector('.labor-hint');
-    
-    const needsAdjustment = 
-      (S.season === 2 && S.farmers < 0.6) ||
-      (S.season === 3 && S.builders < 0.3) ||
-      (S.season === 0 && S.farmers < 0.5);
-    
-    if (needsAdjustment && !badge) {
-      badge = document.createElement('span');
-      badge.className = 'labor-hint';
-      badge.style.cssText = `
-        background: var(--warn);
-        color: #000;
-        padding: 2px 8px;
-        border-radius: 10px;
-        font-size: 10px;
-        margin-left: 8px;
-        font-weight: 700;
-        animation: pulse 2s infinite;
-      `;
-      badge.textContent = '! ADJUST';
-      laborHeader.appendChild(badge);
-    } else if (!needsAdjustment && badge) {
-      badge.remove();
-    }
-  }
-
-  // Real wage badge
-  const wb = el('wagebadge');
-  if (wb) {
-    if (S.realWage < 0.95) wb.className = 'badge bad';
-    else if (S.realWage < 1.1) wb.className = 'badge warn';
-    else wb.className = 'badge';
-  }
-
-  // Tech Notification
-  const affordableTechs = Object.keys(TECH_TREE).filter(key => {
-    const t = TECH_TREE[key];
-    return !S.tech[key] && 
-           t.req.every(r => S.tech[r]) && 
-           S.materials >= t.cost;
-  }).length;
+  // Top bar
+  if (el('topPop')) el('topPop').textContent = S.pop;
+  if (el('topCap')) el('topCap').textContent = S.cap;
+  if (el('topFood')) el('topFood').textContent = Math.floor(S.foodStock);
+  if (el('topMat')) el('topMat').textContent = Math.floor(S.materials);
+  if (el('topSeason')) el('topSeason').textContent = S.seasons[S.season];
+  if (el('topYear')) el('topYear').textContent = S.year;
   
-  const btnTech = el('btnTech');
-  if (btnTech) {
-    if (affordableTechs > 0) {
-      btnTech.innerHTML = `Tech Tree <span style="background:var(--accent); color:#000; padding:2px 6px; border-radius:10px; font-size:10px; margin-left:4px;">${affordableTechs}</span>`;
-      btnTech.style.animation = 'pulse 2s infinite';
-    } else {
-      btnTech.textContent = 'Tech Tree';
-      btnTech.style.animation = '';
-    }
-  }
-
-  // Meters
-  updateMeter(
-    'fillWage',
-    'wageLbl',
-    'wageStatus',
-    S.realWage / 2,
-    S.realWage < 0.95 ? 'Crisis!' : S.realWage < 1.1 ? 'Below normal' : 'Healthy',
-    S.realWage < 0.95 ? 'bad' : S.realWage < 1.1 ? 'warn' : ''
-  );
-
-  const needPerDay = S.pop * 0.2;
-  const foodPct = Math.max(0, Math.min(1, S.foodStock / (needPerDay * 14)));
-  updateMeter('fillFood', 'foodLbl', null, foodPct);
-  const foodNeed = el('foodNeed');
-  if (foodNeed) foodNeed.textContent = Math.floor(needPerDay);
-
-  // Food production display
-  const foodProduction = el('foodProduction');
-  if (foodProduction) {
-    foodProduction.textContent = (S.lastFoodProduction || 0).toFixed(1);
-    
-    // Show if seasonal penalty active
-    const seasonName = S.seasons[S.season].toLowerCase();
-    const recommended = S.seasonalPressure[seasonName];
-    const farmerGap = Math.abs(recommended.farmers - S.farmers);
-    
-    if (farmerGap > 0.15 && (S.season === 0 || S.season === 2)) {
-      foodProduction.style.color = 'var(--warn)';
-      foodProduction.parentElement.style.animation = 'pulse 2s infinite';
-    } else {
-      foodProduction.style.color = '';
-      foodProduction.parentElement.style.animation = '';
-    }
-  }
+  // Labor sliders
+  if (el('farmerPct')) el('farmerPct').textContent = Math.round(S.farmers * 100) + '%';
+  if (el('builderPct')) el('builderPct').textContent = Math.round(S.builders * 100) + '%';
+  if (el('gathererPct')) el('gathererPct').textContent = Math.round(S.gatherers * 100) + '%';
+  if (el('herderPct')) el('herderPct').textContent = Math.round(S.herders * 100) + '%';
+  if (el('intensityPct')) el('intensityPct').textContent = Math.round(S.workIntensity * 100) + '%';
   
-  // ===== FOOD BUFFER DISPLAY =====
-  const daysOfFood = S.foodStock / needPerDay;
-  const foodDays = el('foodDays');
-  const bufferFill = el('bufferFill');
-  const bufferWarning = el('bufferWarning');
-
-  if (foodDays) {
-    foodDays.textContent = Math.floor(daysOfFood);
-    if (daysOfFood < 30) {
-      foodDays.style.color = 'var(--bad)';
-    } else if (daysOfFood < 90) {
-      foodDays.style.color = 'var(--warn)';
-    } else {
-      foodDays.style.color = 'var(--good)';
-    }
-  }
-
-  if (bufferFill) {
-    const maxDisplay = 180; // Show up to 6 months
-    const pct = Math.min(100, (daysOfFood / maxDisplay) * 100);
-    bufferFill.style.width = pct + '%';
-  }
-
-  if (bufferWarning) {
-    if (S.season === 2 && daysOfFood < 90) {
-      bufferWarning.innerHTML = `<span style="color:var(--bad)">⚠️ Store ${Math.ceil(90 - daysOfFood)} more days for winter!</span>`;
-    } else if (S.season === 3 && daysOfFood < 30) {
-      bufferWarning.innerHTML = `<span style="color:var(--bad)">🚨 CRITICAL: Only ${Math.floor(daysOfFood)} days left!</span>`;
-    } else {
-      bufferWarning.textContent = 'Winter requires 90 days of stored food';
-    }
-  }
-
-  updateMeter('fillHealth', 'healthLbl', null, S.health);
-  const w = weatherEffect(S.weatherNow);
-  const diseaseRisk = el('diseaseRisk');
-  if (diseaseRisk) diseaseRisk.textContent = (w.disease * 100).toFixed(1) + '%';
-
-  updateMeter('fillMorale', 'moraleLbl', null, S.morale);
-
-  // Labor percentages
   const idle = Math.max(0, 1 - S.farmers - S.builders - S.herders - S.gatherers);
-  const farmerPct = el('farmerPct');
-  const builderPct = el('builderPct');
-  const herderPct = el('herderPct');
-  const gathererPct = el('gathererPct');
-  const idlePct = el('idlePct');
-  if (farmerPct) farmerPct.textContent = Math.round(S.farmers * 100) + '%';
-  if (builderPct) builderPct.textContent = Math.round(S.builders * 100) + '%';
-  if (herderPct) herderPct.textContent = Math.round(S.herders * 100) + '%';
-  if (gathererPct) gathererPct.textContent = Math.round(S.gatherers * 100) + '%';
-  if (idlePct) idlePct.textContent = Math.round(idle * 100) + '%';
-
-  const victoryBar = el('victoryProgressBar');
-  if (victoryBar) {
-    victoryBar.style.width = S.victoryProgress + '%';
-    victoryBar.textContent = S.victoryProgress + '%';
-  }
-
-  // Show building count and impact
-  const farms = S.builds.filter(b => b.type === 'farm' && b.done).length;
-  const houses = S.builds.filter(b => b.type === 'house' && b.done).length;
-  const mills = S.builds.filter(b => b.type === 'mill' && b.done).length;
+  if (el('idlePct')) el('idlePct').textContent = Math.round(idle * 100) + '%';
   
-  // Update game log with building stats every 30 days
-  if (S.day % 30 === 0 && autoStarted) {
-    const gameLog = el('gameLog');
-    if (gameLog && farms > 0) {
-      const foodPerFarm = S.lastFoodProduction / Math.max(1, farms);
-      gameLog.innerHTML = `
-        <span style="color:var(--accent)">
-          📊 ${farms} farms producing ${foodPerFarm.toFixed(1)} food/farm/day
-          ${mills > 0 ? `| ${mills} mills = +${Math.round(mills * 12)}% TFP` : ''}
-        </span>
-      `;
-    }
+  // Agriculture
+  const farms = S.builds.filter(b => b.type === 'farm' && b.done).length;
+  if (el('soilQuality')) el('soilQuality').textContent = Math.round(S.landQuality * 100) + '%';
+  if (el('activeFarms')) el('activeFarms').textContent = farms;
+  if (el('foodProduction')) el('foodProduction').textContent = S.lastFoodProduction.toFixed(1);
+  
+  // Map HUD
+  if (el('weatherIcon')) {
+    const icons = { sunny: '☀️', rain: '🌧️', storm: '⛈️', drought: '🌵' };
+    el('weatherIcon').textContent = icons[S.weatherNow] || '🌤️';
   }
-
-  // Show construction queue
-  // Show construction queue
+  if (el('weatherNow')) el('weatherNow').textContent = S.weatherNow;
+  if (el('hudWage')) el('hudWage').textContent = S.realWage.toFixed(2);
+  
+  // Season banner
+  const seasonData = SEASON_DATA[S.season];
+  if (el('seasonIcon')) el('seasonIcon').textContent = seasonData.icon;
+  if (el('seasonName')) el('seasonName').textContent = seasonData.name;
+  if (el('seasonDesc')) el('seasonDesc').textContent = seasonData.desc;
+  if (el('seasonDay')) el('seasonDay').textContent = S.day;
+  
+  // Meters
+  const wagePct = Math.min(100, (S.realWage / 2) * 100);
+  updateMeter('wageFill', 'wageValue', wagePct, S.realWage.toFixed(2));
+  
+  const needPerDay = S.pop * 0.10;
+  const daysOfFood = S.foodStock / needPerDay;
+  const foodPct = Math.min(100, (daysOfFood / 180) * 100);
+  updateMeter('foodFill', 'foodDays', foodPct, Math.floor(daysOfFood) + 'd');
+  
+  updateMeter('healthFill', 'healthValue', S.health * 100, Math.round(S.health * 100) + '%');
+  updateMeter('moraleFill', 'moraleValue', S.morale * 100, Math.round(S.morale * 100) + '%');
+  
+  const w = weatherEffect(S.weatherNow);
+  if (el('diseaseRisk')) el('diseaseRisk').textContent = (w.disease * 100).toFixed(1) + '%';
+  
+  // Resources
+  if (el('foodStock')) el('foodStock').textContent = Math.floor(S.foodStock);
+  if (el('materials')) el('materials').textContent = Math.floor(S.materials);
+  if (el('livestock')) el('livestock').textContent = S.livestock;
+  
+  // Population
+  if (el('population')) el('population').textContent = S.pop;
+  if (el('capacity')) el('capacity').textContent = S.cap;
+  if (el('totalDeaths')) el('totalDeaths').textContent = S.totalDeaths;
+  
+  // Social
+  if (el('lordTithe')) el('lordTithe').textContent = Math.round(S.lordTithePct * 100) + '%';
+  
+  // Theory
+  let theory = 'Malthusian Trap';
+  let theoryDesc = 'Population pressure at subsistence';
+  if (S.realWage < 0.95) {
+    theory = 'Malthusian Crisis';
+    theoryDesc = 'Wages below subsistence, collapse imminent';
+  } else if (S.realWage > 1.3) {
+    theory = 'Post-Crisis Boom';
+    theoryDesc = 'Labor scarcity drives high wages';
+  }
+  if (el('theoryStatus')) el('theoryStatus').textContent = theory;
+  if (el('theoryDesc')) el('theoryDesc').textContent = theoryDesc;
+  
+  // Victory
+  if (el('victoryFill')) {
+    el('victoryFill').style.width = S.victoryProgress + '%';
+    el('victoryFill').textContent = S.victoryProgress + '%';
+  }
+  
+  // Tech count
+  const techCount = Object.keys(S.tech).filter(k => S.tech[k]).length;
+  if (el('techCount')) el('techCount').textContent = techCount;
+  
+  // Construction queue
   const inProgress = S.builds.filter(b => !b.done);
   const queueBox = el('constructionQueue');
   const queueList = el('queueList');
+
+  const enclosureInfo = el('enclosureInfo'); // Add this element to HTML
+  if (enclosureInfo) {
+    enclosureInfo.innerHTML = `
+      <div class="info-row">
+        <span class="info-label">Enclosed Land:</span>
+        <span class="info-value">${Math.round(S.enclosedLandPct * 100)}%</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Landless Workers:</span>
+        <span class="info-value">${S.landlessLaborers}</span>
+      </div>
+      ${S.woolProduction > 0 ? `
+      <div class="info-row">
+        <span class="info-label">Wool Production:</span>
+        <span class="info-value">${S.woolProduction.toFixed(1)}/day</span>
+      </div>
+      ` : ''}
+    `;
+  }
+  
+  // NEW: Display trade info
+  const tradeInfo = el('tradeInfo'); // Add this element to HTML
+  if (tradeInfo && S.grainSold > 0) {
+    tradeInfo.innerHTML = `
+      <div class="info-row">
+        <span class="info-label">Market Price:</span>
+        <span class="info-value">${S.marketPrice.toFixed(2)}x</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Grain Sold:</span>
+        <span class="info-value">${S.grainSold.toFixed(1)}/day</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Trade Income:</span>
+        <span class="info-value">+${S.tradeIncome.toFixed(1)} materials</span>
+      </div>
+    `;
+  }
+  
+  // NEW: Display urban info
+  const urbanInfo = el('urbanInfo'); // Add this to Society tab in HTML
+  if (urbanInfo) {
+    urbanInfo.innerHTML = `
+      <div class="info-row">
+        <span class="info-label">Urban Population:</span>
+        <span class="info-value">${Math.round(S.urbanPopPct * 100)}%</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Urban Demand:</span>
+        <span class="info-value">${S.urbanDemand.toFixed(2)}x</span>
+      </div>
+    `;
+  }
   
   if (queueBox && queueList) {
     if (inProgress.length > 0) {
-      const builderPop = Math.floor(S.pop * S.builders); // Calculate it locally
       queueBox.style.display = 'block';
       queueList.innerHTML = inProgress.map(b => {
         const pct = Math.round((b.progress / b.dur) * 100);
-        const eta = Math.ceil((b.dur - b.progress) / (builderPop * 0.02 * S.workIntensity));
         return `
-          <div style="margin-bottom: 8px; padding: 6px; background: #0b1224; border-radius: 6px;">
-            <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+          <div class="queue-item">
+            <div class="queue-header">
               <span>${BUILDS[b.type].name}</span>
-              <span style="color: var(--accent);">${pct}%</span>
+              <span>${pct}%</span>
             </div>
-            <div style="height: 4px; background: #1f2937; border-radius: 2px; overflow: hidden;">
-              <div style="height: 100%; width: ${pct}%; background: var(--accent); transition: width 0.3s;"></div>
-            </div>
-            <div style="font-size: 9px; color: var(--muted); margin-top: 2px;">
-              ETA: ~${eta} days
+            <div class="queue-progress">
+              <div class="queue-progress-bar" style="width: ${pct}%"></div>
             </div>
           </div>
         `;
@@ -2326,125 +1400,23 @@ function updateUI() {
       queueBox.style.display = 'none';
     }
   }
-
+  
   // Render
-  renderPalette();
   renderGrid();
 }
 
-function updateSeasonalVisuals() {
-  const seasonData = SEASON_DATA[S.season];
-  
-  // Update body background
-  document.body.style.background = seasonData.skyGradient;
-  document.body.style.opacity = seasonData.skyOpacity;
-  
-  // Update ground gradient
-  const ground = el('ground');
-  if (ground) {
-    ground.style.background = seasonData.groundGradient;
-  }
-  
-  // Subtle weather particle effects (optional enhancement)
-  if (S.season === 3) { // Winter snow
-    addSnowEffect();
-  } else {
-    removeWeatherEffects();
-  }
-}
-
-function addSnowEffect() {
-  // Simple CSS animation for falling snow
-  let snowContainer = document.getElementById('snowContainer');
-  if (!snowContainer) {
-    snowContainer = document.createElement('div');
-    snowContainer.id = 'snowContainer';
-    snowContainer.style.cssText = `
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      pointer-events: none;
-      z-index: 1;
-    `;
-    document.body.appendChild(snowContainer);
-    
-    // Create 50 snowflakes
-    for (let i = 0; i < 50; i++) {
-      const snowflake = document.createElement('div');
-      snowflake.className = 'snowflake';
-      snowflake.style.cssText = `
-        position: absolute;
-        width: 4px;
-        height: 4px;
-        background: white;
-        border-radius: 50%;
-        opacity: ${Math.random() * 0.6 + 0.2};
-        left: ${Math.random() * 100}%;
-        animation: snowfall ${Math.random() * 3 + 2}s linear infinite;
-        animation-delay: ${Math.random() * 3}s;
-      `;
-      snowContainer.appendChild(snowflake);
-    }
-  }
-}
-
-function removeWeatherEffects() {
-  const container = document.getElementById('snowContainer');
-  if (container) container.remove();
-}
-
-function updateMeter(fillId, lblId, statusId, pct, statusText = '', fillClass = '') {
+function updateMeter(fillId, valueId, pct, value) {
   const fill = el(fillId);
-  if (fill) {
-    fill.style.width = Math.round(pct * 100) + '%';
-    fill.className = 'fill ' + fillClass;
-  }
-  const lbl = el(lblId);
-  if (lbl) lbl.textContent = Math.round(pct * 100) + '%';
-  if (statusId) {
-    const s = el(statusId);
-    if (s) s.innerHTML = statusText;
-  }
-}
-
-function updateMeter(fillId, lblId, statusId, pct, statusText = '', fillClass = '') {
-  const fill = el(fillId);
-  if (fill) {
-    fill.style.width = Math.round(pct * 100) + '%';
-    fill.className = 'fill ' + fillClass;
-  }
-  const lbl = el(lblId);
-  if (lbl) lbl.textContent = Math.round(pct * 100) + '%';
-  if (statusId) {
-    const s = el(statusId);
-    if (s) s.innerHTML = statusText;
-  }
-}
-
-function updateTheoryStatus() {
-  let theory = '';
-  if (S.realWage < 0.95) {
-    theory = "<span style='color:var(--bad)'>Malthusian Crisis</span> - Wages below subsistence, population will collapse";
-  } else if (S.realWage > 1.3) {
-    theory = "<span style='color:var(--good)'>Post-Crisis Boom</span> - Labor scarcity, high wages (temporary golden age)";
-  } else if (S.landPolicy === 'enclosed' && S.realWage < 1.1) {
-    theory = "<span style='color:var(--warn)'>Enclosure Effects</span> - Efficiency vs equity trade-off";
-  } else if (S.tech.threeField && S.tech.heavyPlough) {
-    theory = "<span style='color:var(--accent)'>Smithian Growth</span> - TFP rising from specialization";
-  } else {
-    theory = "<span style='color:var(--muted)'>Malthusian Trap</span> - Steady state equilibrium";
-  }
-  const theoryStatus = el('theoryStatus');
-  if (theoryStatus) theoryStatus.innerHTML = theory;
+  if (fill) fill.style.width = pct + '%';
+  const val = el(valueId);
+  if (val) val.textContent = value;
 }
 
 // ============================================
 // BUILDINGS & RESOURCES
 // ============================================
 
-function renderPalette() {
+function renderBuildPalette() {
   const pal = el('buildPalette');
   if (!pal) return;
   pal.innerHTML = '';
@@ -2458,9 +1430,9 @@ function renderPalette() {
     tile.draggable = true;
 
     tile.innerHTML = `
-      <div class="tile-icon icon ${b.icon}" style="position:static"></div>
+      <div class="tile-icon icon ${b.icon}"></div>
       <div class="tile-name">${b.name}</div>
-      <div class="tile-cost">${b.mat}m • ${b.dur}d</div>
+      <div class="tile-cost">${b.mat}m · ${b.dur}d</div>
     `;
 
     tile.addEventListener('dragstart', e => {
@@ -2475,18 +1447,12 @@ function renderPalette() {
 }
 
 function renderGrid() {
-  const grid = el('grid');
   const ground = el('ground');
-  if (!grid || !ground) return;
+  if (!ground) return;
 
-  // collect existing icons from both layers
-  const existing = [
-    ...grid.querySelectorAll('.icon'),
-    ...ground.querySelectorAll('.icon')
-  ];
+  const existing = [...ground.querySelectorAll('.icon')];
 
   S.builds.forEach(b => {
-    // find or create icon for this build
     let icon = existing.find(e => e.dataset.id == b.id);
     if (!icon) {
       icon = document.createElement('div');
@@ -2497,7 +1463,6 @@ function renderGrid() {
       ground.appendChild(icon);
     }
 
-    // construction ring / finished state
     if (!b.done) {
       icon.className = 'icon ' + BUILDS[b.type].icon + ' site';
       let ring = icon.querySelector('.ring');
@@ -2514,65 +1479,30 @@ function renderGrid() {
       if (ring) ring.remove();
     }
 
-    // ✅ Farm: make clickable + “Set Crop” hint (INSIDE the loop, so `b`/`icon` exist)
-    // ✅ Farm: make clickable + visual states + BETTER TOOLTIPS
+    // Farm crop states
     if (b.type === 'farm' && b.done) {
       const farmId = 'farm_' + b.id;
       const cropData = S.farmCrops[farmId];
       
-      // Remove all crop state classes
-      icon.classList.remove(
-        'farm-empty',
-        'farm-wheat-growing', 'farm-wheat-mature',
-        'farm-barley-growing', 'farm-barley-mature',
-        'farm-rye-growing', 'farm-rye-mature',
-        'farm-legumes-growing', 'farm-legumes-mature'
-      );
+      icon.classList.remove('farm-empty', 'farm-wheat-growing', 'farm-wheat-mature', 
+        'farm-rye-growing', 'farm-rye-mature', 'farm-barley-growing', 'farm-barley-mature',
+        'farm-legumes-growing', 'farm-legumes-mature');
 
       if (!cropData) {
-        // Empty farm
         icon.classList.add('farm-empty');
-        icon.title = `Empty farm - Click to plant (Season: ${S.seasons[S.season]})`;
       } else {
-        // Has crop - show growth stage
         const stage = cropData.mature ? 'mature' : 'growing';
-        const cropName = cropData.crop;
-        icon.classList.add(`farm-${cropName}-${stage}`);
-        
-        const cropType = CROP_DATA[cropData.crop];
-        const progress = Math.round((cropData.daysGrowing / cropType.growthDays) * 100);
-        
-        // ✅ DETAILED TOOLTIP
-        if (cropData.mature) {
-          icon.title = `${cropType.name} - READY TO HARVEST!\nClick to change crop`;
-        } else {
-          icon.title = `${cropType.name} - Growing (${progress}%)\n${cropData.daysGrowing}/${cropType.growthDays} days\nClick to replant`;
-        }
+        icon.classList.add(`farm-${cropData.crop}-${stage}`);
       }
       
-      // Make clickable
       icon.style.cursor = 'pointer';
       icon.onclick = (e) => {
         e.stopPropagation();
         openCropMenu(b.id);
       };
-
-      // Show "Set Crop" badge ONLY on empty farms
-      if (!S.farmCrops[farmId]) {
-        if (!icon.querySelector('.need-crop')) {
-          const tag = document.createElement('div');
-          tag.className = 'need-crop';
-          tag.textContent = 'Click to Plant';
-          icon.appendChild(tag);
-        }
-      } else {
-        const tag = icon.querySelector('.need-crop');
-        if (tag) tag.remove();
-      }
     }
   });
 
-  // remove icons whose builds no longer exist
   existing.forEach(e => {
     if (!S.builds.find(b => b.id == e.dataset.id)) e.remove();
   });
@@ -2580,46 +1510,32 @@ function renderGrid() {
   drawNodes();
 }
 
-
 function spawnNodes() {
   const ground = el('ground');
   if (!ground) return;
   const rect = ground.getBoundingClientRect();
 
-  // Helper function to check if position overlaps with buildings
   function overlapsBuilding(x, y) {
-    const nodeSize = 48;
     for (let b of S.builds) {
-      const buildSize = 72;
-      // Check if rectangles overlap
-      if (x < b.x + buildSize && x + nodeSize > b.x &&
-          y < b.y + buildSize && y + nodeSize > b.y) {
+      if (x < b.x + 64 && x + 42 > b.x && y < b.y + 64 && y + 42 > b.y) {
         return true;
       }
     }
     return false;
   }
 
-  // Helper to get valid position
   function getValidPosition() {
-    let attempts = 0;
-    while (attempts < 50) {
+    for (let i = 0; i < 50; i++) {
       const x = 30 + Math.random() * (rect.width - 100);
       const y = 10 + Math.random() * (rect.height - 60);
-      
-      if (!overlapsBuilding(x, y)) {
-        return { x, y };
-      }
-      attempts++;
+      if (!overlapsBuilding(x, y)) return { x, y };
     }
-    // Fallback to random position if can't find valid spot
     return {
       x: 30 + Math.random() * (rect.width - 100),
       y: 10 + Math.random() * (rect.height - 60)
     };
   }
 
-  // Spawn trees
   for (let i = 0; i < 5; i++) {
     const pos = getValidPosition();
     S.nodes.push({
@@ -2631,7 +1547,6 @@ function spawnNodes() {
     });
   }
 
-  // Spawn rocks
   for (let i = 0; i < 3; i++) {
     const pos = getValidPosition();
     S.nodes.push({
@@ -2665,11 +1580,9 @@ function drawNodes() {
       ground.appendChild(node);
     }
     
-    // Check if this node has an active gathering job
     const activeJob = S.gatherJobs && S.gatherJobs.find(j => j.nodeId === n.id);
     
     if (activeJob) {
-      // Show progress ring for active jobs
       node.style.opacity = '0.7';
       let ring = node.querySelector('.ring');
       if (!ring) {
@@ -2680,14 +1593,12 @@ function drawNodes() {
       const pct = Math.min(100, (activeJob.progress / activeJob.required) * 100);
       ring.style.setProperty('--pct', pct);
     } else {
-      // Remove ring if not active
       node.style.opacity = '1';
       const ring = node.querySelector('.ring');
       if (ring) ring.remove();
     }
   });
   
-  // Remove nodes that no longer exist
   [...ground.querySelectorAll('.node')].forEach(node => {
     if (!S.nodes.find(n => n.id === node.dataset.nodeid)) {
       node.remove();
@@ -2696,32 +1607,29 @@ function drawNodes() {
 }
 
 function harvestNode(n) {
-  // Check if gatherers allocated
   if (S.gatherers < 0.05) {
     playSound('bad');
     toast('Need at least 5% gatherers to harvest!');
     return;
   }
   
-  // Check if already gathering this node
   if (S.gatherJobs && S.gatherJobs.find(j => j.nodeId === n.id)) {
-    toast('Already gathering this resource...');
+    toast('Already gathering this resource');
     return;
   }
   
-  // Start gathering job
   if (!S.gatherJobs) S.gatherJobs = [];
   
   S.gatherJobs.push({
     id: Date.now() + Math.random(),
     nodeId: n.id,
     progress: 0,
-    required: n.type === 'tree' ? 8 : 6, // days of work
+    required: n.type === 'tree' ? 8 : 6,
     type: n.type
   });
   
   playSound('click');
-  toast(`Started gathering ${n.type}...`);
+  toast(`Gathering ${n.type}...`);
   updateUI();
 }
 
@@ -2729,126 +1637,8 @@ function harvestNode(n) {
 // DRAG & DROP
 // ============================================
 
-function openCropMenu(buildId) {
-  const farmId = 'farm_' + buildId;
-  S._activeFarmSelect = farmId;
-
-  const modal = el('cropModal');
-  const grid = el('cropGrid');
-  const title = el('cropModalTitle');
-  const setDefault = el('setDefaultCrop');
-  if (!modal || !grid) return;
-
-  title.textContent = 'Choose crop for this farm';
-  setDefault.checked = false;
-
-  // Build crop cards from CROP_DATA
-  grid.innerHTML = Object.entries(CROP_DATA).map(([key, v]) => {
-    const canPlantNow = v.plantSeasons.includes(S.season);
-    const plantLbl = v.plantSeasons.map(s => S.seasons[s]).join(' / ');
-    const harvestLbl = v.harvestSeasons.map(s => S.seasons[s]).join(' / ');
-    const hardy = v.winterHardy ? 'Hardy' : 'Not hardy';
-
-    return `
-      <div class="crop-card">
-        <div>
-          <div class="name">${v.name}</div>
-          <div class="meta">
-            <span class="crop-badge">Yield ${Math.round(v.yield*100)}%</span>
-            <span class="crop-badge">${hardy}</span>
-            <span class="crop-badge">Soil ${v.soilDrain >= 0 ? '−' : '+'}${Math.abs(v.soilDrain*100).toFixed(1)}%</span><br/>
-            Plant: ${plantLbl} • Harvest: ${harvestLbl} • Growth: ${v.growthDays}d
-          </div>
-        </div>
-        <div>
-          <button class="pick" data-crop="${key}" ${canPlantNow ? '' : 'disabled'}>${canPlantNow ? 'Plant' : 'Not in season'}</button>
-        </div>
-      </div>
-    `;
-  }).join('');
-
-  // Button events
-  grid.querySelectorAll('.pick').forEach(btn => {
-    btn.onclick = () => {
-      const choice = btn.dataset.crop;
-      selectCropForFarm(farmId, choice, setDefault.checked);
-    };
-  });
-
-  // Close buttons
-  const cropCancel = el('cropCancel');
-  const cropClose = el('cropClose');
-  if (cropCancel) cropCancel.onclick = () => hideModal('cropModal');
-  if (cropClose) cropClose.onclick = () => hideModal('cropModal');
-
-  showModal('cropModal');
-}
-
-function selectCropForFarm(farmId, cropKey, setDefaultAlso) {
-  const cd = CROP_DATA[cropKey];
-  if (!cd) return;
-
-  // Season gate
-  if (!cd.plantSeasons.includes(S.season)) {
-    const names = cd.plantSeasons.map(s => S.seasons[s]).join(' or ');
-    toast(`⚠️ ${cd.name} can only be planted in ${names}.`);
-    playSound('bad');
-    return;
-  }
-
-  // Plant this farm
-  S.farmCrops[farmId] = {
-    crop: cropKey,
-    plantedDay: S.day,
-    plantedSeason: S.season,
-    plantedYear: S.year,
-    mature: false,
-    daysGrowing: 0,
-    harvested: false
-  };
-
-  // Optional: set as default
-  if (setDefaultAlso) {
-    S.cropType = cropKey;
-    toast(`Default crop set to ${cd.name}.`);
-  }
-
-  toast(`🌱 Planted ${cd.name} on this farm. Harvest in ~${cd.growthDays} days.`);
-  playSound('click');
-  hideModal('cropModal');
-  
-  // ✅ CRITICAL: Force immediate visual update
-  renderGrid(); // Update the farm's visual class
-  
-  // ✅ Show tooltip on the farm tile
-  const farmIcon = document.querySelector(`[data-id*="${farmId.replace('farm_', '')}"]`);
-  if (farmIcon) {
-    const tooltip = document.createElement('div');
-    tooltip.style.cssText = `
-      position: absolute;
-      bottom: -35px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: #0b1224ee;
-      border: 1px solid var(--accent);
-      padding: 6px 10px;
-      border-radius: 8px;
-      font-size: 11px;
-      white-space: nowrap;
-      z-index: 1000;
-      animation: fadeIn 0.3s;
-      pointer-events: none;
-    `;
-    tooltip.textContent = `${cd.name} planted! 0/${cd.growthDays} days`;
-    farmIcon.appendChild(tooltip);
-    
-    // Remove after 3 seconds
-    setTimeout(() => tooltip.remove(), 3000);
-  }
-}
-
-function attachGridDnD() {
-  const ground = el('ground'); // CHANGED from grid
+function setupDragAndDrop() {
+  const ground = el('ground');
   if (!ground) return;
 
   ground.addEventListener('dragover', e => {
@@ -2868,24 +1658,102 @@ function attachGridDnD() {
     }
 
     playSound('build');
-    const rect = ground.getBoundingClientRect(); // CHANGED from grid
-    const x = e.clientX - rect.left - 36;
-    const y = e.clientY - rect.top - 36;
+    const rect = ground.getBoundingClientRect();
+    const x = e.clientX - rect.left - 32;
+    const y = e.clientY - rect.top - 32;
 
     S.materials -= b.mat;
     S.builds.push({
       id: Date.now() + Math.random(),
       type: draggedType,
-      x: Math.max(0, Math.min(rect.width - 72, x)),
-      y: Math.max(0, Math.min(rect.height - 72, y)),
+      x: Math.max(0, Math.min(rect.width - 64, x)),
+      y: Math.max(0, Math.min(rect.height - 64, y)),
       done: false,
       progress: 0,
       dur: b.dur
     });
 
-    toast(`Started building ${b.name}`);
+    toast(`Building ${b.name}...`);
     updateUI();
   });
+}
+
+// ============================================
+// CROP SELECTION
+// ============================================
+
+function openCropMenu(buildId) {
+  const farmId = 'farm_' + buildId;
+  S._activeFarmSelect = farmId;
+
+  const grid = el('cropGrid');
+  if (!grid) return;
+
+  grid.innerHTML = Object.entries(CROP_DATA).map(([key, v]) => {
+    const canPlantNow = v.plantSeasons.includes(S.season);
+    const plantLbl = v.plantSeasons.map(s => S.seasons[s]).join(' / ');
+    const harvestLbl = v.harvestSeasons.map(s => S.seasons[s]).join(' / ');
+    const hardy = v.winterHardy ? 'Hardy' : 'Not hardy';
+
+    return `
+      <div class="crop-card">
+        <div class="crop-card-header">${v.name}</div>
+        <div class="crop-card-stats">
+          Yield: ${Math.round(v.yield * 100)}%<br>
+          ${hardy}<br>
+          Plant: ${plantLbl}<br>
+          Harvest: ${harvestLbl}
+        </div>
+        <button class="crop-card-btn" data-crop="${key}" ${canPlantNow ? '' : 'disabled'}>
+          ${canPlantNow ? 'Plant' : 'Not in season'}
+        </button>
+        </div>
+    `;
+  }).join('');
+
+  grid.querySelectorAll('.crop-card-btn').forEach(btn => {
+    btn.onclick = () => {
+      const choice = btn.dataset.crop;
+      selectCropForFarm(farmId, choice, el('setDefaultCrop').checked);
+    };
+  });
+
+  el('cropCancel').onclick = () => hideModal('cropModal');
+  el('cropClose').onclick = () => hideModal('cropModal');
+
+  showModal('cropModal');
+}
+
+function selectCropForFarm(farmId, cropKey, setDefaultAlso) {
+  const cd = CROP_DATA[cropKey];
+  if (!cd) return;
+
+  if (!cd.plantSeasons.includes(S.season)) {
+    const names = cd.plantSeasons.map(s => S.seasons[s]).join(' or ');
+    toast(`${cd.name} can only be planted in ${names}`);
+    playSound('bad');
+    return;
+  }
+
+  S.farmCrops[farmId] = {
+    crop: cropKey,
+    plantedDay: S.day,
+    plantedSeason: S.season,
+    plantedYear: S.year,
+    mature: false,
+    daysGrowing: 0,
+    harvested: false
+  };
+
+  if (setDefaultAlso) {
+    S.cropType = cropKey;
+    toast(`Default crop: ${cd.name}`);
+  }
+
+  toast(`Planted ${cd.name}. Harvest in ~${cd.growthDays} days`);
+  playSound('click');
+  hideModal('cropModal');
+  renderGrid();
 }
 
 // ============================================
@@ -2893,50 +1761,72 @@ function attachGridDnD() {
 // ============================================
 
 function renderTechTree() {
-  const grid = el('techGrid');
-  if (!grid) return;
-  grid.innerHTML = '';
+  const container = el('techTreeContainer');
+  if (!container) return;
 
-  Object.keys(TECH_TREE).forEach(key => {
-    const t = TECH_TREE[key];
-    const unlocked = S.tech[key];
-    const reqsMet = t.req.every(r => S.tech[r]);
-    const canAfford = S.materials >= t.cost;
-    const canUnlock = !unlocked && reqsMet && canAfford;
+  // Group techs by tier
+  const tiers = [
+    { num: 1, name: 'Early Agrarian (Foundation)' },
+    { num: 2, name: 'Middle Agrarian (Optimization)' },
+    { num: 3, name: 'Late Agrarian (Pre-Industrial)' }
+  ];
 
-    const card = document.createElement('div');
-    card.className = 'tech-card' + 
-      (unlocked ? ' unlocked' : '') + 
-      (!canUnlock && !unlocked ? ' locked' : '') +
-      (canAfford && reqsMet && !unlocked ? ' affordable' : ''); // NEW
+  container.innerHTML = tiers.map(tier => {
+    const techs = Object.keys(TECH_TREE).filter(key => TECH_TREE[key].tier === tier.num);
+    
+    return `
+      <div class="tech-tier">
+        <div class="tier-title">${tier.name}</div>
+        <div class="tech-tier-grid">
+          ${techs.map(key => renderTechCard(key)).join('')}
+        </div>
+      </div>
+    `;
+  }).join('');
 
-    let reqText = '';
-    if (t.req.length && !unlocked) {
-      const missing = t.req.filter(r => !S.tech[r]);
-      if (missing.length) {
-        reqText = `<div class="tech-req">Requires: ${missing.map(m => TECH_TREE[m].name).join(', ')}</div>`;
-      }
+  // Add click handlers
+  container.querySelectorAll('.tech-card').forEach(card => {
+    const techKey = card.dataset.tech;
+    const tech = TECH_TREE[techKey];
+    
+    if (!S.tech[techKey] && tech.req.every(r => S.tech[r]) && S.materials >= tech.cost) {
+      card.querySelector('.tech-unlock-btn')?.addEventListener('click', () => unlockTech(techKey));
     }
+  });
+}
 
-    card.innerHTML = `
+function renderTechCard(key) {
+  const t = TECH_TREE[key];
+  const unlocked = S.tech[key];
+  const reqsMet = t.req.every(r => S.tech[r]);
+  const canAfford = S.materials >= t.cost;
+  const canUnlock = !unlocked && reqsMet && canAfford;
+
+  let classes = 'tech-card';
+  if (unlocked) classes += ' unlocked';
+  else if (!reqsMet) classes += ' locked';
+  else if (canAfford) classes += ' affordable';
+
+  let reqText = '';
+  if (t.req.length && !unlocked) {
+    const missing = t.req.filter(r => !S.tech[r]);
+    if (missing.length) {
+      reqText = `<div class="tech-requirements">Requires: ${missing.map(m => TECH_TREE[m].name).join(', ')}</div>`;
+    }
+  }
+
+  return `
+    <div class="tech-card ${classes}" data-tech="${key}">
       <div class="tech-status"></div>
+      <div class="tech-category">${t.category}</div>
       <div class="tech-name">${t.name}</div>
       <div class="tech-desc">${t.desc}</div>
       ${reqText}
       <div class="tech-effect">${t.effect}</div>
       <div class="tech-cost">${unlocked ? '✓ Unlocked' : t.cost + ' materials'}</div>
-    `;
-
-    if (canUnlock) {
-      const btn = document.createElement('button');
-      btn.className = 'btn primary';
-      btn.textContent = 'Unlock';
-      btn.onclick = () => unlockTech(key);
-      card.appendChild(btn);
-    }
-
-    grid.appendChild(card);
-  });
+      ${canUnlock ? '<button class="tech-unlock-btn">Unlock</button>' : ''}
+    </div>
+  `;
 }
 
 function unlockTech(key) {
@@ -2953,122 +1843,25 @@ function unlockTech(key) {
 
   // Apply effects
   if (key === 'threeField') S.tfp *= 1.15;
-  if (key === 'heavyPlough') S.tfp *= 1.2;
-  if (key === 'seedSelection') S.tfp *= 1.08;
+  if (key === 'heavyPlough') S.tfp *= 1.25;
+  if (key === 'seedSelection') S.tfp *= 1.10;
+  if (key === 'fertilizer') S.tfp *= 1.15;
   if (key === 'well') S.health = Math.min(1, S.health + 0.2);
   if (key === 'charteredRights') S.lordTithePct = 0.25;
-
-  // ADD CELEBRATION FOR FIRST TECH UNLOCK
-  const techCount = Object.keys(S.tech).filter(k => S.tech[k]).length;
-  if (techCount === 2) { // 2 because basicFarming starts unlocked
-    // Flash effect
-    const flash = document.createElement('div');
-    flash.style.cssText = `
-      position: fixed;
-      inset: 0;
-      background: radial-gradient(circle, rgba(34,211,238,0.3), transparent);
-      z-index: 8000;
-      pointer-events: none;
-      animation: flashFade 1s ease-out;
-    `;
-    document.body.appendChild(flash);
-    setTimeout(() => flash.remove(), 1000);
-    
-    toast('First technology unlocked! Your civilization advances.', 4000);
-  } else {
-    toast(`Unlocked: ${t.name}!`);
+  if (key === 'guildSystem') {
+    S.tfp *= 1.10;
+    S.morale = Math.min(1, S.morale + 0.15);
+  }
+  if (key === 'woodworking') {
+    Object.keys(BUILDS).forEach(bKey => {
+      BUILDS[bKey].mat = Math.floor(BUILDS[bKey].mat * 0.8);
+    });
   }
 
+  toast(`Unlocked: ${t.name}!`, 3000);
   renderTechTree();
+  renderBuildPalette();
   updateUI();
-}
-
-// ============================================
-// PROGRESS & VICTORY
-// ============================================
-
-function checkVictory() {
-  const pop150 = S.pop >= 150;
-  const wage13 = S.wageAbove13Years >= 1;
-  const hasMarket = S.builds.some(b => b.type === 'market' && b.done);
-  const mills = S.builds.filter(b => b.type === 'mill' && b.done).length;
-  const capitalGoods = mills >= 3;
-  
-  // Progressive victory counter
-  S.victoryProgress = 0;
-  if (pop150) S.victoryProgress += 25;
-  if (wage13) S.victoryProgress += 25;
-  if (hasMarket) S.victoryProgress += 25;
-  if (capitalGoods) S.victoryProgress += 25;
-  
-  // Show victory when all complete
-  if (S.victoryProgress >= 100) {
-    showVictory();
-  }
-}
-
-function updateProgress() {
-  const pop150 = S.pop >= 150;
-  const wage13 = S.wageAbove13Years >= 1;
-  const hasMarket = S.builds.some(b => b.type === 'market' && b.done);
-  const mills = S.builds.filter(b => b.type === 'mill' && b.done).length;
-  const capitalGoods = mills >= 3;
-
-  const completed = [pop150, wage13, hasMarket, capitalGoods].filter(Boolean).length;
-  const progress = (completed / 4) * 100;
-
-  const fill = el('progressFill');
-  const pct = el('progressPercent');
-  if (fill) fill.style.width = progress + '%';
-  if (pct) pct.textContent = Math.round(progress) + '%';
-
-  // Requirements
-  updateReq('req1', pop150, `Population > 150 (Current: ${S.pop})`);
-  updateReq('req2', wage13, `Real Wage > 1.3 for 1 year (Current: ${S.wageAbove13Years} years)`);
-  updateReq('req3', hasMarket, 'Market infrastructure built');
-  updateReq('req4', capitalGoods, `3+ capital goods (Current: ${mills})`);
-
-  // Stats
-  const statPop = el('statPop');
-  const statWage = el('statWage');
-  const statWageYears = el('statWageYears');
-  const statMarket = el('statMarket');
-  const statCapital = el('statCapital');
-  if (statPop) statPop.textContent = S.pop;
-  if (statWage) statWage.textContent = S.realWage.toFixed(2);
-  if (statWageYears) statWageYears.textContent = S.wageAbove13Years;
-  if (statMarket) statMarket.textContent = hasMarket ? 'Built' : 'Not built';
-  if (statCapital) statCapital.textContent = mills;
-}
-
-function updateReq(id, complete, text) {
-  const req = el(id);
-  if (!req) return;
-  req.innerHTML = `<span class="req-icon">${complete ? '✓' : '○'}</span> ${text}`;
-  if (complete) req.classList.add('complete');
-  else req.classList.remove('complete');
-}
-
-function showVictory() {
-  isPaused = true;
-
-  const years = el('vicYears');
-  const days = el('vicDays');
-  const pop = el('vicPop');
-  const deaths = el('vicDeaths');
-
-  if (years) years.textContent = S.year;
-  if (days) days.textContent = S.day;
-  if (pop) pop.textContent = S.pop;
-  if (deaths) deaths.textContent = S.totalDeaths;
-
-  // Calculate grade
-  const efficiency = S.pop / (S.year * 90 + S.day);
-  const gradeTxt = el('vicGrade');
-  const grade = efficiency > 1.5 ? 'A+' : efficiency > 1.2 ? 'A' : efficiency > 1.0 ? 'B+' : efficiency > 0.8 ? 'B' : 'C';
-  if (gradeTxt) gradeTxt.textContent = grade;
-
-  showModal('victoryModal');
 }
 
 // ============================================
@@ -3078,12 +1871,13 @@ function showVictory() {
 function setupEventListeners() {
   // Pause/Resume
   const btnPause = el('btnPause');
-  if (btnPause)
+  if (btnPause) {
     btnPause.addEventListener('click', () => {
       isPaused = !isPaused;
       btnPause.textContent = isPaused ? '▶' : '⏸';
       toast(isPaused ? 'Paused' : 'Resumed');
     });
+  }
 
   // Speed control
   const speedSelect = el('speedSelect');
@@ -3096,395 +1890,354 @@ function setupEventListeners() {
   const gathererSlider = el('gathererSlider');
   const intensitySlider = el('intensitySlider');
 
-  if (gathererSlider)
-    gathererSlider.addEventListener('input', e => {
-      S.gatherers = e.target.value / 100;
-      normalizeLabor();
-      updateUI();
-    });
-
-  if (farmerSlider)
+  if (farmerSlider) {
     farmerSlider.addEventListener('input', e => {
       S.farmers = e.target.value / 100;
       normalizeLabor();
       updateUI();
     });
+  }
 
-  if (builderSlider)
+  if (builderSlider) {
     builderSlider.addEventListener('input', e => {
       S.builders = e.target.value / 100;
       normalizeLabor();
       updateUI();
     });
+  }
 
-  if (herderSlider)
+  if (herderSlider) {
     herderSlider.addEventListener('input', e => {
       S.herders = e.target.value / 100;
       normalizeLabor();
       updateUI();
     });
+  }
 
-  if (intensitySlider)
+  if (gathererSlider) {
+    gathererSlider.addEventListener('input', e => {
+      S.gatherers = e.target.value / 100;
+      normalizeLabor();
+      updateUI();
+    });
+  }
+
+  if (intensitySlider) {
     intensitySlider.addEventListener('input', e => {
       S.workIntensity = e.target.value / 100;
       updateUI();
     });
+  }
 
-  // Crop selection
-  document.querySelectorAll('.crop-btn').forEach(btn => {
+  // Crop selection buttons
+  document.querySelectorAll('.crop-option').forEach(btn => {
     btn.addEventListener('click', () => {
-      const newCrop = btn.dataset.crop;
-      const cropType = CROP_DATA[newCrop];
-
-      // update UI highlighting
-      document.querySelectorAll('.crop-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.crop-option').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
-
-      // set as global default crop (used for unassigned/new farms)
-      S.cropType = newCrop;
-
-      toast(`Default crop set to ${cropType.name}. Click a farm to plant it.`, 3500);
+      S.cropType = btn.dataset.crop;
       playSound('click');
+      toast(`Default crop: ${CROP_DATA[btn.dataset.crop].name}`);
     });
   });
 
-
-  // Enclosure toggle
-  const btnEnclosure = el('btnEnclosure');
-  if (btnEnclosure)
-    btnEnclosure.addEventListener('click', () => {
+  // Land policy
+  const btnPolicy = el('btnPolicy');
+  if (btnPolicy) {
+    btnPolicy.addEventListener('click', () => {
       if (S.landPolicy === 'commons') {
-        if (!confirm('Enclose land? +15% efficiency but -15% morale and inequality rises.')) return;
         S.landPolicy = 'enclosed';
-        S.morale = Math.max(0, S.morale - 0.15);
-        toast('Land enclosed! Efficiency up, morale down.');
+        S.enclosureRate = 0.02; // 2% per year
+        S.morale = Math.max(0, S.morale - 0.10);
+        btnPolicy.innerHTML = `Enclosing Land (${Math.round(S.enclosedLandPct * 100)}%)`;
+        toast('Land enclosure begins - displacing peasants gradually');
+      } else if (S.enclosureRate > 0) {
+        S.enclosureRate = 0; // Pause enclosure
+        btnPolicy.innerHTML = `Enclosure Paused (${Math.round(S.enclosedLandPct * 100)}%)`;
+        toast('Enclosure paused - can resume or reverse');
       } else {
-        if (!confirm('Return to commons? -15% efficiency but equality restored.')) return;
         S.landPolicy = 'commons';
-        S.morale = Math.min(1, S.morale + 0.1);
-        toast('Commons restored! Equality improved.');
+        S.enclosureRate = -0.01; // Reverse slowly
+        S.morale = Math.min(1, S.morale + 0.05);
+        btnPolicy.innerHTML = 'Commons (Equal Access)';
+        toast('Returning land to commons - slow process');
       }
+      playSound('click');
       updateUI();
     });
+  }
 
-  // Modals
-  const btnTech = el('btnTech');
-  const techClose = el('techClose');
-  if (btnTech)
-    btnTech.addEventListener('click', () => {
-      playSound('click');  
+  // Tech tree button
+  const btnTechTree = el('btnTechTree');
+  if (btnTechTree) {
+    btnTechTree.addEventListener('click', () => {
+      playSound('click');
       renderTechTree();
       showModal('techModal');
     });
-  if (techClose) techClose.addEventListener('click', () => hideModal('techModal'));
+  }
 
-  const btnTheory = el('btnTheory');
-  const theoryClose = el('theoryClose');
-  if (btnTheory) btnTheory.addEventListener('click', () => showModal('theoryModal'));
-  if (theoryClose) theoryClose.addEventListener('click', () => hideModal('theoryModal'));
+  // Modal closes
+  el('techClose')?.addEventListener('click', () => hideModal('techModal'));
+  el('cropClose')?.addEventListener('click', () => hideModal('cropModal'));
+  el('cropCancel')?.addEventListener('click', () => hideModal('cropModal'));
 
-  const btnProgress = el('btnProgress');
-  const progressClose = el('progressClose');
-  if (btnProgress)
-    btnProgress.addEventListener('click', () => {
-      updateProgress();
-      showModal('progressModal');
-    });
-  if (progressClose) progressClose.addEventListener('click', () => hideModal('progressModal'));
+  // Save/Menu
+  el('btnSave')?.addEventListener('click', saveGame);
+  el('btnMenu')?.addEventListener('click', () => {
+    toast('Menu not yet implemented');
+  });
 
-  // Export data
-  const btnExport = el('btnExport');
-  const btnExportVictory = el('btnExportVictory');
-  if (btnExport) btnExport.addEventListener('click', exportData);
-  if (btnExportVictory) btnExportVictory.addEventListener('click', exportData);
-
-  // Save/Reset
-  const btnSave = el('btnSave');
-  const btnReset = el('btnReset');
-  if (btnSave) btnSave.addEventListener('click', saveGame);
-  if (btnReset) btnReset.addEventListener('click', resetGame);
-
-  // Victory
-  const btnPlayAgain = el('btnPlayAgain');
-  if (btnPlayAgain)
-    btnPlayAgain.addEventListener('click', () => {
-      hideModal('victoryModal');
-      resetGame();
-    });
-
-  // Grid DnD (after DOM exists)
-  attachGridDnD();
+  // Setup drag and drop
+  setupDragAndDrop();
 }
 
 function normalizeLabor() {
-  const total = S.farmers + S.builders + S.herders + S.gatherers; // ADD S.gatherers
+  const total = S.farmers + S.builders + S.herders + S.gatherers;
   if (total > 1) {
     const scale = 1 / total;
     S.farmers *= scale;
     S.builders *= scale;
     S.herders *= scale;
-    S.gatherers *= scale; // ADD THIS LINE
+    S.gatherers *= scale;
   }
+  
   const fs = el('farmerSlider');
   const bs = el('builderSlider');
   const hs = el('herderSlider');
-  const gs = el('gathererSlider'); // ADD THIS LINE
+  const gs = el('gathererSlider');
+  
   if (fs) fs.value = S.farmers * 100;
   if (bs) bs.value = S.builders * 100;
   if (hs) hs.value = S.herders * 100;
-  if (gs) gs.value = S.gatherers * 100; // ADD THIS LINE
+  if (gs) gs.value = S.gatherers * 100;
+}
+
+// Labor friction - skills decay when reallocating
+function updateLaborSkills() {
+  const friction = 0.85; // 15% productivity loss when switching roles
+  const skillGrowth = 0.02; // 2% skill gain per season when working
+  
+  // Track actual labor allocation changes
+  const laborChange = {
+    farmers: Math.abs(S.farmers - S.laborSkills.farmers),
+    builders: Math.abs(S.builders - S.laborSkills.builders),
+    herders: Math.abs(S.herders - S.laborSkills.herders),
+    gatherers: Math.abs(S.gatherers - S.laborSkills.gatherers)
+  };
+  
+  // Calculate reallocation cost (lost productivity)
+  S.laborReallocationCost = 
+    (laborChange.farmers + laborChange.builders + 
+     laborChange.herders + laborChange.gatherers) * 0.5;
+  
+  // Skills gradually adjust toward actual allocation
+  Object.keys(S.laborSkills).forEach(role => {
+    const target = S[role];
+    const current = S.laborSkills[role];
+    
+    if (target > current) {
+      // Growing this role - train new workers (slow)
+      S.laborSkills[role] = Math.min(target, current + skillGrowth);
+    } else if (target < current) {
+      // Shrinking this role - skills decay (fast)
+      S.laborSkills[role] = Math.max(target, current - skillGrowth * 2);
+    }
+  });
+  
+  // Apply productivity penalty for skill mismatch
+  const skillMismatch = 
+    Math.abs(S.farmers - S.laborSkills.farmers) +
+    Math.abs(S.builders - S.laborSkills.builders) +
+    Math.abs(S.herders - S.laborSkills.herders) +
+    Math.abs(S.gatherers - S.laborSkills.gatherers);
+  
+  // TFP penalty: max 20% loss if everyone switches roles
+  const skillPenalty = 1 - (skillMismatch * 0.1);
+  return Math.max(0.8, skillPenalty);
+}
+
+// Enclosure happens gradually, player controls the rate
+function updateEnclosureSystem() {
+  // Enclosure rate set by player policy (see setupEventListeners update below)
+  S.enclosedLandPct = Math.min(1.0, S.enclosedLandPct + S.enclosureRate / 365);
+  
+  // Enclosed land produces wool instead of grain
+  const enclosedFarms = S.builds.filter(b => b.type === 'farm' && b.done).length;
+  S.woolProduction = enclosedFarms * S.enclosedLandPct * 0.5 * S.tfp;
+  
+  // Enclosure displaces peasants → landless laborers
+  const displacementRate = 0.15; // 15% become landless
+  const newLandless = S.pop * S.enclosedLandPct * displacementRate;
+  S.landlessLaborers = Math.floor(newLandless);
+  
+  // Landless laborers increase labor supply → wage pressure
+  const laborSupplyEffect = 1 + (S.landlessLaborers / S.pop) * 0.3;
+  
+  // But also improve farm efficiency (larger consolidated fields)
+  const enclosureEfficiency = 1 + S.enclosedLandPct * 0.25;
+  
+  // Social tension from inequality
+  if (S.enclosedLandPct > 0.4 && Math.random() < 0.01) {
+    triggerEnclosureUnrest();
+  }
+  
+  return { efficiency: enclosureEfficiency, laborSupply: laborSupplyEffect };
+}
+
+function triggerEnclosureUnrest() {
+  isPaused = true;
+  
+  const unrestEvent = {
+    id: 'enclosure_unrest',
+    title: 'Peasant Unrest',
+    desc: `Displaced villagers protest land enclosure. ${S.landlessLaborers} people have lost access to common land. They demand you slow or reverse enclosure.`,
+    effect: 'Accept: Pause enclosure for 2 years | Decline: -30% morale, risk of violence',
+    action: () => {
+      S.enclosureRate = 0;
+      setTimeout(() => {
+        if (S.landPolicy === 'enclosed') {
+          S.enclosureRate = 0.02; // Resume after 2 years
+        }
+      }, 730000); // ~2 years at 1x speed
+      toast('Enclosure paused to calm unrest');
+      return true;
+    },
+    decline: () => {
+      S.morale = Math.max(0.1, S.morale - 0.3);
+      if (Math.random() < 0.3) {
+        const deaths = Math.floor(S.pop * 0.05);
+        S.pop -= deaths;
+        S.totalDeaths += deaths;
+        toast(`Violent suppression! ${deaths} killed in riots`, 5000);
+        playSound('bad');
+      } else {
+        toast('Unrest suppressed, but morale devastated', 4000);
+      }
+    }
+  };
+  
+  showEventCard(unrestEvent);
+}
+
+// Trade surplus food at market prices
+function updateTradeSystem() {
+  const needPerDay = S.pop * 0.10;
+  const subsistenceBuffer = needPerDay * 30; // 30 days reserve
+  
+  // Only surplus above buffer can be sold
+  S.foodSurplus = Math.max(0, S.foodStock - subsistenceBuffer);
+  
+  // Market price fluctuates based on:
+  // 1. Urban demand (growing cities need more food)
+  // 2. Harvest quality (bad harvests = high prices)
+  // 3. Random merchant activity
+  
+  const harvestQuality = (S.lastFoodProduction / needPerDay) / 10; // 0-1 range
+  const urbanDemandEffect = S.urbanPopPct * 10; // Cities drive prices up
+  const randomFluctuation = 0.9 + Math.random() * 0.2; // ±10%
+  
+  S.marketPrice = (0.5 + urbanDemandEffect - harvestQuality * 0.3) * randomFluctuation;
+  S.marketPrice = Math.max(0.3, Math.min(2.5, S.marketPrice));
+  
+  // Auto-sell surplus if market exists
+  const hasMarket = S.builds.some(b => b.type === 'market' && b.done);
+  if (hasMarket && S.foodSurplus > 0) {
+    const sellAmount = Math.min(S.foodSurplus, needPerDay * 5); // Max 5 days/day
+    S.grainSold = sellAmount;
+    S.tradeIncome = sellAmount * S.marketPrice * 0.1; // Materials earned
+    S.materials += S.tradeIncome;
+    S.foodStock -= sellAmount;
+    
+    // Track commercialization
+    const commercializationPct = S.grainSold / (S.lastFoodProduction + 0.1);
+    if (commercializationPct > 0.3) {
+      // High market integration
+      S.tfp *= 1.02; // Specialization gains
+    }
+  } else {
+    S.grainSold = 0;
+    S.tradeIncome = 0;
+  }
+}
+
+// Urban population grows from rural surplus & displaced laborers
+function updateUrbanSystem() {
+  // Urban growth drivers:
+  // 1. Food surplus enables non-farm population
+  // 2. Landless laborers migrate to towns
+  // 3. Trade activity creates urban jobs
+  
+  const foodSurplusEffect = S.foodSurplus / (S.pop * 0.10 * 30);
+  const migrationPressure = S.landlessLaborers / S.pop;
+  const tradeEffect = S.grainSold > 0 ? 0.02 : 0;
+  
+  const urbanGrowthRate = (foodSurplusEffect * 0.01 + migrationPressure * 0.005 + tradeEffect) / 365;
+  
+  S.urbanPopPct = Math.min(0.20, S.urbanPopPct + urbanGrowthRate);
+  
+  // Urban demand for food
+  S.urbanDemand = 1 + S.urbanPopPct * 5;
+  
+  // Urban growth slightly reduces rural labor supply
+  const urbanAbsorption = S.urbanPopPct * 0.1;
+  return { laborReduction: urbanAbsorption, demandMultiplier: S.urbanDemand };
 }
 
 // ============================================
-// UTILITY FUNCTIONS
+// MODAL UTILITIES
 // ============================================
 
 function showModal(id) {
-  el(id).classList.add('show');
-  isPaused = true;
+  const modal = el(id);
+  if (modal) {
+    modal.classList.add('show');
+    isPaused = true;
+  }
 }
 
 function hideModal(id) {
-  el(id).classList.remove('show');
-  if (!el('eventCard').classList.contains('show')) {
+  const modal = el(id);
+  if (modal) {
+    modal.classList.remove('show');
     isPaused = false;
   }
 }
+
+// ============================================
+// SAVE/LOAD
+// ============================================
 
 function saveGame() {
   try {
     localStorage.setItem('econoville_save', JSON.stringify(S));
     toast('Game saved!');
+    playSound('complete');
   } catch (e) {
     toast('Save failed: ' + e.message);
+    playSound('bad');
   }
 }
 
-function resetGame() {
-  if (!confirm('Reset game? All progress will be lost.')) return;
-
-  Object.assign(S, {
-    day: 1,
-    year: 1,
-    season: 0,
-    pop: 80,
-    cap: 100,
-    totalDeaths: 0,
-    farmers: 0.5,
-    builders: 0.3,
-    herders: 0.1,
-    gatherers: 0.1,
-    workIntensity: 1.0,
-    materials: 30,
-    foodStock: 15,
-    livestock: 0,
-    health: 0.55,
-    morale: 0.45,
-    tfp: 1.0,
-    landQuality: 1.0,
-    realWage: 1.0,
-    landPolicy: 'commons',
-    cropType: 'wheat',
-    weatherNow: 'sunny',
-    weatherNext: 'rain',
-    tech: { basicFarming: true },
-    builds: [],
-    nodes: [],
-    wageAbove13Years: 0,
-    history: []
-  });
-
-  rollWeather();
-  spawnNodes();
-  renderPalette();
-  updateUI();
-
-  toast('Game reset!');
-}
-
-function exportData() {
-  const csv = ['Year,Day,Population,RealWage,FoodStock,Livestock,TFP,SoilQuality'];
-  S.history.forEach(h => {
-    csv.push(
-      `${h.year},${h.day},${h.pop},${h.realWage.toFixed(3)},${h.foodStock.toFixed(1)},${h.livestock},${h.tfp.toFixed(3)},${h.soilQuality.toFixed(3)}`
-    );
-  });
-
-  const blob = new Blob([csv.join('\n')], { type: 'text/csv' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `econoville_data_year${S.year}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
-
-  toast('Data exported!');
-}
-
-
-// ============================================
-// Seasonal Guide Pop Up
-// ============================================
-// In showSeasonalGuide() function, REPLACE the popup with:
-function showSeasonalGuide(season) {
-  const guides = {
-    autumn: {
-      title: 'HARVEST SEASON',
-      advice: 'Maximize food production NOW to survive winter',
-      farmers: 70,
-      builders: 10,
-      gatherers: 10,
-      herders: 10
-    },
-    winter: {
-      title: 'WINTER STRATEGY',
-      advice: 'Low food production - focus on construction',
-      farmers: 30,
-      builders: 40,
-      gatherers: 20,
-      herders: 10
-    },
-    spring: {
-      title: 'PLANTING SEASON',
-      advice: 'Establish crops for the growing season',
-      farmers: 60,
-      builders: 20,
-      gatherers: 10,
-      herders: 10
-    },
-    summer: {
-      title: 'GROWTH SEASON',
-      advice: 'Balance food and infrastructure',
-      farmers: 50,
-      builders: 30,
-      gatherers: 10,
-      herders: 10
+function loadGame() {
+  try {
+    const saved = localStorage.getItem('econoville_save');
+    if (saved) {
+      Object.assign(S, JSON.parse(saved));
+      toast('Game loaded!');
+      return true;
     }
-  };
-  
-  const guide = guides[season];
-  if (!guide) return;
-  
-  // Highlight the labor panel
-  const laborPanel = document.querySelector('.labor');
-  if (laborPanel) {
-    laborPanel.style.border = '3px solid var(--warn)';
-    laborPanel.style.animation = 'pulse 1.5s ease-in-out 3';
-    
-    setTimeout(() => {
-      laborPanel.style.border = '';
-      laborPanel.style.animation = '';
-    }, 5000);
+  } catch (e) {
+    toast('Load failed: ' + e.message);
   }
-  
-  // Show overlay directly over labor sliders
-  const overlay = document.createElement('div');
-  overlay.id = 'laborGuideOverlay';
-  overlay.style.cssText = `
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.85);
-    z-index: 9500;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    animation: fadeIn 0.3s;
-  `;
-  
-  const box = document.createElement('div');
-  box.style.cssText = `
-    background: linear-gradient(135deg, var(--panel), var(--panel2));
-    border: 3px solid var(--warn);
-    border-radius: 16px;
-    padding: 30px;
-    max-width: 500px;
-    box-shadow: 0 20px 60px rgba(0,0,0,0.7);
-  `;
-  
-  box.innerHTML = `
-    <div style="font-size: 24px; font-weight: 800; margin-bottom: 12px; color: var(--warn); text-align: center;">
-      ${guide.title}
-    </div>
-    <div style="font-size: 15px; line-height: 1.6; margin-bottom: 20px; text-align: center;">
-      ${guide.advice}
-    </div>
-    
-    <div style="background: #0b1224aa; border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 20px;">
-      <div style="font-size: 13px; font-weight: 600; margin-bottom: 12px; color: var(--accent);">Recommended Allocation:</div>
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 13px;">
-        <div>👨‍🌾 Farmers:</div><div style="text-align: right; font-weight: 700;">${guide.farmers}%</div>
-        <div>🔨 Builders:</div><div style="text-align: right; font-weight: 700;">${guide.builders}%</div>
-        <div>🪓 Gatherers:</div><div style="text-align: right; font-weight: 700;">${guide.gatherers}%</div>
-        <div>🐑 Herders:</div><div style="text-align: right; font-weight: 700;">${guide.herders}%</div>
-      </div>
-      
-      <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); font-size: 11px; color: var(--muted);">
-        Current: Farmers ${Math.round(S.farmers * 100)}%, Builders ${Math.round(S.builders * 100)}%, Gatherers ${Math.round(S.gatherers * 100)}%, Herders ${Math.round(S.herders * 100)}%
-      </div>
-    </div>
-    
-    <div style="display: flex; gap: 12px;">
-      <button id="btnApplyLabor" style="flex: 1; padding: 12px; background: linear-gradient(135deg, var(--accent), var(--accent2)); border: none; border-radius: 8px; color: #000; font-weight: 700; cursor: pointer; font-size: 14px;">
-        Apply Recommendation
-      </button>
-      <button id="btnIgnoreLabor" style="flex: 1; padding: 12px; background: transparent; border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-weight: 600; cursor: pointer; font-size: 14px;">
-        I'll Adjust Myself
-      </button>
-    </div>
-  `;
-  
-  overlay.appendChild(box);
-  document.body.appendChild(overlay);
-  
-  // Apply button
-  document.getElementById('btnApplyLabor').onclick = () => {
-    S.farmers = guide.farmers / 100;
-    S.builders = guide.builders / 100;
-    S.gatherers = guide.gatherers / 100;
-    S.herders = guide.herders / 100;
-    normalizeLabor();
-    updateUI();
-    overlay.remove();
-    toast(`Labor adjusted for ${guide.title}`, 3000);
-    playSound('click');
-  };
-  
-  // Ignore button
-  document.getElementById('btnIgnoreLabor').onclick = () => {
-    overlay.remove();
-    playSound('click');
-  };
-}
-
-function highlightSlider(sliderType, duration = 5000) {
-  const slider = el(sliderType + 'Slider');
-  const label = slider?.parentElement;
-  
-  if (label) {
-    label.style.background = 'rgba(251, 146, 60, 0.2)';
-    label.style.border = '2px solid var(--warn)';
-    label.style.borderRadius = '8px';
-    label.style.padding = '8px';
-    label.style.animation = 'pulse 1.5s ease-in-out infinite';
-    
-    setTimeout(() => {
-      label.style.background = '';
-      label.style.border = '';
-      label.style.padding = '';
-      label.style.animation = '';
-    }, duration);
-  }
+  return false;
 }
 
 // ============================================
-// STARTUP HOOK
+// STARTUP
 // ============================================
 
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', init, { once: true });
+  document.addEventListener('DOMContentLoaded', init);
 } else {
   init();
 }
