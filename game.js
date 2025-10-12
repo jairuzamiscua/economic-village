@@ -393,7 +393,7 @@ const CROP_DATA = {
     soilDrain: 0.02,
     plantSeasons: [2],
     harvestSeasons: [1, 2],
-    growthDays: 270,
+    growthDays: 90,  // 1 season instead of 3
     winterHardy: true,
     baseFood: 3.0
   },
@@ -404,7 +404,7 @@ const CROP_DATA = {
     soilDrain: 0.015,
     plantSeasons: [2, 3],
     harvestSeasons: [1],
-    growthDays: 240,
+    growthDays: 80,  // Was 240
     winterHardy: true,
     baseFood: 2.5
   },
@@ -415,7 +415,7 @@ const CROP_DATA = {
     soilDrain: -0.015,
     plantSeasons: [0],
     harvestSeasons: [2],
-    growthDays: 180,
+    growthDays: 60,  // Was 180
     winterHardy: false,
     baseFood: 2.0
   },
@@ -426,7 +426,7 @@ const CROP_DATA = {
     soilDrain: 0.018,
     plantSeasons: [0],
     harvestSeasons: [1],
-    growthDays: 120,
+    growthDays: 45,  // Was 120
     winterHardy: false,
     baseFood: 2.3
   }
@@ -571,6 +571,20 @@ function init() {
       progress: BUILDS.farm.dur,
       dur: BUILDS.farm.dur
     });
+  }
+
+  // Start with crops almost ready to harvest!
+  S.season = 2; // Start in Autumn (harvest season)
+  for (let i = 0; i < 3; i++) {
+    S.farmCrops['farm_start_farm_' + i] = {
+      crop: 'wheat',
+      plantedDay: 1,
+      plantedSeason: 2,
+      plantedYear: 1,
+      mature: true,  // Already mature!
+      daysGrowing: 90,
+      harvested: false
+    };
   }
   
   for (let i = 0; i < 2; i++) {
@@ -733,13 +747,13 @@ function tick() {
       S.gatherJobs.shift();
     }
   }
-
-  // Crop lifecycle
+  // Crop lifecycle & auto-replanting
   farms.forEach((farm) => {
     if (!farm.done) return;
     const farmId = 'farm_' + farm.id;
     
     if (!S.farmCrops[farmId]) {
+      // Auto-replant empty farms in correct season
       const crop = CROP_DATA[S.cropType];
       if (crop && crop.plantSeasons.includes(S.season)) {
         S.farmCrops[farmId] = {
@@ -750,6 +764,11 @@ function tick() {
           mature: false,
           daysGrowing: 0
         };
+        
+        // Notify on first day of planting season
+        if (S.day <= 2) {
+          toast(`🌱 Auto-planting ${crop.name} on empty farms`, 2000);
+        }
       }
     } else {
       const cropData = S.farmCrops[farmId];
@@ -999,6 +1018,21 @@ function tick() {
     toast(`🌾 ${S.matureFarmsCount} farm${S.matureFarmsCount > 1 ? 's' : ''} ready to harvest!`, 3000);
   }
 
+  // Progress updates every 15 days
+  if (S.day % 15 === 0) {
+    const growingFarms = Object.values(S.farmCrops).filter(c => !c.mature && !c.harvested).length;
+    if (growingFarms > 0) {
+      toast(`📊 ${growingFarms} farm${growingFarms > 1 ? 's' : ''} still growing...`, 2000);
+    }
+    
+    // Food security warning
+    const daysOfFood = Math.floor(S.foodStock / (S.pop * 0.10));
+    if (daysOfFood < 30 && daysOfFood > 0) {
+      toast(`⚠️ Food reserves: ${daysOfFood} days remaining`, 3000);
+      playSound('bad');
+    }
+  }
+
   const enclosureEffects = updateEnclosureSystem();
 
   const skillPenalty = updateLaborSkills();
@@ -1115,8 +1149,17 @@ function harvestFarm(farmId) {
   // Clear the farm
   delete S.farmCrops[farmId];
   
-  playSound('harvest');
-  toast(`Harvested ${cropType.name}! +${Math.floor(finalYield)} food`, 3000);
+playSound('harvest');
+  
+  // Bonus feedback for good harvests
+  if (finalYield > 15) {
+    toast(`🌟 ABUNDANT HARVEST! +${Math.floor(finalYield)} food from ${cropType.name}!`, 4000);
+    S.morale = Math.min(1, S.morale + 0.05);
+  } else if (finalYield > 10) {
+    toast(`✨ Good harvest! +${Math.floor(finalYield)} food from ${cropType.name}`, 3000);
+  } else {
+    toast(`Harvested ${cropType.name}: +${Math.floor(finalYield)} food`, 3000);
+  }
   
   // Close modal and update UI
   hideModal('farmInfoModal');
@@ -1564,6 +1607,12 @@ function updateUI() {
     } else {
       queueBox.style.display = 'none';
     }
+  }
+
+  // Update map season visuals
+  const mapContainer = document.querySelector('.map-container');
+  if (mapContainer) {
+    mapContainer.className = `map-container season-${S.season}`;
   }
   
   // Render
