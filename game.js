@@ -1428,7 +1428,7 @@ function renderBuildPalette() {
     tile.draggable = true;
 
     tile.innerHTML = `
-      <div class="tile-icon icon ${b.icon}"></div>
+      <div class="tile-icon ${b.icon}"></div>
       <div class="tile-name">${b.name}</div>
       <div class="tile-cost">${b.mat}m · ${b.dur}d</div>
     `;
@@ -1436,6 +1436,7 @@ function renderBuildPalette() {
     tile.addEventListener('dragstart', e => {
       draggedType = key;
       e.dataTransfer.effectAllowed = 'copy';
+      e.dataTransfer.setData('text/plain', key);
     });
 
     tile.addEventListener('dragend', () => (draggedType = null));
@@ -1642,16 +1643,32 @@ function setupDragAndDrop() {
   ground.addEventListener('dragover', e => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'copy';
+    ground.style.outline = '2px dashed rgba(124, 156, 191, 0.5)';
+  });
+  
+  ground.addEventListener('dragleave', e => {
+    ground.style.outline = 'none';
   });
 
   ground.addEventListener('drop', e => {
     e.preventDefault();
-    if (!draggedType) return;
+    e.stopPropagation();
+    ground.style.outline = 'none';
+    
+    if (!draggedType) {
+      console.log('No dragged type');
+      return;
+    }
 
     const b = BUILDS[draggedType];
+    if (!b) {
+      console.log('Invalid building type:', draggedType);
+      return;
+    }
+    
     if (S.materials < b.mat) {
       playSound('bad');
-      toast('Not enough materials!');
+      toast('Not enough materials! Need ' + b.mat);
       return;
     }
 

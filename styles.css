@@ -357,10 +357,12 @@ input[type="range"]::-moz-range-thumb {
   cursor: grab;
   text-align: center;
   transition: all 0.15s;
+  user-select: none;
 }
 
 .build-tile:active {
   cursor: grabbing;
+  opacity: 0.7;
 }
 
 .build-tile:hover {
@@ -380,6 +382,35 @@ input[type="range"]::-moz-range-thumb {
   margin: 0 auto 6px;
   border-radius: 2px;
   border: 1px solid rgba(0, 0, 0, 0.3);
+}
+
+/* Building type backgrounds for palette tiles */
+.tile-icon.farm {
+  background: repeating-linear-gradient(45deg, #166534 0 7px, #0e9f6e 7px 14px);
+}
+
+.tile-icon.house {
+  background: linear-gradient(#6b7280, #374151);
+}
+
+.tile-icon.well {
+  background: radial-gradient(circle, #60a5fa, #1e40af);
+}
+
+.tile-icon.granary {
+  background: linear-gradient(#78716c, #57534e);
+}
+
+.tile-icon.livestock {
+  background: linear-gradient(135deg, #a16207, #713f12);
+}
+
+.tile-icon.market {
+  background: linear-gradient(90deg, #dc2626, #ea580c, #facc15);
+}
+
+.tile-icon.mill {
+  background: linear-gradient(#374151, #1f2937);
 }
 
 .tile-name {
@@ -525,7 +556,7 @@ input[type="range"]::-moz-range-thumb {
   bottom: 0;
   height: 55%;
   z-index: 1;
-  pointer-events: none;
+  pointer-events: auto;
 }
 
 .ground * {
