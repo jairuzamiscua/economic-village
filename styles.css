@@ -697,21 +697,22 @@ input[type="range"]::-moz-range-thumb {
 }
 
 /* Crop visual states */
-.farm-empty {
-  background: linear-gradient(135deg, #57534e 0%, #44403c 100%);
+/* Crop visual states - MUST have .icon prefix for specificity */
+.icon.farm-empty {
+  background: linear-gradient(135deg, #57534e 0%, #44403c 100%) !important;
 }
 
-.farm-wheat-growing { background: repeating-linear-gradient(135deg, #2d6a4f 0 8px, #1b4332 8px 16px); }
-.farm-wheat-mature { background: repeating-linear-gradient(135deg, #f59e0b 0 8px, #d97706 8px 16px); }
+.icon.farm-wheat-growing { background: repeating-linear-gradient(135deg, #2d6a4f 0 8px, #1b4332 8px 16px) !important; }
+.icon.farm-wheat-mature { background: repeating-linear-gradient(135deg, #f59e0b 0 8px, #d97706 8px 16px) !important; }
 
-.farm-rye-growing { background: repeating-linear-gradient(135deg, #3a7d44 0 8px, #2e6a39 8px 16px); }
-.farm-rye-mature { background: repeating-linear-gradient(135deg, #eab308 0 8px, #ca8a04 8px 16px); }
+.icon.farm-rye-growing { background: repeating-linear-gradient(135deg, #3a7d44 0 8px, #2e6a39 8px 16px) !important; }
+.icon.farm-rye-mature { background: repeating-linear-gradient(135deg, #eab308 0 8px, #ca8a04 8px 16px) !important; }
 
-.farm-barley-growing { background: repeating-linear-gradient(135deg, #4d7c0f 0 8px, #3f6212 8px 16px); }
-.farm-barley-mature { background: repeating-linear-gradient(135deg, #fbbf24 0 8px, #f59e0b 8px 16px); }
+.icon.farm-barley-growing { background: repeating-linear-gradient(135deg, #4d7c0f 0 8px, #3f6212 8px 16px) !important; }
+.icon.farm-barley-mature { background: repeating-linear-gradient(135deg, #fbbf24 0 8px, #f59e0b 8px 16px) !important; }
 
-.farm-legumes-growing { background: repeating-linear-gradient(135deg, #059669 0 8px, #047857 8px 16px); }
-.farm-legumes-mature { background: repeating-linear-gradient(135deg, #34d399 0 8px, #10b981 8px 16px); }
+.icon.farm-legumes-growing { background: repeating-linear-gradient(135deg, #059669 0 8px, #047857 8px 16px) !important; }
+.icon.farm-legumes-mature { background: repeating-linear-gradient(135deg, #34d399 0 8px, #10b981 8px 16px) !important; }
 
 
 /* Mature farm pulse animation */
