@@ -165,6 +165,11 @@
         <div class="divider"></div>
         
         <div id="enclosureInfo"></div>
+        
+        <div class="divider"></div>
+        
+        <div class="subsection-title">Farm Overview</div>
+        <div id="farmListContent" class="farm-list"></div>
       </div>
     </div>
     
@@ -475,6 +480,24 @@
           Set as default for new farms
         </label>
         <button class="btn-secondary" id="cropCancel">Cancel</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Farm Info Modal -->
+<div class="modal" id="farmInfoModal">
+  <div class="modal-overlay"></div>
+  <div class="modal-content farm-modal">
+    <div class="modal-header">
+      <h2 id="farmInfoTitle">Farm Info</h2>
+      <button class="modal-close" onclick="hideModal('farmInfoModal')">×</button>
+    </div>
+    <div class="modal-body">
+      <div id="farmInfoBody"></div>
+      <div class="farm-actions">
+        <button class="btn-primary" id="farmInfoHarvest" style="display:none">🌾 Harvest Now</button>
+        <button class="btn-primary" id="farmInfoPlant" style="display:none">🌱 Plant Crop</button>
       </div>
     </div>
   </div>

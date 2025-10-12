@@ -144,6 +144,7 @@ const S = {
   victoryProgress: 0,
   gatherJobs: [],
   nodeRegenQueue: [],
+  matureFarmsCount: 0,
 
   milestones: {
     firstWinter: { complete: false, reward: 'materials', amount: 15 },
@@ -761,8 +762,11 @@ function tick() {
     }
   });
 
-  // Count harvestable farms
-  let harvestableFarms = 0;
+  // Food production now comes from manual harvesting
+  let farmFood = 0;
+  
+  // Check for mature farms and notify player
+  let matureFarms = 0;
   farms.forEach(farm => {
     const farmId = 'farm_' + farm.id;
     const cropData = S.farmCrops[farmId];
@@ -770,28 +774,13 @@ function tick() {
     if (cropData && cropData.mature && !cropData.harvested) {
       const cropType = CROP_DATA[cropData.crop];
       if (cropType && cropType.harvestSeasons.includes(S.season)) {
-        harvestableFarms++;
+        matureFarms++;
       }
     }
   });
-
-  // Calculate food production
-  const seasonData = SEASON_DATA[S.season];
-  const landPerFarm = S.totalLand / Math.max(1, farms.length);
-  const diminishingReturns = Math.pow(landPerFarm / 10, 0.6);
-
-  let farmFood = 0;
-  if (harvestableFarms > 0) {
-    const crop = CROP_DATA[S.cropType];
-    farmFood = harvestableFarms * 
-      2.0 *
-      (crop ? crop.yield : 1.0) *
-      S.tfp *
-      S.landQuality *
-      diminishingReturns *
-      (farmerPop / Math.max(1, S.pop)) *
-      S.workIntensity;
-  }
+  
+  // Store mature farm count for notifications
+  S.matureFarmsCount = matureFarms;
 
   // Weather & morale effects
   const w = weatherEffect(S.weatherNow);
@@ -926,6 +915,20 @@ function tick() {
     S.day = 1;
     S.year++;
     S.season = (S.season + 1) % 4;
+
+    // Season change notifications
+    if (S.season === 0) {
+      toast('🌱 SPRING! Plant barley and legumes', 4000);
+    } else if (S.season === 1) {
+      toast('☀️ SUMMER! Early harvest season', 4000);
+    } else if (S.season === 2) {
+      toast('🌾 AUTUMN! Main harvest season - reap your crops!', 4000);
+      if (S.matureFarmsCount > 0) {
+        setTimeout(() => toast(`⚠️ ${S.matureFarmsCount} farms ready to harvest!`, 5000), 1000);
+      }
+    } else if (S.season === 3) {
+      toast('❄️ WINTER! Survival mode - non-hardy crops will die', 4000);
+    }
     
     // Winter kills non-hardy crops
     if (S.season === 3) {
@@ -991,6 +994,11 @@ function tick() {
     checkContextualEvents();
   }
 
+  // Harvest reminders
+  if (S.day % 20 === 0 && S.matureFarmsCount > 0) {
+    toast(`🌾 ${S.matureFarmsCount} farm${S.matureFarmsCount > 1 ? 's' : ''} ready to harvest!`, 3000);
+  }
+
   const enclosureEffects = updateEnclosureSystem();
 
   const skillPenalty = updateLaborSkills();
@@ -1045,6 +1053,165 @@ function onBuildComplete(b) {
   }
   
   updateUI();
+}
+
+// ============================================
+// HARVEST SYSTEM
+// ============================================
+
+function harvestFarm(farmId) {
+  const cropData = S.farmCrops[farmId];
+  if (!cropData || !cropData.mature || cropData.harvested) {
+    toast('Nothing to harvest!');
+    return;
+  }
+  
+  const cropType = CROP_DATA[cropData.crop];
+  if (!cropType) return;
+  
+  // Calculate yield
+  const farms = S.builds.filter(b => b.type === 'farm' && b.done);
+  const farmerPop = Math.floor(S.pop * S.farmers);
+  const landPerFarm = S.totalLand / Math.max(1, farms.length);
+  const diminishingReturns = Math.pow(landPerFarm / 10, 0.6);
+  
+  let yield = 2.0 * cropType.yield * S.tfp * S.landQuality * diminishingReturns;
+  
+  // Apply bonuses
+  const moraleBonus = 1 + (S.morale - 0.5) * 0.2;
+  yield *= moraleBonus;
+  
+  if (S.landPolicy === 'enclosed') yield *= 1.15;
+  if (S.tech.manure) yield *= 1 + Math.min(S.livestock * 0.1, 0.5);
+  if (S.tech.seedSelection) yield *= 1.10;
+  if (S.tech.fertilizer) yield *= 1.15;
+  
+  const mills = S.builds.filter(b => b.type === 'mill' && b.done).length;
+  if (mills > 0) yield *= 1 + mills * 0.15;
+  
+  // Weather effect
+  const w = weatherEffect(S.weatherNow);
+  yield *= w.mult;
+  
+  // Spoilage
+  const spoilage = yield * w.spoil;
+  const netYield = yield - spoilage;
+  
+  // Feudal extraction
+  let finalYield = netYield;
+  if (S.landPolicy === 'commons') {
+    const lordTake = netYield * S.lordTithePct;
+    const churchTake = netYield * S.churchTithePct;
+    finalYield = netYield - lordTake - churchTake;
+  } else {
+    const rentTake = netYield * 0.50;
+    finalYield = netYield - rentTake;
+  }
+  
+  // Add to food stock
+  S.foodStock += finalYield;
+  cropData.harvested = true;
+  
+  // Clear the farm
+  delete S.farmCrops[farmId];
+  
+  playSound('harvest');
+  toast(`Harvested ${cropType.name}! +${Math.floor(finalYield)} food`, 3000);
+  
+  // Close modal and update UI
+  hideModal('farmInfoModal');
+  updateUI();
+  
+  return finalYield;
+}
+
+function openFarmInfo(buildId) {
+  const farmId = 'farm_' + buildId;
+  const cropData = S.farmCrops[farmId];
+  
+  const modal = el('farmInfoModal');
+  const title = el('farmInfoTitle');
+  const body = el('farmInfoBody');
+  const harvestBtn = el('farmInfoHarvest');
+  const plantBtn = el('farmInfoPlant');
+  
+  if (!modal || !title || !body) return;
+  
+  title.textContent = `Farm #${buildId}`;
+  
+  if (!cropData) {
+    // Empty farm
+    body.innerHTML = `
+      <div class="farm-status-empty">
+        <div class="status-icon">🟫</div>
+        <div class="status-text">Empty / Fallow</div>
+        <div class="status-detail">No crops planted</div>
+      </div>
+    `;
+    harvestBtn.style.display = 'none';
+    plantBtn.style.display = 'block';
+    plantBtn.onclick = () => {
+      hideModal('farmInfoModal');
+      openCropMenu(buildId);
+    };
+  } else {
+    const cropType = CROP_DATA[cropData.crop];
+    const daysLeft = cropType.growthDays - cropData.daysGrowing;
+    const canHarvest = cropData.mature && cropType.harvestSeasons.includes(S.season);
+    
+    let statusIcon = '🟢';
+    let statusText = 'Growing';
+    let statusDetail = `${daysLeft} days until mature`;
+    
+    if (cropData.mature) {
+      if (canHarvest) {
+        statusIcon = '🟡';
+        statusText = 'Ready to Harvest!';
+        statusDetail = 'Click harvest to collect your crops';
+      } else {
+        statusIcon = '⏳';
+        statusText = 'Mature (Wrong Season)';
+        const harvestSeasons = cropType.harvestSeasons.map(s => S.seasons[s]).join(', ');
+        statusDetail = `Harvest in: ${harvestSeasons}`;
+      }
+    }
+    
+    body.innerHTML = `
+      <div class="farm-status-info">
+        <div class="status-icon">${statusIcon}</div>
+        <div class="status-text">${statusText}</div>
+      </div>
+      <div class="farm-details">
+        <div class="detail-row">
+          <span class="detail-label">Crop:</span>
+          <span class="detail-value">${cropType.name} ${cropType.yield >= 1 ? '🌾' : '🫘'}</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Planted:</span>
+          <span class="detail-value">${S.seasons[cropData.plantedSeason]}, Year ${cropData.plantedYear}</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Age:</span>
+          <span class="detail-value">${cropData.daysGrowing} days</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Status:</span>
+          <span class="detail-value">${statusDetail}</span>
+        </div>
+      </div>
+    `;
+    
+    if (canHarvest) {
+      harvestBtn.style.display = 'block';
+      harvestBtn.onclick = () => harvestFarm(farmId);
+    } else {
+      harvestBtn.style.display = 'none';
+    }
+    
+    plantBtn.style.display = 'none';
+  }
+  
+  showModal('farmInfoModal');
 }
 
 // ============================================
@@ -1401,6 +1568,70 @@ function updateUI() {
   
   // Render
   renderGrid();
+
+  updateFarmList();
+}
+
+// ============================================
+// FARM LIST VIEW
+// ============================================
+
+function updateFarmList() {
+  const farmList = el('farmListContent');
+  if (!farmList) return;
+  
+  const farms = S.builds.filter(b => b.type === 'farm' && b.done);
+  
+  if (farms.length === 0) {
+    farmList.innerHTML = '<div class="stat-detail">No farms built yet</div>';
+    return;
+  }
+  
+  farmList.innerHTML = farms.map(farm => {
+    const farmId = 'farm_' + farm.id;
+    const cropData = S.farmCrops[farmId];
+    
+    let statusClass = 'farm-list-empty';
+    let statusIcon = '🟫';
+    let statusText = 'Empty';
+    let actionBtn = `<button class="btn-farm-action" onclick="openFarmInfo(${farm.id})">Plant</button>`;
+    
+    if (cropData) {
+      const cropType = CROP_DATA[cropData.crop];
+      const daysLeft = cropType.growthDays - cropData.daysGrowing;
+      
+      if (cropData.mature) {
+        const canHarvest = cropType.harvestSeasons.includes(S.season);
+        if (canHarvest) {
+          statusClass = 'farm-list-ready';
+          statusIcon = '🟡';
+          statusText = `${cropType.name} - READY!`;
+          actionBtn = `<button class="btn-farm-action harvest" onclick="openFarmInfo(${farm.id})">Harvest</button>`;
+        } else {
+          statusClass = 'farm-list-waiting';
+          statusIcon = '⏳';
+          statusText = `${cropType.name} - Waiting`;
+          actionBtn = `<button class="btn-farm-action" onclick="openFarmInfo(${farm.id})">View</button>`;
+        }
+      } else {
+        statusClass = 'farm-list-growing';
+        statusIcon = '🟢';
+        statusText = `${cropType.name} - ${daysLeft}d`;
+        actionBtn = `<button class="btn-farm-action" onclick="openFarmInfo(${farm.id})">View</button>`;
+      }
+    }
+    
+    return `
+      <div class="farm-list-item ${statusClass}">
+        <div class="farm-list-icon">${statusIcon}</div>
+        <div class="farm-list-info">
+          <div class="farm-list-name">Farm #${farm.id}</div>
+          <div class="farm-list-status">${statusText}</div>
+        </div>
+        ${actionBtn}
+      </div>
+    `;
+  }).join('');
 }
 
 function updateMeter(fillId, valueId, pct, value) {
@@ -1485,19 +1716,27 @@ function renderGrid() {
       
       icon.classList.remove('farm-empty', 'farm-wheat-growing', 'farm-wheat-mature', 
         'farm-rye-growing', 'farm-rye-mature', 'farm-barley-growing', 'farm-barley-mature',
-        'farm-legumes-growing', 'farm-legumes-mature');
+        'farm-legumes-growing', 'farm-legumes-mature', 'mature');
 
       if (!cropData) {
         icon.classList.add('farm-empty');
       } else {
         const stage = cropData.mature ? 'mature' : 'growing';
         icon.classList.add(`farm-${cropData.crop}-${stage}`);
+        
+        // Add pulsing effect for harvestable farms
+        if (cropData.mature) {
+          const cropType = CROP_DATA[cropData.crop];
+          if (cropType && cropType.harvestSeasons.includes(S.season)) {
+            icon.classList.add('mature');
+          }
+        }
       }
       
       icon.style.cursor = 'pointer';
       icon.onclick = (e) => {
         e.stopPropagation();
-        openCropMenu(b.id);
+        openFarmInfo(b.id);
       };
     }
   });

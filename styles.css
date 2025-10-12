@@ -650,6 +650,10 @@ input[type="range"]::-moz-range-thumb {
   background: repeating-linear-gradient(45deg, #166534 0 7px, #0e9f6e 7px 14px);
 }
 
+.icon.farm {
+  cursor: pointer !important;
+}
+
 .icon.house {
   background: linear-gradient(#6b7280, #374151);
 }
@@ -708,6 +712,22 @@ input[type="range"]::-moz-range-thumb {
 
 .farm-legumes-growing { background: repeating-linear-gradient(135deg, #059669 0 8px, #047857 8px 16px); }
 .farm-legumes-mature { background: repeating-linear-gradient(135deg, #34d399 0 8px, #10b981 8px 16px); }
+
+
+/* Mature farm pulse animation */
+@keyframes farmPulse {
+  0%, 100% {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6), 0 0 0 0 rgba(251, 191, 36, 0.7);
+  }
+  50% {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6), 0 0 20px 8px rgba(251, 191, 36, 0.3);
+  }
+}
+
+.icon.farm.mature {
+  animation: farmPulse 2s ease-in-out infinite;
+  border-color: #fbbf24;
+}
 
 /* Resource nodes */
 .node {
@@ -1250,6 +1270,202 @@ input[type="range"]::-moz-range-thumb {
     opacity: 1;
   }
 }
+
+/* ============================================
+   FARM INFO MODAL
+   ============================================ */
+
+.farm-modal {
+  max-width: 450px;
+}
+
+.farm-status-empty {
+  text-align: center;
+  padding: 30px 20px;
+}
+
+.farm-status-info {
+  text-align: center;
+  padding: 20px;
+  background: var(--bg-main);
+  border: 1px solid var(--border-main);
+  border-radius: 2px;
+  margin-bottom: 16px;
+}
+
+.status-icon {
+  font-size: 48px;
+  margin-bottom: 8px;
+}
+
+.status-text {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.status-detail {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.farm-details {
+  background: var(--bg-main);
+  border: 1px solid var(--border-main);
+  border-radius: 2px;
+  padding: 12px;
+}
+
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 0;
+  font-size: 11px;
+  border-bottom: 1px solid var(--border-main);
+}
+
+.detail-row:last-child {
+  border-bottom: none;
+}
+
+.detail-label {
+  color: var(--text-secondary);
+}
+
+.detail-value {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.farm-actions {
+  margin-top: 16px;
+  display: flex;
+  gap: 8px;
+}
+
+.farm-actions button {
+  flex: 1;
+}
+
+
+/* ============================================
+   FARM LIST
+   ============================================ */
+
+.farm-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.farm-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.farm-list::-webkit-scrollbar-thumb {
+  background: var(--border-accent);
+  border-radius: 2px;
+}
+
+.farm-list-item {
+  background: var(--bg-main);
+  border: 1px solid var(--border-main);
+  border-radius: 2px;
+  padding: 8px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  transition: all 0.15s;
+}
+
+.farm-list-item:hover {
+  background: var(--bg-panel-hover);
+  border-color: var(--border-accent);
+}
+
+.farm-list-item.farm-list-ready {
+  border-color: var(--accent-gold);
+  background: rgba(197, 160, 95, 0.08);
+  animation: farmListPulse 2s ease-in-out infinite;
+}
+
+@keyframes farmListPulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 12px 2px rgba(251, 191, 36, 0.2);
+  }
+}
+
+.farm-list-item.farm-list-growing {
+  border-left: 3px solid var(--accent-green);
+}
+
+.farm-list-item.farm-list-waiting {
+  border-left: 3px solid var(--accent-blue);
+}
+
+.farm-list-item.farm-list-empty {
+  opacity: 0.6;
+}
+
+.farm-list-icon {
+  font-size: 20px;
+  width: 28px;
+  text-align: center;
+}
+
+.farm-list-info {
+  flex: 1;
+}
+
+.farm-list-name {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.farm-list-status {
+  font-size: 10px;
+  color: var(--text-secondary);
+}
+
+.btn-farm-action {
+  background: var(--accent-primary);
+  border: none;
+  color: var(--bg-main);
+  padding: 4px 12px;
+  border-radius: 2px;
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.btn-farm-action:hover {
+  background: var(--accent-blue);
+}
+
+.btn-farm-action.harvest {
+  background: var(--accent-gold);
+  animation: harvestBtnPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes harvestBtnPulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+
 
 /* ============================================
    RESPONSIVE
