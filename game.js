@@ -621,6 +621,14 @@ const DISASTERS = [
   }
 ];
 
+function startTick() {
+  if (tickInterval) clearInterval(tickInterval);
+  const sel = el('speedSelect');
+  const ms = sel ? parseInt(sel.value, 10) : 2000; // 1x fallback
+  tickInterval = setInterval(tick, ms);
+}
+
+
 // ============================================
 // INITIALIZATION
 // ============================================
@@ -1237,27 +1245,27 @@ function harvestFarm(farmId) {
   
   // BASE YIELD - now affected by farmer allocation!
   const farmerEffect = 0.5 + (S.farmers * 1.0); // 50% at 0%, 150% at 100%
-  let yield = 40.0 * cropType.yield * S.tfp * S.landQuality * diminishingReturns * farmerEffect;
+  let harvYield = 40.0 * cropType.yield * S.tfp * S.landQuality * diminishingReturns * farmerEffect;
   
   // Apply bonuses
   const moraleBonus = 1 + (S.morale - 0.5) * 0.2;
-  yield *= moraleBonus;
+  harvYield *= moraleBonus;
   
-  if (S.landPolicy === 'enclosed') yield *= 1.15;
-  if (S.tech.manure) yield *= 1 + Math.min(S.livestock * 0.1, 0.5);
-  if (S.tech.seedSelection) yield *= 1.10;
-  if (S.tech.fertilizer) yield *= 1.15;
+  if (S.landPolicy === 'enclosed') harvYield *= 1.15;
+  if (S.tech.manure) harvYield *= 1 + Math.min(S.livestock * 0.1, 0.5);
+  if (S.tech.seedSelection) harvYield *= 1.10;
+  if (S.tech.fertilizer) harvYield *= 1.15;
   
   const mills = S.builds.filter(b => b.type === 'mill' && b.done).length;
-  if (mills > 0) yield *= 1 + mills * 0.15;
+  if (mills > 0) harvYield *= 1 + mills * 0.15;
   
   // Weather effect
   const w = weatherEffect(S.weatherNow);
-  yield *= w.mult;
+  harvYield *= w.mult;
   
   // Spoilage
-  const spoilage = yield * w.spoil;
-  const netYield = yield - spoilage;
+  const spoilage = harvYield * w.spoil;
+  const netYield = harvYield - spoilage;
   
   // Feudal extraction
   let finalYield = netYield;
@@ -1270,11 +1278,10 @@ function harvestFarm(farmId) {
     finalYield = netYield - rentTake;
   }
   
-  // ===== NEW: Check storage capacity before adding =====
+  // Storage capacity check
   if (S.foodStock + finalYield > S.foodCapacity) {
     const canStore = Math.max(0, S.foodCapacity - S.foodStock);
     const overflow = finalYield - canStore;
-    
     if (overflow > 0) {
       toast(`⚠️ Storage full! Lost ${Math.floor(overflow)} food. Build Granary or House!`, 6000);
       playSound('bad');
@@ -1282,16 +1289,12 @@ function harvestFarm(farmId) {
     }
   }
   
-  // Add to food stock
   S.foodStock += finalYield;
   cropData.harvested = true;
-  
-  // Clear the farm
   delete S.farmCrops[farmId];
   
   playSound('harvest');
   
-  // Bonus feedback for good harvests
   if (finalYield > 15) {
     toast(`🌟 ABUNDANT HARVEST! +${Math.floor(finalYield)} food from ${cropType.name}!`, 4000);
     S.morale = Math.min(1, S.morale + 0.05);
@@ -1301,101 +1304,11 @@ function harvestFarm(farmId) {
     toast(`Harvested ${cropType.name}: +${Math.floor(finalYield)} food`, 3000);
   }
   
-  // Close modal and update UI
   hideModal('farmInfoModal');
   updateUI();
-  
   return finalYield;
 }
 
-function openFarmInfo(buildId) {
-  const farmId = 'farm_' + buildId;
-  const cropData = S.farmCrops[farmId];
-  
-  const modal = el('farmInfoModal');
-  const title = el('farmInfoTitle');
-  const body = el('farmInfoBody');
-  const harvestBtn = el('farmInfoHarvest');
-  const plantBtn = el('farmInfoPlant');
-  
-  if (!modal || !title || !body) return;
-  
-  title.textContent = `Farm #${buildId}`;
-  
-  if (!cropData) {
-    // Empty farm
-    body.innerHTML = `
-      <div class="farm-status-empty">
-        <div class="status-icon">🟫</div>
-        <div class="status-text">Empty / Fallow</div>
-        <div class="status-detail">No crops planted</div>
-      </div>
-    `;
-    harvestBtn.style.display = 'none';
-    plantBtn.style.display = 'block';
-    plantBtn.onclick = () => {
-      hideModal('farmInfoModal');
-      openCropMenu(buildId);
-    };
-  } else {
-    const cropType = CROP_DATA[cropData.crop];
-    const daysLeft = cropType.growthDays - cropData.daysGrowing;
-    const canHarvest = cropData.mature && cropType.harvestSeasons.includes(S.season);
-    
-    let statusIcon = '🟢';
-    let statusText = 'Growing';
-    let statusDetail = `${daysLeft} days until mature`;
-    
-    if (cropData.mature) {
-      if (canHarvest) {
-        statusIcon = '🟡';
-        statusText = 'Ready to Harvest!';
-        statusDetail = 'Click harvest to collect your crops';
-      } else {
-        statusIcon = '⏳';
-        statusText = 'Mature (Wrong Season)';
-        const harvestSeasons = cropType.harvestSeasons.map(s => S.seasons[s]).join(', ');
-        statusDetail = `Harvest in: ${harvestSeasons}`;
-      }
-    }
-    
-    body.innerHTML = `
-      <div class="farm-status-info">
-        <div class="status-icon">${statusIcon}</div>
-        <div class="status-text">${statusText}</div>
-      </div>
-      <div class="farm-details">
-        <div class="detail-row">
-          <span class="detail-label">Crop:</span>
-          <span class="detail-value">${cropType.name} ${cropType.yield >= 1 ? '🌾' : '🫘'}</span>
-        </div>
-        <div class="detail-row">
-          <span class="detail-label">Planted:</span>
-          <span class="detail-value">${S.seasons[cropData.plantedSeason]}, Year ${cropData.plantedYear}</span>
-        </div>
-        <div class="detail-row">
-          <span class="detail-label">Age:</span>
-          <span class="detail-value">${cropData.daysGrowing} days</span>
-        </div>
-        <div class="detail-row">
-          <span class="detail-label">Status:</span>
-          <span class="detail-value">${statusDetail}</span>
-        </div>
-      </div>
-    `;
-    
-    if (canHarvest) {
-      harvestBtn.style.display = 'block';
-      harvestBtn.onclick = () => harvestFarm(farmId);
-    } else {
-      harvestBtn.style.display = 'none';
-    }
-    
-    plantBtn.style.display = 'none';
-  }
-  
-  showModal('farmInfoModal');
-}
 
 // ============================================
 // WEATHER SYSTEM
@@ -1835,7 +1748,7 @@ function updateUI() {
   const wagePct = Math.min(100, (S.realWage / 2) * 100);
   updateMeter('wageFill', 'wageValue', wagePct, S.realWage.toFixed(2));
   
-  const needPerDay = S.pop * 0.10;
+  const needPerDay = S.pop * 0.05;
   const daysOfFood = S.foodStock / needPerDay;
   const foodPct = Math.min(100, (daysOfFood / 180) * 100);
   updateMeter('foodFill', 'foodDays', foodPct, Math.floor(daysOfFood) + 'd');
@@ -2409,9 +2322,9 @@ function sendFarmerToHarvest(farmBuild) {
     farmId: farmId,
     workRequired: 3.0,
     onComplete: (v) => {
-      const yield = harvestFarm(farmId);
-      if (yield && yield > 0) {
-        toast(`Farmer harvested: +${Math.floor(yield)} food`, 2000);
+      const harvested = harvestFarm(farmId);
+      if (harvested && harvested > 0) {
+        toast(`Farmer harvested: +${Math.floor(harvested)} food`, 2000);
       }
     }
   });
@@ -2720,6 +2633,13 @@ function setupEventListeners() {
       toast(isPaused ? 'Paused' : 'Resumed');
     });
   }
+
+  document.addEventListener('pointerdown', () => {
+    if (audioCtx && audioCtx.state === 'suspended') {
+      audioCtx.resume().catch(() => {});
+    }
+  }, { once: true });
+
 
   // Speed control
   const speedSelect = el('speedSelect');
