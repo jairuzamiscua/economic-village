@@ -724,29 +724,24 @@ function tick() {
   const farms = S.builds.filter(b => b.type === 'farm' && b.done);
   const mills = S.builds.filter(b => b.type === 'mill' && b.done).length;
 
-  // Gathering jobs
-  if (S.gatherJobs && S.gatherJobs.length > 0) {
-    const job = S.gatherJobs[0];
-    job.progress += gathererPop * 0.05 * S.workIntensity;
-    
-    if (job.progress >= job.required) {
-      const gain = job.type === 'tree' ? 4 : 5;
-      S.materials += gain;
-      playSound('harvest');
-      toast(`+${gain} materials from ${job.type}`);
-      
-      const node = S.nodes.find(n => n.id === job.nodeId);
-      if (node) {
-        S.nodeRegenQueue.push({
-          ...node,
-          regenTime: S.year + 5
-        });
-        S.nodes = S.nodes.filter(n => n.id !== job.nodeId);
-      }
-      
-      S.gatherJobs.shift();
-    }
+    // Update villagers
+  updateVillagers();
+  
+  // Auto-send farmers to crops every few ticks
+  if (S.day % 5 === 0) {
+    autoSendFarmersToCrops();
   }
+  
+  // Auto-send builders to construction
+  if (S.day % 3 === 0 && Math.random() < 0.3) {
+    sendBuilderToConstruction();
+  }
+
+  // Gathering jobs - now handled by villager system
+  if (S.gatherJobs && S.gatherJobs.length > 0) {
+    S.gatherJobs = S.gatherJobs.filter(j => !j.complete);
+  }
+  
   // Crop lifecycle & auto-replanting
   farms.forEach((farm) => {
     if (!farm.done) return;
@@ -1354,6 +1349,187 @@ function checkMilestones() {
 }
 
 // ============================================
+// ENHANCED VILLAGER SYSTEM
+// ============================================
+
+const VILLAGER_TYPES = {
+  farmer: { 
+    icon: '🌾', 
+    speed: 1.2,
+    tasks: ['farm_tend', 'farm_plant', 'farm_harvest']
+  },
+  builder: { 
+    icon: '🔨', 
+    speed: 1.0,
+    tasks: ['construct']
+  },
+  gatherer: { 
+    icon: '🪵', 
+    speed: 1.5,
+    tasks: ['gather_tree', 'gather_rock']
+  },
+  herder: { 
+    icon: '🐄', 
+    speed: 1.1,
+    tasks: ['tend_livestock']
+  }
+};
+
+function spawnVillager(type, startX, startY, targetX, targetY, task) {
+  const ground = el('ground');
+  if (!ground) return null;
+  
+  const villager = document.createElement('div');
+  villager.className = `villager ${type} walking`;
+  villager.style.left = startX + 'px';
+  villager.style.top = startY + 'px';
+  
+  const typeData = VILLAGER_TYPES[type];
+  
+  villager.innerHTML = `
+    <div class="villager-head"></div>
+    <div class="villager-body"></div>
+    <div class="villager-legs">
+      <div class="villager-leg"></div>
+      <div class="villager-leg"></div>
+    </div>
+    <div class="villager-carrying"></div>
+    <div class="villager-progress">
+      <div class="villager-progress-bar"></div>
+    </div>
+    <div class="villager-icon">${typeData.icon}</div>
+  `;
+  
+  ground.appendChild(villager);
+  
+  const villagerId = 'villager_' + Date.now() + Math.random();
+  const villagerData = {
+    id: villagerId,
+    type,
+    element: villager,
+    startX,
+    startY,
+    targetX,
+    targetY,
+    currentX: startX,
+    currentY: startY,
+    speed: typeData.speed,
+    task,
+    state: 'walking_to',
+    workProgress: 0,
+    workRequired: task.workRequired || 1.0
+  };
+  
+  if (!S.villagers) S.villagers = [];
+  S.villagers.push(villagerData);
+  
+  return villagerData;
+}
+
+function updateVillagers() {
+  if (!S.villagers) return;
+  
+  for (let i = S.villagers.length - 1; i >= 0; i--) {
+    const v = S.villagers[i];
+    
+    if (v.state === 'walking_to') {
+      const dx = v.targetX - v.currentX;
+      const dy = v.targetY - v.currentY;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      
+      if (dist < v.speed * 2) {
+        v.currentX = v.targetX;
+        v.currentY = v.targetY;
+        v.state = 'working';
+        v.element.classList.remove('walking');
+        v.element.classList.add('working');
+        
+        if (v.task && v.task.onArrival) {
+          v.task.onArrival();
+        }
+      } else {
+        v.currentX += (dx / dist) * v.speed;
+        v.currentY += (dy / dist) * v.speed;
+      }
+      
+      v.element.style.left = v.currentX + 'px';
+      v.element.style.top = v.currentY + 'px';
+      
+    } else if (v.state === 'working') {
+      // Work progress
+      v.workProgress += 0.015 * S.workIntensity;
+      
+      const progressBar = v.element.querySelector('.villager-progress-bar');
+      if (progressBar) {
+        progressBar.style.width = Math.min(100, (v.workProgress / v.workRequired) * 100) + '%';
+      }
+      
+      if (v.workProgress >= v.workRequired) {
+        v.state = 'walking_back';
+        v.element.classList.remove('working');
+        v.element.classList.add('walking', 'carrying');
+        
+        if (v.task && v.task.onComplete) {
+          v.task.onComplete(v);
+        }
+        
+        playSound('harvest');
+      }
+      
+    } else if (v.state === 'walking_back') {
+      const dx = v.startX - v.currentX;
+      const dy = v.startY - v.currentY;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      
+      if (dist < v.speed * 2) {
+        if (v.task && v.task.onReturn) {
+          v.task.onReturn(v);
+        }
+        v.element.remove();
+        S.villagers.splice(i, 1);
+      } else {
+        v.currentX += (dx / dist) * v.speed;
+        v.currentY += (dy / dist) * v.speed;
+        v.element.style.left = v.currentX + 'px';
+        v.element.style.top = v.currentY + 'px';
+      }
+    }
+  }
+}
+
+function findNearestHouse(targetX, targetY) {
+  const houses = S.builds.filter(b => b.type === 'house' && b.done);
+  if (houses.length === 0) return { x: 200, y: 40 };
+  
+  let nearest = houses[0];
+  let minDist = Infinity;
+  
+  houses.forEach(h => {
+    const dx = h.x + 32 - targetX;
+    const dy = h.y + 32 - targetY;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist < minDist) {
+      minDist = dist;
+      nearest = h;
+    }
+  });
+  
+  return { x: nearest.x + 32, y: nearest.y + 32 };
+}
+
+function canSpawnVillager(type, count = 1) {
+  const activeOfType = S.villagers ? S.villagers.filter(v => v.type === type).length : 0;
+  const maxForType = {
+    farmer: Math.floor(S.pop * S.farmers),
+    builder: Math.floor(S.pop * S.builders),
+    gatherer: Math.floor(S.pop * S.gatherers),
+    herder: Math.floor(S.pop * S.herders)
+  };
+  
+  return activeOfType + count <= maxForType[type];
+}
+
+// ============================================
 // VICTORY
 // ============================================
 
@@ -1900,24 +2076,191 @@ function harvestNode(n) {
     return;
   }
   
+  // Check if already being gathered
   if (S.gatherJobs && S.gatherJobs.find(j => j.nodeId === n.id)) {
     toast('Already gathering this resource');
     return;
   }
   
+  // Check villager capacity
+  if (!canSpawnVillager('gatherer')) {
+    toast('All gatherers are busy!');
+    return;
+  }
+  
   if (!S.gatherJobs) S.gatherJobs = [];
   
-  S.gatherJobs.push({
+  const house = findNearestHouse(n.x, n.y);
+  const taskType = n.type === 'tree' ? 'gather_tree' : 'gather_rock';
+  
+  const job = {
     id: Date.now() + Math.random(),
     nodeId: n.id,
-    progress: 0,
-    required: n.type === 'tree' ? 8 : 6,
-    type: n.type
+    type: n.type,
+    started: false,
+    complete: false
+  };
+  
+  S.gatherJobs.push(job);
+  
+  const villager = spawnVillager('gatherer', house.x, house.y, n.x + 21, n.y + 21, {
+    jobId: job.id,
+    taskType,
+    workRequired: n.type === 'tree' ? 3.0 : 2.5,
+    onArrival: () => {
+      job.started = true;
+    },
+    onComplete: (v) => {
+      job.complete = true;
+      const gain = n.type === 'tree' ? 4 : 5;
+      toast(`+${gain} materials from ${n.type}`);
+    },
+    onReturn: (v) => {
+      const gain = n.type === 'tree' ? 4 : 5;
+      S.materials += gain;
+      
+      const node = S.nodes.find(nd => nd.id === n.id);
+      if (node) {
+        S.nodeRegenQueue.push({
+          ...node,
+          regenTime: S.year + 5
+        });
+        S.nodes = S.nodes.filter(nd => nd.id !== n.id);
+      }
+      
+      const jobIndex = S.gatherJobs.findIndex(j => j.nodeId === n.id);
+      if (jobIndex !== -1) {
+        S.gatherJobs.splice(jobIndex, 1);
+      }
+    }
   });
   
+  if (villager) {
+    job.villagerId = villager.id;
+  }
+  
   playSound('click');
-  toast(`Gathering ${n.type}...`);
+  toast(`Gatherer heading to ${n.type}...`);
   updateUI();
+}
+
+// ============================================
+// FARM TENDING SYSTEM
+// ============================================
+
+function sendFarmerToTendCrop(farmBuild) {
+  if (!canSpawnVillager('farmer')) {
+    return; // Silently fail - all farmers busy
+  }
+  
+  const house = findNearestHouse(farmBuild.x, farmBuild.y);
+  const farmId = 'farm_' + farmBuild.id;
+  const cropData = S.farmCrops[farmId];
+  
+  if (!cropData || cropData.mature) return; // Only tend growing crops
+  
+  spawnVillager('farmer', house.x, house.y, farmBuild.x + 32, farmBuild.y + 32, {
+    taskType: 'farm_tend',
+    farmId: farmId,
+    workRequired: 2.0,
+    onComplete: (v) => {
+      // Tending speeds up growth slightly
+      if (S.farmCrops[farmId]) {
+        S.farmCrops[farmId].daysGrowing += 2;
+        toast('Crop tended! Growth accelerated', 2000);
+      }
+    }
+  });
+}
+
+function autoSendFarmersToCrops() {
+  if (S.farmers < 0.1) return; // Need at least 10% farmers
+  
+  const farms = S.builds.filter(b => b.type === 'farm' && b.done);
+  const growingFarms = farms.filter(f => {
+    const farmId = 'farm_' + f.id;
+    const cropData = S.farmCrops[farmId];
+    return cropData && !cropData.mature && !cropData.harvested;
+  });
+  
+  // Send farmers to tend growing crops periodically
+  if (growingFarms.length > 0 && Math.random() < 0.15) {
+    const randomFarm = growingFarms[Math.floor(Math.random() * growingFarms.length)];
+    sendFarmerToTendCrop(randomFarm);
+  }
+  
+  // Auto-harvest mature crops in season
+  const matureFarms = farms.filter(f => {
+    const farmId = 'farm_' + f.id;
+    const cropData = S.farmCrops[farmId];
+    if (!cropData || !cropData.mature || cropData.harvested) return false;
+    const cropType = CROP_DATA[cropData.crop];
+    return cropType && cropType.harvestSeasons.includes(S.season);
+  });
+  
+  if (matureFarms.length > 0 && Math.random() < 0.2) {
+    const farm = matureFarms[Math.floor(Math.random() * matureFarms.length)];
+    sendFarmerToHarvest(farm);
+  }
+}
+
+function sendFarmerToHarvest(farmBuild) {
+  if (!canSpawnVillager('farmer')) {
+    return;
+  }
+  
+  const house = findNearestHouse(farmBuild.x, farmBuild.y);
+  const farmId = 'farm_' + farmBuild.id;
+  
+  spawnVillager('farmer', house.x, house.y, farmBuild.x + 32, farmBuild.y + 32, {
+    taskType: 'farm_harvest',
+    farmId: farmId,
+    workRequired: 3.0,
+    onComplete: (v) => {
+      const yield = harvestFarm(farmId);
+      if (yield && yield > 0) {
+        toast(`Farmer harvested: +${Math.floor(yield)} food`, 2000);
+      }
+    }
+  });
+}
+
+// ============================================
+// BUILDER VILLAGER SYSTEM
+// ============================================
+
+function sendBuilderToConstruction() {
+  if (!canSpawnVillager('builder', 2)) return; // Need capacity for 2
+  
+  const inProgress = S.builds.filter(b => !b.done);
+  if (inProgress.length === 0) return;
+  
+  // Pick random construction site
+  const site = inProgress[Math.floor(Math.random() * inProgress.length)];
+  const house = findNearestHouse(site.x, site.y);
+  
+  // Send 1-2 builders
+  const numBuilders = Math.random() < 0.6 ? 1 : 2;
+  
+  for (let i = 0; i < numBuilders; i++) {
+    if (!canSpawnVillager('builder')) break;
+    
+    setTimeout(() => {
+      spawnVillager('builder', house.x, house.y, site.x + 32, site.y + 32, {
+        taskType: 'construct',
+        buildId: site.id,
+        workRequired: 2.5,
+        onComplete: (v) => {
+          // Builders contribute extra progress
+          const building = S.builds.find(b => b.id === site.id);
+          if (building && !building.done) {
+            building.progress += 0.5;
+            toast('Builder contributing...', 1500);
+          }
+        }
+      });
+    }, i * 300); // Stagger spawns
+  }
 }
 
 // ============================================

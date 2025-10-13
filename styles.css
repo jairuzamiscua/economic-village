@@ -792,6 +792,159 @@ input[type="range"]::-moz-range-thumb {
 }
 
 /* ============================================
+   VILLAGERS - ENHANCED
+   ============================================ */
+
+.villager {
+  position: absolute;
+  width: 24px;
+  height: 32px;
+  z-index: 50;
+  transition: none;
+  pointer-events: none;
+}
+
+.villager-body {
+  position: absolute;
+  width: 16px;
+  height: 20px;
+  left: 4px;
+  top: 8px;
+  border-radius: 2px;
+  border: 1px solid rgba(0, 0, 0, 0.3);
+}
+
+/* Villager type colors */
+.villager.farmer .villager-body {
+  background: linear-gradient(180deg, #6b9e78, #4a7a59);
+}
+
+.villager.builder .villager-body {
+  background: linear-gradient(180deg, #7c9cbf, #5b7a9f);
+}
+
+.villager.gatherer .villager-body {
+  background: linear-gradient(180deg, #c5a05f, #a58348);
+}
+
+.villager.herder .villager-body {
+  background: linear-gradient(180deg, #a16207, #7e4c05);
+}
+
+.villager-head {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  left: 6px;
+  top: 0px;
+  background: radial-gradient(circle at 30% 30%, #f4a582, #d08b6b);
+  border-radius: 50%;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+}
+
+.villager-legs {
+  position: absolute;
+  width: 12px;
+  height: 6px;
+  left: 6px;
+  top: 26px;
+  display: flex;
+  gap: 2px;
+}
+
+.villager-leg {
+  width: 4px;
+  height: 6px;
+  background: #4a3f35;
+  border-radius: 1px;
+}
+
+.villager.walking .villager-leg:first-child {
+  animation: walkLeft 0.4s ease-in-out infinite;
+}
+
+.villager.walking .villager-leg:last-child {
+  animation: walkRight 0.4s ease-in-out infinite;
+}
+
+@keyframes walkLeft {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-2px); }
+}
+
+@keyframes walkRight {
+  0%, 100% { transform: translateY(-2px); }
+  50% { transform: translateY(0); }
+}
+
+.villager-carrying {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  left: 14px;
+  top: 12px;
+  background: var(--accent-gold);
+  border-radius: 1px;
+  border: 1px solid rgba(0, 0, 0, 0.3);
+  display: none;
+}
+
+.villager.carrying .villager-carrying {
+  display: block;
+  animation: bobCarry 0.3s ease-in-out infinite;
+}
+
+@keyframes bobCarry {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-1px); }
+}
+
+/* Work progress indicator */
+.villager-progress {
+  position: absolute;
+  top: -8px;
+  left: 0;
+  width: 24px;
+  height: 4px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 2px;
+  overflow: hidden;
+  display: none;
+}
+
+.villager.working .villager-progress {
+  display: block;
+}
+
+.villager-progress-bar {
+  height: 100%;
+  width: 0%;
+  background: var(--accent-primary);
+  transition: width 0.1s;
+}
+
+.villager.farmer .villager-progress-bar {
+  background: #6b9e78;
+}
+
+.villager.builder .villager-progress-bar {
+  background: #7c9cbf;
+}
+
+.villager.gatherer .villager-progress-bar {
+  background: #c5a05f;
+}
+
+/* Type icon badge */
+.villager-icon {
+  position: absolute;
+  top: -16px;
+  left: 8px;
+  font-size: 10px;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+}
+
+/* ============================================
    TABS
    ============================================ */
 
