@@ -1223,6 +1223,36 @@ function onBuildComplete(b) {
   updateUI();
 }
 
+// Minimal, no-UI version: click = harvest if ready, else open crop picker
+function openFarmInfo(buildId) {
+  const farmId = 'farm_' + buildId;
+  const crop = S.farmCrops[farmId];
+
+  // No crop planted -> open the plant selector
+  if (!crop) {
+    openCropMenu(buildId);
+    return;
+  }
+
+  const ctype = CROP_DATA[crop.crop];
+  const inSeason = ctype && ctype.harvestSeasons.includes(S.season);
+
+  // Mature & in season -> harvest immediately
+  if (crop.mature && inSeason && !crop.harvested) {
+    harvestFarm(farmId);
+    return;
+  }
+
+  // Otherwise just tell the player what's up
+  if (!crop.mature) {
+    const daysLeft = Math.max(0, (ctype?.growthDays || 0) - (crop.daysGrowing || 0));
+    toast(`${ctype?.name || 'Crop'} still growing (${daysLeft}d left)`);
+  } else {
+    toast(`${ctype?.name || 'Crop'} is mature but not in season to harvest`);
+  }
+}
+
+
 // ============================================
 // HARVEST SYSTEM
 // ============================================
@@ -1927,30 +1957,32 @@ function updateFarmList() {
     let statusClass = 'farm-list-empty';
     let statusIcon = '🟫';
     let statusText = 'Empty';
-    let actionBtn = `<button class="btn-farm-action" onclick="openFarmInfo(${farm.id})">Plant</button>`;
+    // 🔧 Quote the id so string ids like "start_farm_0" work
+    let actionBtn = `<button class="btn-farm-action" onclick="openFarmInfo('${farm.id}')">Plant</button>`;
     
     if (cropData) {
       const cropType = CROP_DATA[cropData.crop];
-      const daysLeft = cropType.growthDays - cropData.daysGrowing;
+      const growthDays = cropType?.growthDays ?? 0;
+      const daysLeft = Math.max(0, growthDays - (cropData.daysGrowing ?? 0));
       
       if (cropData.mature) {
-        const canHarvest = cropType.harvestSeasons.includes(S.season);
+        const canHarvest = cropType && cropType.harvestSeasons.includes(S.season);
         if (canHarvest) {
           statusClass = 'farm-list-ready';
           statusIcon = '🟡';
           statusText = `${cropType.name} - READY!`;
-          actionBtn = `<button class="btn-farm-action harvest" onclick="openFarmInfo(${farm.id})">Harvest</button>`;
+          actionBtn = `<button class="btn-farm-action harvest" onclick="openFarmInfo('${farm.id}')">Harvest</button>`;
         } else {
           statusClass = 'farm-list-waiting';
           statusIcon = '⏳';
-          statusText = `${cropType.name} - Waiting`;
-          actionBtn = `<button class="btn-farm-action" onclick="openFarmInfo(${farm.id})">View</button>`;
+          statusText = `${cropType ? cropType.name : 'Crop'} - Waiting`;
+          actionBtn = `<button class="btn-farm-action" onclick="openFarmInfo('${farm.id}')">View</button>`;
         }
       } else {
         statusClass = 'farm-list-growing';
         statusIcon = '🟢';
-        statusText = `${cropType.name} - ${daysLeft}d`;
-        actionBtn = `<button class="btn-farm-action" onclick="openFarmInfo(${farm.id})">View</button>`;
+        statusText = `${cropType ? cropType.name : 'Crop'} - ${daysLeft}d`;
+        actionBtn = `<button class="btn-farm-action" onclick="openFarmInfo('${farm.id}')">View</button>`;
       }
     }
     
@@ -1966,6 +1998,7 @@ function updateFarmList() {
     `;
   }).join('');
 }
+
 
 function updateMeter(fillId, valueId, pct, value) {
   const fill = el(fillId);
@@ -2025,9 +2058,6 @@ function renderGrid() {
       icon.style.top = b.y + 'px';
       ground.appendChild(icon);
     }
-
-    icon.style.pointerEvents = 'auto';
-    icon.style.zIndex = '2';
 
     if (!b.done) {
       icon.className = 'icon ' + BUILDS[b.type].icon + ' site';
