@@ -1440,6 +1440,42 @@ function startVillagerAnimation() {
   animate();
 }
 
+// ============================================
+// VILLAGER HELPER FUNCTIONS
+// ============================================
+
+function findNearestHouse(targetX, targetY) {
+  const houses = S.builds.filter(b => b.type === 'house' && b.done);
+  if (houses.length === 0) return { x: 200, y: 40 };
+  
+  let nearest = houses[0];
+  let minDist = Infinity;
+  
+  houses.forEach(h => {
+    const dx = h.x + 32 - targetX;
+    const dy = h.y + 32 - targetY;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist < minDist) {
+      minDist = dist;
+      nearest = h;
+    }
+  });
+  
+  return { x: nearest.x + 32, y: nearest.y + 32 };
+}
+
+function canSpawnVillager(type, count = 1) {
+  const activeOfType = S.villagers ? S.villagers.filter(v => v.type === type).length : 0;
+  const maxForType = {
+    farmer: Math.floor(S.pop * S.farmers),
+    builder: Math.floor(S.pop * S.builders),
+    gatherer: Math.floor(S.pop * S.gatherers),
+    herder: Math.floor(S.pop * S.herders)
+  };
+  
+  return activeOfType + count <= maxForType[type];
+}
+
 function updateVillagersAnimation() {
   if (!S.villagers || S.villagers.length === 0) {
     if (villagerAnimationFrame) {
