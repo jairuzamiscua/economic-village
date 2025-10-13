@@ -724,9 +724,6 @@ function tick() {
   const farms = S.builds.filter(b => b.type === 'farm' && b.done);
   const mills = S.builds.filter(b => b.type === 'mill' && b.done).length;
 
-    // Update villagers
-  updateVillagers();
-  
   // Auto-send farmers to crops every few ticks
   if (S.day % 5 === 0) {
     autoSendFarmersToCrops();
@@ -1349,31 +1346,33 @@ function checkMilestones() {
 }
 
 // ============================================
-// ENHANCED VILLAGER SYSTEM
+// ENHANCED VILLAGER SYSTEM WITH SMOOTH ANIMATION
 // ============================================
 
 const VILLAGER_TYPES = {
   farmer: { 
     icon: '🌾', 
-    speed: 1.2,
+    speed: 2.5,  // Increased from 1.2
     tasks: ['farm_tend', 'farm_plant', 'farm_harvest']
   },
   builder: { 
     icon: '🔨', 
-    speed: 1.0,
+    speed: 2.0,  // Increased from 1.0
     tasks: ['construct']
   },
   gatherer: { 
     icon: '🪵', 
-    speed: 1.5,
+    speed: 3.0,  // Increased from 1.5
     tasks: ['gather_tree', 'gather_rock']
   },
   herder: { 
     icon: '🐄', 
-    speed: 1.1,
+    speed: 2.2,  // Increased from 1.1
     tasks: ['tend_livestock']
   }
 };
+
+let villagerAnimationFrame = null;
 
 function spawnVillager(type, startX, startY, targetX, targetY, task) {
   const ground = el('ground');
@@ -1423,11 +1422,32 @@ function spawnVillager(type, startX, startY, targetX, targetY, task) {
   if (!S.villagers) S.villagers = [];
   S.villagers.push(villagerData);
   
+  // Start animation loop if not already running
+  if (!villagerAnimationFrame && S.villagers.length > 0) {
+    startVillagerAnimation();
+  }
+  
   return villagerData;
 }
 
-function updateVillagers() {
-  if (!S.villagers) return;
+function startVillagerAnimation() {
+  function animate() {
+    if (!isPaused) {
+      updateVillagersAnimation();
+    }
+    villagerAnimationFrame = requestAnimationFrame(animate);
+  }
+  animate();
+}
+
+function updateVillagersAnimation() {
+  if (!S.villagers || S.villagers.length === 0) {
+    if (villagerAnimationFrame) {
+      cancelAnimationFrame(villagerAnimationFrame);
+      villagerAnimationFrame = null;
+    }
+    return;
+  }
   
   for (let i = S.villagers.length - 1; i >= 0; i--) {
     const v = S.villagers[i];
@@ -1456,8 +1476,8 @@ function updateVillagers() {
       v.element.style.top = v.currentY + 'px';
       
     } else if (v.state === 'working') {
-      // Work progress
-      v.workProgress += 0.015 * S.workIntensity;
+      // Work progress - slower rate since this runs at 60fps
+      v.workProgress += 0.0005 * S.workIntensity;  // Reduced from 0.015
       
       const progressBar = v.element.querySelector('.villager-progress-bar');
       if (progressBar) {
@@ -1497,36 +1517,10 @@ function updateVillagers() {
   }
 }
 
-function findNearestHouse(targetX, targetY) {
-  const houses = S.builds.filter(b => b.type === 'house' && b.done);
-  if (houses.length === 0) return { x: 200, y: 40 };
-  
-  let nearest = houses[0];
-  let minDist = Infinity;
-  
-  houses.forEach(h => {
-    const dx = h.x + 32 - targetX;
-    const dy = h.y + 32 - targetY;
-    const dist = Math.sqrt(dx * dx + dy * dy);
-    if (dist < minDist) {
-      minDist = dist;
-      nearest = h;
-    }
-  });
-  
-  return { x: nearest.x + 32, y: nearest.y + 32 };
-}
-
-function canSpawnVillager(type, count = 1) {
-  const activeOfType = S.villagers ? S.villagers.filter(v => v.type === type).length : 0;
-  const maxForType = {
-    farmer: Math.floor(S.pop * S.farmers),
-    builder: Math.floor(S.pop * S.builders),
-    gatherer: Math.floor(S.pop * S.gatherers),
-    herder: Math.floor(S.pop * S.herders)
-  };
-  
-  return activeOfType + count <= maxForType[type];
+// Keep this simpler version for the tick() function
+function updateVillagers() {
+  // This function is now just for cleanup
+  // Animation happens in updateVillagersAnimation()
 }
 
 // ============================================
