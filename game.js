@@ -1101,7 +1101,9 @@ function harvestFarm(farmId) {
   const landPerFarm = S.totalLand / Math.max(1, farms.length);
   const diminishingReturns = Math.pow(landPerFarm / 10, 0.6);
   
-  let yield = 2.0 * cropType.yield * S.tfp * S.landQuality * diminishingReturns;
+  // BASE YIELD - now affected by farmer allocation!
+  const farmerEffect = 0.5 + (S.farmers * 1.0); // 50% at 0%, 150% at 100%
+  let yield = 2.0 * cropType.yield * S.tfp * S.landQuality * diminishingReturns * farmerEffect;
   
   // Apply bonuses
   const moraleBonus = 1 + (S.morale - 0.5) * 0.2;
@@ -1141,7 +1143,7 @@ function harvestFarm(farmId) {
   // Clear the farm
   delete S.farmCrops[farmId];
   
-playSound('harvest');
+  playSound('harvest');
   
   // Bonus feedback for good harvests
   if (finalYield > 15) {
@@ -2146,7 +2148,8 @@ function harvestNode(n) {
   const villager = spawnVillager('gatherer', house.x, house.y, n.x + 21, n.y + 21, {
     jobId: job.id,
     taskType,
-    workRequired: n.type === 'tree' ? 3.0 : 2.5,
+    // More gatherers = faster work
+    workRequired: n.type === 'tree' ? (3.0 / (1 + S.gatherers)) : (2.5 / (1 + S.gatherers)),
     onArrival: () => {
       job.started = true;
     },
