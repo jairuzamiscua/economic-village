@@ -60,6 +60,8 @@ let isPaused = false;
 const S = {
   // Time
   day: 1,
+  foodCapacity: 200,  // NEW: Storage limit
+  foodDecayRate: 0.02, // NEW: 2% decay per season
   year: 1,
   season: 0,
   seasons: ['Spring', 'Summer', 'Autumn', 'Winter'],
@@ -98,7 +100,7 @@ const S = {
   cottarPct: 0.2,
 
   // Population
-  pop: 80,
+  pop: 40,
   cap: 100,
   totalDeaths: 0,
 
@@ -114,7 +116,7 @@ const S = {
   workIntensity: 1.0,
 
   // Resources
-  materials: 30,
+  materials: 40,
   foodStock: 20,
   livestock: 0,
 
@@ -373,9 +375,9 @@ const TECH_TREE = {
 
 const BUILDS = {
   farm: { name: 'Farm', mat: 8, dur: 5, icon: 'farm' },
-  house: { name: 'House', mat: 12, dur: 4, icon: 'house' },
+  house: { name: 'House', mat: 12, dur: 4, icon: 'house', foodCapacity: 20 },
   well: { name: 'Well', mat: 15, dur: 6, icon: 'well', reqTech: 'well' },
-  granary: { name: 'Granary', mat: 20, dur: 7, icon: 'granary', reqTech: 'granary' },
+  granary: { name: 'Granary', mat: 20, dur: 7, icon: 'granary', reqTech: 'granary', foodCapacity: 150 },
   livestock: { name: 'Livestock Pen', mat: 12, dur: 5, icon: 'livestock', reqTech: 'livestock' },
   market: { name: 'Market', mat: 30, dur: 6, icon: 'market', reqTech: 'market' },
   mill: { name: 'Windmill', mat: 40, dur: 8, icon: 'mill', reqTech: 'mill' }
@@ -384,7 +386,6 @@ const BUILDS = {
 // ============================================
 // CROP DATA
 // ============================================
-
 const CROP_DATA = {
   wheat: { 
     name: 'Winter Wheat',
@@ -393,7 +394,7 @@ const CROP_DATA = {
     soilDrain: 0.02,
     plantSeasons: [2],
     harvestSeasons: [1, 2],
-    growthDays: 90,  // 1 season instead of 3
+    growthDays: 30,  // Was 90 - now 30!
     winterHardy: true,
     baseFood: 3.0
   },
@@ -404,7 +405,7 @@ const CROP_DATA = {
     soilDrain: 0.015,
     plantSeasons: [2, 3],
     harvestSeasons: [1],
-    growthDays: 80,  // Was 240
+    growthDays: 25,  // Was 80 - now 25!
     winterHardy: true,
     baseFood: 2.5
   },
@@ -415,7 +416,7 @@ const CROP_DATA = {
     soilDrain: -0.015,
     plantSeasons: [0],
     harvestSeasons: [2],
-    growthDays: 60,  // Was 180
+    growthDays: 20,  // Was 60 - now 20!
     winterHardy: false,
     baseFood: 2.0
   },
@@ -426,7 +427,7 @@ const CROP_DATA = {
     soilDrain: 0.018,
     plantSeasons: [0],
     harvestSeasons: [1],
-    growthDays: 45,  // Was 120
+    growthDays: 15,  // Was 45 - now 15!
     winterHardy: false,
     baseFood: 2.3
   }
@@ -548,6 +549,79 @@ const EVENTS = [
 ];
 
 // ============================================
+// DISASTERS
+// ============================================
+
+const DISASTERS = [
+  {
+    id: 'blight',
+    name: 'Crop Blight',
+    chance: 0.03,
+    condition: () => !S.tech.seedSelection,
+    effect: () => {
+      let destroyed = 0;
+      Object.keys(S.farmCrops).forEach(farmId => {
+        if (Math.random() < 0.5) {
+          delete S.farmCrops[farmId];
+          destroyed++;
+        }
+      });
+      return destroyed > 0 ? `Crop blight destroyed ${destroyed} farms! Research Seed Selection for protection.` : 'Crop blight passed without damage.';
+    }
+  },
+  {
+    id: 'fire',
+    name: 'Granary Fire',
+    chance: 0.02,
+    condition: () => S.foodStock > 100 && !S.tech.storage,
+    effect: () => {
+      const loss = Math.floor(S.foodStock * 0.3);
+      S.foodStock = Math.max(0, S.foodStock - loss);
+      return `A fire destroyed your granary! Lost ${loss} food. Research Bulk Storage for fire prevention.`;
+    }
+  },
+  {
+    id: 'rats',
+    name: 'Rat Infestation',
+    chance: 0.04,
+    condition: () => !S.tech.granary && S.foodStock > 50,
+    effect: () => {
+      const loss = Math.floor(S.foodStock * 0.25);
+      S.foodStock = Math.max(0, S.foodStock - loss);
+      return `Rats infested your stores! Lost ${loss} food. Build a Granary for protection.`;
+    }
+  },
+  {
+    id: 'flood',
+    name: 'Spring Floods',
+    chance: 0.02,
+    condition: () => S.season === 0 && !S.tech.irrigation,
+    effect: () => {
+      const loss = Math.floor(S.materials * 0.2);
+      S.materials = Math.max(0, S.materials - loss);
+      return `Floods damaged infrastructure! Lost ${loss} materials. Research Irrigation for flood control.`;
+    }
+  },
+  {
+    id: 'earlyFrost',
+    name: 'Early Frost',
+    chance: 0.03,
+    condition: () => S.season === 2,
+    effect: () => {
+      let destroyed = 0;
+      Object.keys(S.farmCrops).forEach(farmId => {
+        const crop = S.farmCrops[farmId];
+        if (crop && !crop.mature && Math.random() < 0.4) {
+          delete S.farmCrops[farmId];
+          destroyed++;
+        }
+      });
+      return destroyed > 0 ? `Early frost killed ${destroyed} immature crops!` : 'Early frost warning, but crops survived.';
+    }
+  }
+];
+
+// ============================================
 // INITIALIZATION
 // ============================================
 
@@ -556,37 +630,46 @@ function init() {
   
   // Start with basic farming unlocked
   S.tech.basicFarming = true;
+  S.tech.granary = true; // START WITH GRANARY TECH
+  
+  // BETTER STARTING BALANCE
+  S.foodStock = 80;
+  S.materials = 50;
+  S.pop = 70;
+  S.season = 2; // Start in Autumn
+  S.lordTithePct = 0.35; // Reduced from 0.40
+  S.churchTithePct = 0.10;
   
   // Initialize weather
   rollWeather();
   
-  // Pre-build starting infrastructure
-  for (let i = 0; i < 3; i++) {
+  // Pre-build starting infrastructure - 5 FARMS
+  for (let i = 0; i < 5; i++) {
     S.builds.push({
       id: 'start_farm_' + i,
       type: 'farm',
-      x: 150 + i * 80,
-      y: 100,
+      x: 150 + (i % 3) * 80,
+      y: 100 + Math.floor(i / 3) * 80,
       done: true,
       progress: BUILDS.farm.dur,
       dur: BUILDS.farm.dur
     });
   }
 
-  // Start with crops almost ready to harvest!
-  S.season = 2; // Start in Autumn (harvest season)
-  for (let i = 0; i < 3; i++) {
+  // ALL 5 FARMS START WITH MATURE CROPS
+  for (let i = 0; i < 5; i++) {
     S.farmCrops['farm_start_farm_' + i] = {
       crop: 'wheat',
       plantedDay: 1,
       plantedSeason: 2,
       plantedYear: 1,
-      mature: true,  // Already mature!
+      mature: true,
       daysGrowing: 90,
       harvested: false
     };
   }
   
+  // 2 houses
   for (let i = 0; i < 2; i++) {
     S.builds.push({
       id: 'start_house_' + i,
@@ -598,6 +681,17 @@ function init() {
       dur: BUILDS.house.dur
     });
   }
+  
+  // START WITH 1 GRANARY
+  S.builds.push({
+    id: 'start_granary_0',
+    type: 'granary',
+    x: 350,
+    y: 100,
+    done: true,
+    progress: BUILDS.granary.dur,
+    dur: BUILDS.granary.dur
+  });
   
   // Spawn initial resources
   spawnNodes();
@@ -614,7 +708,7 @@ function init() {
   document.addEventListener('click', autoStart, { once: true });
   document.addEventListener('input', autoStart, { once: true });
   
-  toast('Grand strategy awaits. Make your decisions wisely.', 4000);
+  toast('🌾 AUTUMN! 5 farms ready to harvest - click them now!', 6000);
 }
 
 function autoStart() {
@@ -672,13 +766,6 @@ function setupTabs() {
 // GAME LOOP
 // ============================================
 
-function startTick() {
-  const speedSel = el('speedSelect');
-  const speed = speedSel ? parseInt(speedSel.value) : 2000;
-  if (tickInterval) clearInterval(tickInterval);
-  tickInterval = setInterval(tick, speed);
-}
-
 function tick() {
   if (isPaused) return;
 
@@ -723,6 +810,19 @@ function tick() {
   // Get buildings
   const farms = S.builds.filter(b => b.type === 'farm' && b.done);
   const mills = S.builds.filter(b => b.type === 'mill' && b.done).length;
+
+  // ===== NEW: Calculate food storage capacity =====
+  const granaries = S.builds.filter(b => b.type === 'granary' && b.done).length;
+  const houseCount = S.builds.filter(b => b.type === 'house' && b.done).length;
+  S.foodCapacity = 200 + (houseCount * 20) + (granaries * 150);
+  
+  // Cap stored food to capacity
+  if (S.foodStock > S.foodCapacity) {
+    const overflow = S.foodStock - S.foodCapacity;
+    S.foodStock = S.foodCapacity;
+    toast(`⚠️ STORAGE FULL! Lost ${Math.floor(overflow)} food to spoilage. Build more granaries!`, 5000);
+    playSound('bad');
+  }
 
   // Auto-send farmers to crops every few ticks
   if (S.day % 5 === 0) {
@@ -835,7 +935,7 @@ function tick() {
   S.foodStock += foodAfterTithe;
 
   // Consumption
-  const needPerDay = S.pop * 0.10;
+  const needPerDay = S.pop * 0.05;
   S.foodStock -= needPerDay;
 
   // Real wage
@@ -859,7 +959,7 @@ function tick() {
   const intensityPenalty = (S.workIntensity - 1.0) * 0.3;
   if (S.foodStock > needPerDay * 7) {
     S.morale = Math.min(1, S.morale + 0.01 - intensityPenalty);
-    } else if (S.foodStock < needPerDay * 3) {
+  } else if (S.foodStock < needPerDay * 3) {
     S.morale = Math.max(0, S.morale - 0.02 - intensityPenalty);
   } else {
     S.morale = Math.max(0, S.morale - intensityPenalty * 0.5);
@@ -926,6 +1026,29 @@ function tick() {
     S.day = 1;
     S.year++;
     S.season = (S.season + 1) % 4;
+
+    // ===== NEW: Food decay each season =====
+    if (S.foodStock > 0) {
+      const decayRate = S.tech.storage ? 0.01 : S.tech.granary ? 0.02 : 0.05;
+      const decay = Math.floor(S.foodStock * decayRate);
+      
+      if (decay > 0) {
+        S.foodStock -= decay;
+        const pct = Math.round(decayRate * 100);
+        toast(`📉 Food spoilage: -${decay} food (${pct}% decay rate)`, 3000);
+      }
+    }
+
+    // ===== NEW: Check for random disasters at start of each year =====
+    if (S.season === 0 && S.year > 1) {
+      DISASTERS.forEach(disaster => {
+        if (disaster.condition() && Math.random() < disaster.chance) {
+          const message = disaster.effect();
+          toast(`💀 ${disaster.name}! ${message}`, 7000);
+          playSound('bad');
+        }
+      });
+    }
 
     // Season change notifications
     if (S.season === 0) {
@@ -1005,12 +1128,17 @@ function tick() {
     checkContextualEvents();
   }
 
-  // Harvest reminders
-  if (S.day % 20 === 0 && S.matureFarmsCount > 0) {
-    toast(`🌾 ${S.matureFarmsCount} farm${S.matureFarmsCount > 1 ? 's' : ''} ready to harvest!`, 3000);
+  // ===== NEW: Urgent harvest reminders =====
+  if (S.day % 10 === 0 && S.matureFarmsCount > 0) {
+    if (S.matureFarmsCount >= 3) {
+      toast(`🌾 URGENT: ${S.matureFarmsCount} farms ready to harvest! Click them now!`, 5000);
+      playSound('harvest');
+    } else {
+      toast(`🌾 ${S.matureFarmsCount} farm${S.matureFarmsCount > 1 ? 's' : ''} ready to harvest!`, 3000);
+    }
   }
 
-  // Progress updates every 15 days
+  // ===== NEW: Enhanced progress updates with urgent warnings =====
   if (S.day % 15 === 0) {
     const growingFarms = Object.values(S.farmCrops).filter(c => !c.mature && !c.harvested).length;
     if (growingFarms > 0) {
@@ -1018,21 +1146,27 @@ function tick() {
     }
     
     // Food security warning
-    const daysOfFood = Math.floor(S.foodStock / (S.pop * 0.10));
-    if (daysOfFood < 30 && daysOfFood > 0) {
-      toast(`⚠️ Food reserves: ${daysOfFood} days remaining`, 3000);
+    const daysOfFood = Math.floor(S.foodStock / needPerDay);
+    
+    if (daysOfFood < 20) {
+      toast(`🚨 CRITICAL: Only ${daysOfFood} days of food left!`, 5000);
       playSound('bad');
+    } else if (daysOfFood < 40) {
+      toast(`⚠️ Food running low: ${daysOfFood} days remaining`, 3000);
+    }
+    
+    // Storage warnings
+    if (S.foodStock > S.foodCapacity * 0.9) {
+      const space = Math.floor(S.foodCapacity - S.foodStock);
+      toast(`📦 Storage almost full! Only ${space} space left. Build granary!`, 4000);
     }
   }
 
   const enclosureEffects = updateEnclosureSystem();
-
   const skillPenalty = updateLaborSkills();
-
   const urbanEffects = updateUrbanSystem();
 
   farmFood *= enclosureEffects.efficiency;
-
   farmFood *= skillPenalty;
 
   updateTradeSystem();
@@ -1103,7 +1237,7 @@ function harvestFarm(farmId) {
   
   // BASE YIELD - now affected by farmer allocation!
   const farmerEffect = 0.5 + (S.farmers * 1.0); // 50% at 0%, 150% at 100%
-  let yield = 2.0 * cropType.yield * S.tfp * S.landQuality * diminishingReturns * farmerEffect;
+  let yield = 40.0 * cropType.yield * S.tfp * S.landQuality * diminishingReturns * farmerEffect;
   
   // Apply bonuses
   const moraleBonus = 1 + (S.morale - 0.5) * 0.2;
@@ -1134,6 +1268,18 @@ function harvestFarm(farmId) {
   } else {
     const rentTake = netYield * 0.50;
     finalYield = netYield - rentTake;
+  }
+  
+  // ===== NEW: Check storage capacity before adding =====
+  if (S.foodStock + finalYield > S.foodCapacity) {
+    const canStore = Math.max(0, S.foodCapacity - S.foodStock);
+    const overflow = finalYield - canStore;
+    
+    if (overflow > 0) {
+      toast(`⚠️ Storage full! Lost ${Math.floor(overflow)} food. Build Granary or House!`, 6000);
+      playSound('bad');
+      finalYield = canStore;
+    }
   }
   
   // Add to food stock
@@ -1700,8 +1846,11 @@ function updateUI() {
   const w = weatherEffect(S.weatherNow);
   if (el('diseaseRisk')) el('diseaseRisk').textContent = (w.disease * 100).toFixed(1) + '%';
   
-  // Resources
-  if (el('foodStock')) el('foodStock').textContent = Math.floor(S.foodStock);
+  // Resources (with storage capacity)
+  if (el('foodStock')) {
+    const capacity = S.foodCapacity || 200;
+    el('foodStock').textContent = Math.floor(S.foodStock) + '/' + capacity;
+  }
   if (el('materials')) el('materials').textContent = Math.floor(S.materials);
   if (el('livestock')) el('livestock').textContent = S.livestock;
   
