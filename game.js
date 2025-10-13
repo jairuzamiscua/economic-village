@@ -1443,7 +1443,11 @@ function spawnVillager(type, startX, startY, targetX, targetY, task) {
   villager.className = `villager ${type} walking`;
   villager.style.left = startX + 'px';
   villager.style.top = startY + 'px';
-  
+
+  // 🔧 New: make villagers non-interactive and behind icons
+  villager.style.pointerEvents = 'none';
+  villager.style.zIndex = '1';
+
   const typeData = VILLAGER_TYPES[type];
   
   villager.innerHTML = `
@@ -2021,6 +2025,9 @@ function renderGrid() {
       icon.style.top = b.y + 'px';
       ground.appendChild(icon);
     }
+
+    icon.style.pointerEvents = 'auto';
+    icon.style.zIndex = '2';
 
     if (!b.done) {
       icon.className = 'icon ' + BUILDS[b.type].icon + ' site';
