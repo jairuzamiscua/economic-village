@@ -2099,6 +2099,8 @@ function renderGrid() {
         }
       }
       
+      icon.style.pointerEvents = 'auto';
+      icon.style.zIndex = '2';
       icon.style.cursor = 'pointer';
       icon.onclick = (e) => {
         e.stopPropagation();
