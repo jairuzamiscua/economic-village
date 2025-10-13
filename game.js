@@ -1513,7 +1513,7 @@ function updateVillagersAnimation() {
       
     } else if (v.state === 'working') {
       // Work progress - slower rate since this runs at 60fps
-      v.workProgress += 0.0005 * S.workIntensity;  // Reduced from 0.015
+      v.workProgress += 0.008 * S.workIntensity;  // Reduced from 0.015
       
       const progressBar = v.element.querySelector('.villager-progress-bar');
       if (progressBar) {
@@ -1757,6 +1757,16 @@ function updateUI() {
       </div>
       ` : ''}
     `;
+  }
+
+  // Add labor efficiency indicator
+  if (el('laborEfficiency')) {
+    const builderPop = Math.floor(S.pop * S.builders);
+    const farmerPop = Math.floor(S.pop * S.farmers);
+    const gathererPop = Math.floor(S.pop * S.gatherers);
+    
+    el('laborEfficiency').textContent = 
+      `Builders: ${builderPop} | Farmers: ${farmerPop} | Gatherers: ${gathererPop}`;
   }
   
   // NEW: Display trade info
@@ -2255,42 +2265,46 @@ function sendFarmerToHarvest(farmBuild) {
   });
 }
 
+
 // ============================================
-// BUILDER VILLAGER SYSTEM
+// BUILDER VILLAGER SYSTEM - ENHANCED
 // ============================================
 
 function sendBuilderToConstruction() {
-  if (!canSpawnVillager('builder', 2)) return; // Need capacity for 2
+  const builderPop = Math.floor(S.pop * S.builders);
+  
+  if (builderPop < 1) return; // Need at least some builders allocated
+  if (!canSpawnVillager('builder', 1)) return;
   
   const inProgress = S.builds.filter(b => !b.done);
   if (inProgress.length === 0) return;
   
-  // Pick random construction site
-  const site = inProgress[Math.floor(Math.random() * inProgress.length)];
+  // Pick the site with least progress (prioritize new buildings)
+  const site = inProgress.sort((a, b) => a.progress - b.progress)[0];
   const house = findNearestHouse(site.x, site.y);
   
-  // Send 1-2 builders
-  const numBuilders = Math.random() < 0.6 ? 1 : 2;
-  
-  for (let i = 0; i < numBuilders; i++) {
-    if (!canSpawnVillager('builder')) break;
-    
-    setTimeout(() => {
-      spawnVillager('builder', house.x, house.y, site.x + 32, site.y + 32, {
-        taskType: 'construct',
-        buildId: site.id,
-        workRequired: 2.5,
-        onComplete: (v) => {
-          // Builders contribute extra progress
-          const building = S.builds.find(b => b.id === site.id);
-          if (building && !building.done) {
-            building.progress += 0.5;
-            toast('Builder contributing...', 1500);
-          }
+  spawnVillager('builder', house.x, house.y, site.x + 32, site.y + 32, {
+    taskType: 'construct',
+    buildId: site.id,
+    workRequired: 1.5,  // Reduced from 2.5 - faster building!
+    onComplete: (v) => {
+      // Builders give HUGE progress boost
+      const building = S.builds.find(b => b.id === site.id);
+      if (building && !building.done) {
+        // More builders = bigger bonus
+        const builderBonus = 1.0 + (builderPop * 0.1);
+        building.progress += builderBonus;
+        toast(`Builder contributed +${builderBonus.toFixed(1)} progress!`, 1500);
+        
+        // Check if building is complete
+        if (building.progress >= building.dur) {
+          building.done = true;
+          building.progress = building.dur;
+          onBuildComplete(building);
         }
-      });
-    }, i * 300); // Stagger spawns
-  }
+      }
+    }
+  });
 }
 
 // ============================================
